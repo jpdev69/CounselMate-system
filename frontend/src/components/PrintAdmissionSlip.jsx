@@ -14,6 +14,7 @@ const PrintAdmissionSlip = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [printedSlipId, setPrintedSlipId] = useState(null);
 
   const handleChange = (e) => {
     setFormData({
@@ -55,6 +56,8 @@ const PrintAdmissionSlip = () => {
           // base already contains '/api', so point to the print-slip path under admission-slips
           const url = `${base.replace(/\/$/, '')}/admission-slips/print-slip?slip_id=${encodeURIComponent(slipId)}`;
           window.open(url, '_blank');
+          // mark as printed so UI hides print/issue buttons
+          setPrintedSlipId(slipId);
         } catch (openErr) {
           console.warn('Failed to open print tab:', openErr);
         }
@@ -76,6 +79,7 @@ const PrintAdmissionSlip = () => {
       const base = api.defaults?.baseURL || 'http://localhost:5000/api';
       const url = `${base.replace(/\/$/, '')}/admission-slips/print-slip?slip_id=${encodeURIComponent(slipId)}`;
       window.open(url, '_blank');
+      setPrintedSlipId(slipId);
     }
   };
 
@@ -161,23 +165,31 @@ const PrintAdmissionSlip = () => {
             <div className="p-4 text-sm text-green-700 bg-green-100 rounded-lg">
               <p className="font-medium">Admission slip issued successfully!</p>
               <p>Slip Number: {result.slip.slip_number}</p>
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
-              >
-                Print Slip
-              </button>
+              {printedSlipId !== result.slip.id && (
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                >
+                  Print Slip
+                </button>
+              )}
+              {printedSlipId === result.slip.id && (
+                <p className="mt-2 text-sm text-gray-700">Slip has been printed.</p>
+              )}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {loading ? 'Issuing Slip...' : 'Issue Admission Slip'}
-          </button>
+          {/* Hide issue button after the slip has been printed */}
+          {!(printedSlipId && result && printedSlipId === result.slip.id) && (
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {loading ? 'Issuing Slip...' : 'Issue Admission Slip'}
+            </button>
+          )}
         </form>
       </div>
     </div>
