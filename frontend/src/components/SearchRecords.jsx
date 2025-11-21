@@ -174,8 +174,8 @@ const SearchRecords = () => {
                 <tr>
                   <th>Student & Slip Info<div className="resizer" onMouseDown={(e) => startResize(e, 0)} aria-hidden="true" /></th>
                   <th>Violation<div className="resizer" onMouseDown={(e) => startResize(e, 1)} aria-hidden="true" /></th>
-                  <th>Details<div className="resizer" onMouseDown={(e) => startResize(e, 2)} aria-hidden="true" /></th>
-                  <th>Dates<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
+                  <th>Year &amp; Section<div className="resizer" onMouseDown={(e) => startResize(e, 2)} aria-hidden="true" /></th>
+                  <th>Date &amp; Time<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
                   <th>Status<div className="resizer" onMouseDown={(e) => startResize(e, 4)} aria-hidden="true" /></th>
                 </tr>
               </thead>
@@ -210,8 +210,10 @@ const SearchRecords = () => {
                     </td>
 
                     <td className="text-xs">
-                      <p className="text-gray-900">Issued: {slip.created_at ? new Date(slip.created_at).toLocaleDateString() : '-'}</p>
-                      {slip.updated_at && (<p className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleDateString()}</p>)}
+                      <p className="text-gray-900">Issued: {slip.created_at ? new Date(slip.created_at).toLocaleString() : '-'}</p>
+                      {slip.updated_at && slip.status !== 'issued' && slip.updated_at !== slip.created_at && (
+                        <p className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleString()}</p>
+                      )}
                     </td>
 
                     <td>

@@ -41,7 +41,7 @@ const CompleteForm = () => {
 
   // Table resize state
   const tableRef = useRef(null);
-  const [colWidths, setColWidths] = useState([35, 15, 25, 15, 10]);
+  const [colWidths, setColWidths] = useState([35, 15, 20, 15, 10, 5]);
   const resizing = useRef({ index: null, startX: 0, startWidths: [] });
 
   const startResize = (e, index) => {
@@ -261,14 +261,15 @@ const CompleteForm = () => {
                       <th>Student<div className="resizer" onMouseDown={(e) => startResize(e, 0)} aria-hidden="true" /></th>
                       <th>Status<div className="resizer" onMouseDown={(e) => startResize(e, 1)} aria-hidden="true" /></th>
                       <th>Violation<div className="resizer" onMouseDown={(e) => startResize(e, 2)} aria-hidden="true" /></th>
-                      <th>Info<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
+                      <th>Year & Section<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
+                      <th>Date &amp; Time<div className="resizer" onMouseDown={(e) => startResize(e, 4)} aria-hidden="true" /></th>
                       <th></th>
                     </tr>
                   </thead>
                   <tbody className="max-h-96 overflow-y-auto">
                     {filteredSlips.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="text-center py-8 text-gray-500">
+                        <td colSpan={6} className="text-center py-8 text-gray-500">
                           <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                           <p>No admission slips found</p>
                         </td>
@@ -282,7 +283,7 @@ const CompleteForm = () => {
                         >
                           <td>
                             <h3 className="font-medium text-gray-900">{slip.student_name}</h3>
-                            <p className="text-sm text-gray-600">{slip.year} - {slip.section} • <span className="text-xs text-gray-500">Slip: {slip.slip_number}</span></p>
+                            <p className="text-xs text-gray-500">Slip: {slip.slip_number}</p>
                           </td>
 
                           <td className="text-right">
@@ -293,7 +294,17 @@ const CompleteForm = () => {
 
                           <td className="text-xs text-gray-600">{slip.violation_code ? `${slip.violation_code} — ${slip.violation_description}` : 'No violation specified'}</td>
 
-                          <td className="text-xs text-gray-600">{slip.description ? slip.description : ''}</td>
+                          <td className="text-xs text-gray-600">
+                            <div className="text-sm text-gray-700">{slip.year} - {slip.section}</div>
+                            {slip.description && (<div className="text-gray-600 text-xs truncate">{slip.description}</div>)}
+                          </td>
+
+                          <td className="text-xs text-gray-600">
+                            <div className="text-gray-700">Issued: {slip.created_at ? new Date(slip.created_at).toLocaleString() : '-'}</div>
+                            {slip.updated_at && slip.status !== 'issued' && slip.updated_at !== slip.created_at && (
+                              <div className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleString()}</div>
+                            )}
+                          </td>
 
                           <td>
                             {slip.status === 'form_completed' && (
@@ -349,12 +360,20 @@ const CompleteForm = () => {
                 <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h3 className="text-lg font-semibold">{selectedSlip.student_name}</h3>
-                      <p className="text-sm text-gray-600">Slip: {selectedSlip.slip_number} • {selectedSlip.year} - {selectedSlip.section}</p>
+                      <h3 className="text-lg font-semibold">Student &amp; Slip Info</h3>
+                      <p className="text-sm text-gray-600"><strong>Name:</strong> {selectedSlip.student_name}</p>
+                      <p className="text-sm text-gray-600"><strong>Slip:</strong> {selectedSlip.slip_number}</p>
                     </div>
                     <div>
                       <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-gray-800">Close</button>
                     </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <p className="text-sm font-medium">Year &amp; Section</p>
+                    <p className="text-gray-700">{selectedSlip.year} - {selectedSlip.section}</p>
+                    <p className="text-sm font-medium mt-2">Date &amp; Time</p>
+                    <p className="text-gray-700">{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</p>
                   </div>
 
                   {selectedSlip.status === 'form_completed' ? (
