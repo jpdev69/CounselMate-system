@@ -1,5 +1,5 @@
 // src/components/CompleteForm.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getViolationTypes } from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
 import { FileText, CheckCircle, Search } from 'lucide-react';
@@ -34,6 +34,48 @@ const CompleteForm = () => {
     slip.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     slip.slip_number?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Table resize state
+  const tableRef = useRef(null);
+  const [colWidths, setColWidths] = useState([35, 15, 25, 15, 10]);
+  const resizing = useRef({ index: null, startX: 0, startWidths: [] });
+
+  const startResize = (e, index) => {
+    e.preventDefault();
+    resizing.current = { index, startX: e.clientX, startWidths: [...colWidths] };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', stopResize);
+  };
+
+  const onMouseMove = (e) => {
+    if (resizing.current.index === null) return;
+    const dx = e.clientX - resizing.current.startX;
+    const tableWidth = tableRef.current?.getBoundingClientRect().width || 1;
+    const deltaPercent = (dx / tableWidth) * 100;
+    const newWidths = [...resizing.current.startWidths];
+    const i = resizing.current.index;
+    const next = i + 1 < newWidths.length ? i + 1 : null;
+
+    newWidths[i] = Math.max(5, Math.min(80, resizing.current.startWidths[i] + deltaPercent));
+    if (next !== null) {
+      newWidths[next] = Math.max(5, Math.min(80, resizing.current.startWidths[next] - deltaPercent));
+    }
+
+    setColWidths(newWidths);
+  };
+
+  const stopResize = () => {
+    resizing.current = { index: null, startX: 0, startWidths: [] };
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', stopResize);
+  };
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', stopResize);
+    };
+  }, []);
 
   const handleSelectSlip = (slip) => {
     console.log('📝 Selected slip:', slip);
@@ -196,55 +238,71 @@ const CompleteForm = () => {
           {/* Slip List */}
           <div>
             <h2 className="text-lg font-semibold mb-4">Issued Admission Slips</h2>
-            <div className="space-y-3 max-h-96 overflow-y-auto min-h-0">
-              {filteredSlips.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                  <p>No admission slips found</p>
-                </div>
-              ) : (
-                filteredSlips.map((slip) => (
-                  <div
-                    key={slip.id}
-                    className={`p-4 border-b border-gray-200 cursor-pointer transition-colors ${
-                      selectedSlip?.id === slip.id
-                        ? 'bg-blue-50'
-                        : 'hover:bg-gray-50'
-                    }`}
-                    onClick={() => handleSelectSlip(slip)}
-                  >
-                    <div className="grid grid-cols-12 gap-4 items-start text-sm">
-                      <div className="col-span-8">
-                        <h3 className="font-medium text-gray-900">{slip.student_name}</h3>
-                        <p className="text-sm text-gray-600">{slip.year} - {slip.section} • <span className="text-xs text-gray-500">Slip: {slip.slip_number}</span></p>
-                      </div>
-                      <div className="col-span-2 text-right">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(slip.status)}`}>
-                          {getStatusDisplay(slip.status)}
-                        </span>
-                      </div>
-                      <div className="col-span-12 mt-2 text-xs text-gray-600">
-                        {slip.violation_code ? `${slip.violation_code} — ${slip.violation_description}` : 'No violation specified'}
-                      </div>
-                      {slip.status === 'form_completed' && (
-                        <div className="col-span-12 mt-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleApprove(slip.id);
-                            }}
-                            className="mt-2 w-full bg-green-600 text-white py-1 px-3 rounded text-sm hover:bg-green-700 transition-colors flex items-center justify-center"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Approve Slip
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+              <div className="records-table-container">
+                <table className="records-table" ref={tableRef}>
+                  <colgroup>
+                    {colWidths.map((w, i) => (
+                      <col key={i} style={{ width: `${w}%` }} />
+                    ))}
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Student<div className="resizer" onMouseDown={(e) => startResize(e, 0)} aria-hidden="true" /></th>
+                      <th>Status<div className="resizer" onMouseDown={(e) => startResize(e, 1)} aria-hidden="true" /></th>
+                      <th>Violation<div className="resizer" onMouseDown={(e) => startResize(e, 2)} aria-hidden="true" /></th>
+                      <th>Info<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody className="max-h-96 overflow-y-auto">
+                    {filteredSlips.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="text-center py-8 text-gray-500">
+                          <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                          <p>No admission slips found</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSlips.map((slip) => (
+                        <tr
+                          key={slip.id}
+                          onClick={() => handleSelectSlip(slip)}
+                          className={selectedSlip?.id === slip.id ? 'bg-blue-50 cursor-pointer' : 'hover:bg-gray-50 cursor-pointer'}
+                        >
+                          <td>
+                            <h3 className="font-medium text-gray-900">{slip.student_name}</h3>
+                            <p className="text-sm text-gray-600">{slip.year} - {slip.section} • <span className="text-xs text-gray-500">Slip: {slip.slip_number}</span></p>
+                          </td>
+
+                          <td className="text-right">
+                            <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(slip.status)}`}>
+                              {getStatusDisplay(slip.status)}
+                            </span>
+                          </td>
+
+                          <td className="text-xs text-gray-600">{slip.violation_code ? `${slip.violation_code} — ${slip.violation_description}` : 'No violation specified'}</td>
+
+                          <td className="text-xs text-gray-600">{slip.description ? slip.description : ''}</td>
+
+                          <td>
+                            {slip.status === 'form_completed' && (
+                              <div>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleApprove(slip.id); }}
+                                  className="mt-2 w-full bg-green-600 text-white py-1 px-3 rounded text-sm hover:bg-green-700 transition-colors flex items-center justify-center"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-1" />
+                                  Approve
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
           </div>
 
           {/* Form */}

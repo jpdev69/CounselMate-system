@@ -1,5 +1,5 @@
 // src/components/SearchRecords.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSlips } from '../contexts/SlipsContext';
 import { Search, Filter, FileText, User, Calendar } from 'lucide-react';
 
@@ -66,6 +66,41 @@ const SearchRecords = () => {
     );
   };
 
+  // Table ref for resizing calculations
+  const tableRef = useRef(null);
+  const [colWidths, setColWidths] = useState([30, 15, 25, 15, 15]);
+  const resizing = useRef({ index: null, startX: 0, startWidths: [] });
+
+  const startResize = (e, index) => {
+    e.preventDefault();
+    resizing.current = { index, startX: e.clientX, startWidths: [...colWidths] };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', stopResize);
+  };
+
+  const onMouseMove = (e) => {
+    if (resizing.current.index === null) return;
+    const dx = e.clientX - resizing.current.startX;
+    const tableWidth = tableRef.current?.getBoundingClientRect().width || 1;
+    const deltaPercent = (dx / tableWidth) * 100;
+    const newWidths = [...resizing.current.startWidths];
+    const i = resizing.current.index;
+    const next = i + 1 < newWidths.length ? i + 1 : null;
+
+    newWidths[i] = Math.max(5, Math.min(80, resizing.current.startWidths[i] + deltaPercent));
+    if (next !== null) {
+      newWidths[next] = Math.max(5, Math.min(80, resizing.current.startWidths[next] - deltaPercent));
+    }
+
+    setColWidths(newWidths);
+  };
+
+  const stopResize = () => {
+    resizing.current = { index: null, startX: 0, startWidths: [] };
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', stopResize);
+  };
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="bg-white rounded-lg shadow-lg p-6">
@@ -125,65 +160,67 @@ const SearchRecords = () => {
           </div>
         </div>
 
-        {/* Results */}
+        {/* Results - semantic table with resizable columns */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          {/* Header */}
-          <div className="sticky top-0 z-10 grid grid-cols-12 gap-4 p-4 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-700">
-            <div className="col-span-3 border-r border-gray-200 pr-3">Student & Slip Info</div>
-            <div className="col-span-2 border-r border-gray-200 pr-3">Violation</div>
-            <div className="col-span-3 border-r border-gray-200 pr-3">Details</div>
-            <div className="col-span-2 border-r border-gray-200 pr-3">Dates</div>
-            <div className="col-span-2">Status</div>
-          </div>
+          <div className="records-table-container">
+            <table className="records-table" ref={tableRef}>
+              <colgroup>
+                {colWidths.map((w, i) => (
+                  <col key={i} style={{ width: `${w}%` }} />
+                ))}
+              </colgroup>
 
-          {/* Body - fixed max height, scrollable */}
-          <div className="max-h-96 overflow-y-auto min-h-0">
-            {filteredSlips.map((slip) => (
-              <div key={slip.id} className="p-4 hover:bg-gray-50 transition-colors border-b border-gray-200">
-                <div className="grid grid-cols-12 gap-4 items-center text-sm">
-                  <div className="col-span-3 flex items-center">
-                    <User className="w-4 h-4 text-gray-400 mr-2" />
-                    <div>
-                      <p className="font-medium text-gray-900">{slip.student_name}</p>
-                      <p className="text-gray-600 text-xs">{slip.slip_number}</p>
-                    </div>
-                  </div>
+              <thead>
+                <tr>
+                  <th>Student & Slip Info<div className="resizer" onMouseDown={(e) => startResize(e, 0)} aria-hidden="true" /></th>
+                  <th>Violation<div className="resizer" onMouseDown={(e) => startResize(e, 1)} aria-hidden="true" /></th>
+                  <th>Details<div className="resizer" onMouseDown={(e) => startResize(e, 2)} aria-hidden="true" /></th>
+                  <th>Dates<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
+                  <th>Status<div className="resizer" onMouseDown={(e) => startResize(e, 4)} aria-hidden="true" /></th>
+                </tr>
+              </thead>
 
-                  <div className="col-span-2">
-                    {slip.violation_code ? (
-                      <div>
-                        <p className="font-medium">{slip.violation_code}</p>
-                        <p className="text-gray-600 text-xs truncate">
-                          {slip.violation_description}
-                        </p>
+              <tbody className="max-h-96 overflow-y-auto">
+                {filteredSlips.map((slip) => (
+                  <tr key={slip.id}>
+                    <td>
+                      <div className="flex items-center">
+                        <User className="w-4 h-4 text-gray-400 mr-2" />
+                        <div>
+                          <p className="font-medium text-gray-900">{slip.student_name}</p>
+                          <p className="text-gray-600 text-xs">{slip.slip_number}</p>
+                        </div>
                       </div>
-                    ) : (
-                      <span className="text-gray-400">Not specified</span>
-                    )}
-                  </div>
+                    </td>
 
-                  <div className="col-span-3">
-                    <p className="text-gray-900">{slip.year} - {slip.section}</p>
-                    {slip.description && (
-                      <p className="text-gray-600 text-xs truncate">
-                        {slip.description}
-                      </p>
-                    )}
-                  </div>
+                    <td>
+                      {slip.violation_code ? (
+                        <div>
+                          <p className="font-medium">{slip.violation_code}</p>
+                          <p className="text-gray-600 text-xs truncate">{slip.violation_description}</p>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">Not specified</span>
+                      )}
+                    </td>
 
-                  <div className="col-span-2 text-xs">
-                    <p className="text-gray-900">Issued: {slip.created_at ? new Date(slip.created_at).toLocaleDateString() : '-'}</p>
-                    {slip.updated_at && (
-                      <p className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleDateString()}</p>
-                    )}
-                  </div>
+                    <td>
+                      <p className="text-gray-900">{slip.year} - {slip.section}</p>
+                      {slip.description && (<p className="text-gray-600 text-xs truncate">{slip.description}</p>)}
+                    </td>
 
-                  <div className="col-span-2">
-                    {getStatusBadge(slip.status)}
-                  </div>
-                </div>
-              </div>
-            ))}
+                    <td className="text-xs">
+                      <p className="text-gray-900">Issued: {slip.created_at ? new Date(slip.created_at).toLocaleDateString() : '-'}</p>
+                      {slip.updated_at && (<p className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleDateString()}</p>)}
+                    </td>
+
+                    <td>
+                      {getStatusBadge(slip.status)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {filteredSlips.length === 0 && (

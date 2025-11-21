@@ -403,6 +403,129 @@
   color: #065f46;
 }
 
+/* Table-like grid for records and forms */
+.table-grid-header,
+.table-grid-row {
+  display: grid;
+  grid-template-columns: 3fr 2fr 3fr 2fr 2fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.table-grid-header {
+  padding: 0.75rem 1rem;
+  background-color: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.table-grid-row {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.table-grid-row:hover {
+  background-color: #f8fafc;
+}
+
+.table-cell {
+  padding: 0;
+}
+
+.table-cell:not(:last-child) {
+  padding-right: 0.75rem;
+}
+
+/* Responsive: stack columns on small screens */
+@media (max-width: 768px) {
+  .table-grid-header,
+  .table-grid-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Semantic table styles (resizable columns + separators) */
+.records-table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.records-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  min-width: 700px;
+}
+
+.records-table thead th {
+  position: relative;
+  background: #f3f4f6;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-bottom: 1px solid #e5e7eb;
+  border-right: 1px solid #eaeef3;
+}
+
+.records-table thead th:last-child {
+  border-right: none;
+}
+
+.records-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  border-right: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.records-table tbody td:last-child {
+  border-right: none;
+}
+
+/* Resizer handle (on the right edge of each th) */
+.resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 12px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.resizer:after {
+  content: '';
+  display: block;
+  width: 2px;
+  height: 60%;
+  background: rgba(15, 23, 42, 0.12);
+  border-radius: 2px;
+}
+
+/* Visual affordance: slightly darker on hover */
+.resizer:hover:after {
+  background: rgba(15, 23, 42, 0.24);
+}
+
+/* Make rows highlightable */
+.records-table tbody tr:hover {
+  background-color: #fbfdff;
+}
+
+/* Responsive fallback: allow table to stack vertically on very small screens */
+@media (max-width: 520px) {
+  .records-table {
+    table-layout: auto;
+    min-width: 0;
+  }
+}
+
 /* Loading Styles */
 .loading-container {
   min-height: 100vh;
