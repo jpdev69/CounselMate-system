@@ -115,7 +115,7 @@ router.get('/print-slip', async (req, res) => {
             <div class="field"><span class="label">Student Name:</span> ${slip.student_name}</div>
             <div class="field"><span class="label">Year & Section:</span> ${slip.year} - ${slip.section}</div>
             <div class="field"><span class="label">Date Issued:</span> ${new Date(slip.created_at || Date.now()).toLocaleDateString()}</div>
-            <div class="field"><span class="label">Violation:</span> ${slip.violation_code ? `${slip.violation_code} — ${slip.violation_description}` : '—'}</div>
+            <div class="field"><span class="label">Violation:</span> ${slip.violation_description || '—'}</div>
             <div class="field"><span class="label">Description:</span> ${slip.description || '—'}</div>
           </div>
           <div class="instructions">

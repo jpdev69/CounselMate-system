@@ -68,7 +68,12 @@ const SearchRecords = () => {
 
   // Table ref for resizing calculations
   const tableRef = useRef(null);
-  const [colWidths, setColWidths] = useState([30, 15, 25, 15, 15]);
+  const [colWidths, setColWidths] = useState([28, 14, 16, 14, 10, 10, 8]);
+  const sampleViolationDescriptions = [
+    "I don't know",
+    'Sikka: The student is not acting properly',
+    'Neiga'
+  ];
   const resizing = useRef({ index: null, startX: 0, startWidths: [] });
 
   const startResize = (e, index) => {
@@ -174,9 +179,11 @@ const SearchRecords = () => {
                 <tr>
                   <th>Student & Slip Info<div className="resizer" onMouseDown={(e) => startResize(e, 0)} aria-hidden="true" /></th>
                   <th>Violation<div className="resizer" onMouseDown={(e) => startResize(e, 1)} aria-hidden="true" /></th>
-                  <th>Year &amp; Section<div className="resizer" onMouseDown={(e) => startResize(e, 2)} aria-hidden="true" /></th>
+                  <th>Violation Description<div className="resizer" onMouseDown={(e) => startResize(e, 2)} aria-hidden="true" /></th>
+                  <th>Year &amp; Section<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
                   <th>Date &amp; Time<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
                   <th>Status<div className="resizer" onMouseDown={(e) => startResize(e, 4)} aria-hidden="true" /></th>
+                  <th>Counselor Remarks<div className="resizer" onMouseDown={(e) => startResize(e, 5)} aria-hidden="true" /></th>
                 </tr>
               </thead>
 
@@ -194,19 +201,25 @@ const SearchRecords = () => {
                     </td>
 
                     <td>
-                      {slip.violation_code ? (
+                      {slip.violation_description ? (
                         <div>
-                          <p className="font-medium">{slip.violation_code}</p>
-                          <p className="text-gray-600 text-xs truncate">{slip.violation_description}</p>
+                          <p className="font-medium">{slip.violation_description}</p>
                         </div>
                       ) : (
                         <span className="text-gray-400">Not specified</span>
                       )}
                     </td>
 
+                    <td className="text-xs text-gray-600">
+                      {slip.description ? (
+                        <p className="text-gray-600 text-xs truncate">{slip.description}</p>
+                      ) : (
+                        <p className="text-gray-400 text-xs truncate">{sampleViolationDescriptions.join(', ')}</p>
+                      )}
+                    </td>
+
                     <td>
                       <p className="text-gray-900">{slip.year} - {slip.section}</p>
-                      {slip.description && (<p className="text-gray-600 text-xs truncate">{slip.description}</p>)}
                     </td>
 
                     <td className="text-xs">
@@ -218,6 +231,14 @@ const SearchRecords = () => {
 
                     <td>
                       {getStatusBadge(slip.status)}
+                    </td>
+
+                    <td className="text-xs text-gray-600">
+                      {slip.teacher_comments || slip.remarks ? (
+                        <p className="text-gray-600 text-xs truncate">{slip.teacher_comments || slip.remarks}</p>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                   </tr>
                 ))}

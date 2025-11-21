@@ -41,7 +41,7 @@ const CompleteForm = () => {
 
   // Table resize state
   const tableRef = useRef(null);
-  const [colWidths, setColWidths] = useState([35, 15, 20, 15, 10, 5]);
+  const [colWidths, setColWidths] = useState([30, 12, 14, 12, 12, 10, 8, 4]);
   const resizing = useRef({ index: null, startX: 0, startWidths: [] });
 
   const startResize = (e, index) => {
@@ -261,15 +261,17 @@ const CompleteForm = () => {
                       <th>Student<div className="resizer" onMouseDown={(e) => startResize(e, 0)} aria-hidden="true" /></th>
                       <th>Status<div className="resizer" onMouseDown={(e) => startResize(e, 1)} aria-hidden="true" /></th>
                       <th>Violation<div className="resizer" onMouseDown={(e) => startResize(e, 2)} aria-hidden="true" /></th>
-                      <th>Year & Section<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
-                      <th>Date &amp; Time<div className="resizer" onMouseDown={(e) => startResize(e, 4)} aria-hidden="true" /></th>
+                      <th>Violation Description<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
+                      <th>Year & Section<div className="resizer" onMouseDown={(e) => startResize(e, 4)} aria-hidden="true" /></th>
+                      <th>Date &amp; Time<div className="resizer" onMouseDown={(e) => startResize(e, 5)} aria-hidden="true" /></th>
+                      <th>Counselor Remarks<div className="resizer" onMouseDown={(e) => startResize(e, 6)} aria-hidden="true" /></th>
                       <th></th>
                     </tr>
                   </thead>
                   <tbody className="max-h-96 overflow-y-auto">
                     {filteredSlips.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-8 text-gray-500">
+                        <td colSpan={8} className="text-center py-8 text-gray-500">
                           <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                           <p>No admission slips found</p>
                         </td>
@@ -292,17 +294,32 @@ const CompleteForm = () => {
                             </span>
                           </td>
 
-                          <td className="text-xs text-gray-600">{slip.violation_code ? `${slip.violation_code} — ${slip.violation_description}` : 'No violation specified'}</td>
+                          <td className="text-xs text-gray-600">{slip.violation_description || 'No violation specified'}</td>
+
+                          <td className="text-xs text-gray-600">
+                            {slip.description ? (
+                              <div className="text-gray-600 text-xs truncate">{slip.description}</div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
 
                           <td className="text-xs text-gray-600">
                             <div className="text-sm text-gray-700">{slip.year} - {slip.section}</div>
-                            {slip.description && (<div className="text-gray-600 text-xs truncate">{slip.description}</div>)}
                           </td>
 
                           <td className="text-xs text-gray-600">
                             <div className="text-gray-700">Issued: {slip.created_at ? new Date(slip.created_at).toLocaleString() : '-'}</div>
                             {slip.updated_at && slip.status !== 'issued' && slip.updated_at !== slip.created_at && (
                               <div className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleString()}</div>
+                            )}
+                          </td>
+
+                          <td className="text-xs text-gray-600">
+                            {slip.teacher_comments || slip.remarks ? (
+                              <div className="text-gray-600 text-xs truncate">{slip.teacher_comments || slip.remarks}</div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
                             )}
                           </td>
 
@@ -380,7 +397,7 @@ const CompleteForm = () => {
                     <div>
                       <div className="mb-4">
                         <p className="text-sm font-medium">Violation</p>
-                        <p className="text-gray-700">{selectedSlip.violation_code ? `${selectedSlip.violation_code} — ${selectedSlip.violation_description}` : 'No violation specified'}</p>
+                        <p className="text-gray-700">{selectedSlip.violation_description || 'No violation specified'}</p>
                       </div>
                       <div className="mb-4">
                         <p className="text-sm font-medium">Description</p>
@@ -413,7 +430,7 @@ const CompleteForm = () => {
                         >
                           <option value="">Select violation type</option>
                           {violationTypes.map((type) => (
-                            <option key={type.id} value={type.id}>{type.code} - {type.description}</option>
+                            <option key={type.id} value={type.id}>{type.description}</option>
                           ))}
                         </select>
                       </div>
