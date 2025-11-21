@@ -81,8 +81,9 @@ const CompleteForm = () => {
 
       const response = await completeForm(selectedSlip.id, submitData);
       console.log('✅ SUCCESS - Form completed:', response.data);
-      
-      await loadData(); // Refresh the list
+      // Update slips in-place using returned slip (no full re-fetch)
+      const updatedSlip = response.data.slip;
+      setSlips(prev => prev.map(s => (s.id === updatedSlip.id ? updatedSlip : s)));
       setSelectedSlip(null);
       setFormData({ violationTypeId: '', description: '', remarks: '' });
       alert('Form completed successfully! Status updated to "Form Completed".');
@@ -138,12 +139,13 @@ const CompleteForm = () => {
 
     try {
       console.log('✅ Attempting to approve slip:', slipId);
-      await approveSlip(slipId);
-      await loadData();
+      const response = await approveSlip(slipId);
+      const updatedSlip = response.data.slip;
+      setSlips(prev => prev.map(s => (s.id === updatedSlip.id ? updatedSlip : s)));
       alert('Slip approved successfully!');
     } catch (error) {
       console.error('❌ Approve slip error:', error);
-      
+
       // Fallback for approve
       if (error.response?.status === 404) {
         console.log('🔧 Approve endpoint not found, using fallback...');
