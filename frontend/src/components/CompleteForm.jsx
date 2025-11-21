@@ -15,6 +15,7 @@ const CompleteForm = () => {
     description: '',
     remarks: ''
   });
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -30,10 +31,13 @@ const CompleteForm = () => {
     }
   };
 
-  const filteredSlips = slips.filter(slip =>
-    slip.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    slip.slip_number?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Exclude already approved slips from being selectable for completion
+  const filteredSlips = slips
+    .filter(slip => slip.status !== 'approved')
+    .filter(slip =>
+      slip.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      slip.slip_number?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   // Table resize state
   const tableRef = useRef(null);
@@ -85,6 +89,8 @@ const CompleteForm = () => {
       description: slip.description || '',
       remarks: slip.remarks || ''
     });
+    // open modal immediately to avoid scrolling
+    setIsModalOpen(true);
   };
 
   const handleSubmit = async (e) => {
@@ -173,6 +179,9 @@ const CompleteForm = () => {
       console.log('✅ Attempting to approve slip:', slipId);
       const response = await approveSlipApi(slipId);
       console.log('✅ Approve response:', response.data);
+      // close modal and clear selection
+      setIsModalOpen(false);
+      setSelectedSlip(null);
       alert('Slip approved successfully!');
     } catch (error) {
       console.error('❌ Approve slip error:', error);
@@ -182,6 +191,8 @@ const CompleteForm = () => {
         console.log('🔧 Approve endpoint not found, using fallback...');
         const updatedSlip = { ...(slips.find(s => s.id === slipId) || {}), status: 'approved' };
         if (updateSlipInState) updateSlipInState(updatedSlip);
+        setIsModalOpen(false);
+        setSelectedSlip(null);
         alert('Slip approved successfully! (Local update)');
       } else {
         const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to approve slip';
@@ -305,81 +316,121 @@ const CompleteForm = () => {
               </div>
           </div>
 
-          {/* Form */}
+          {/* Form (opens in modal) */}
           <div>
-            <h2 className="text-lg font-semibold mb-4">
-              {selectedSlip ? 'Complete Violation Details' : 'Select a Slip'}
-            </h2>
-            
+            <h2 className="text-lg font-semibold mb-4">Select a Slip</h2>
+
             {selectedSlip ? (
-              <div>
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <h3 className="font-medium text-gray-900">{selectedSlip.student_name}</h3>
-                  <p className="text-sm text-gray-600">{selectedSlip.year} - {selectedSlip.section}</p>
-                  <p className="text-xs text-gray-500">Slip: {selectedSlip.slip_number}</p>
-                  <p className="text-xs text-gray-400">Status: {getStatusDisplay(selectedSlip.status)}</p>
-                </div>
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <h3 className="font-medium text-gray-900">{selectedSlip.student_name}</h3>
+                <p className="text-sm text-gray-600">{selectedSlip.year} - {selectedSlip.section}</p>
+                <p className="text-xs text-gray-500">Slip: {selectedSlip.slip_number}</p>
+                <p className="text-xs text-gray-400">Status: {getStatusDisplay(selectedSlip.status)}</p>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Violation Type *
-                    </label>
-                    <select
-                      value={formData.violationTypeId}
-                      onChange={(e) => setFormData({ ...formData, violationTypeId: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      required
-                    >
-                      <option value="">Select violation type</option>
-                      {violationTypes.map((type) => (
-                        <option key={type.id} value={type.id}>
-                          {type.code} - {type.description}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Violation Description *
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      rows="3"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="Detailed description of the violation..."
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Counselor Remarks
-                    </label>
-                    <textarea
-                      value={formData.remarks}
-                      onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                      rows="2"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="Additional remarks or recommendations..."
-                    />
-                  </div>
-
+                <div className="mt-3">
                   <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    onClick={() => setIsModalOpen(true)}
+                    className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    {loading ? 'Submitting...' : `Complete Form for ${selectedSlip.student_name}`}
+                    Open Details
                   </button>
-                </form>
+                </div>
               </div>
             ) : (
               <div className="text-center text-gray-500 py-8">
                 <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                 <p>Select an admission slip from the list to complete the form</p>
+              </div>
+            )}
+
+            {/* Modal popup for complete/view details */}
+            {isModalOpen && selectedSlip && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">{selectedSlip.student_name}</h3>
+                      <p className="text-sm text-gray-600">Slip: {selectedSlip.slip_number} • {selectedSlip.year} - {selectedSlip.section}</p>
+                    </div>
+                    <div>
+                      <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-gray-800">Close</button>
+                    </div>
+                  </div>
+
+                  {selectedSlip.status === 'form_completed' ? (
+                    <div>
+                      <div className="mb-4">
+                        <p className="text-sm font-medium">Violation</p>
+                        <p className="text-gray-700">{selectedSlip.violation_code ? `${selectedSlip.violation_code} — ${selectedSlip.violation_description}` : 'No violation specified'}</p>
+                      </div>
+                      <div className="mb-4">
+                        <p className="text-sm font-medium">Description</p>
+                        <p className="text-gray-700">{selectedSlip.description || '-'}</p>
+                      </div>
+                      <div className="mb-4">
+                        <p className="text-sm font-medium">Counselor Remarks</p>
+                        <p className="text-gray-700">{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</p>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={async () => { await handleApprove(selectedSlip.id); setIsModalOpen(false); }}
+                          className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700"
+                        >
+                          Approve Slip
+                        </button>
+                        <button onClick={() => setIsModalOpen(false)} className="bg-gray-200 py-2 px-4 rounded">Close</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={async (e) => { await handleSubmit(e); setIsModalOpen(false); }} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Violation Type *</label>
+                        <select
+                          value={formData.violationTypeId}
+                          onChange={(e) => setFormData({ ...formData, violationTypeId: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
+                        >
+                          <option value="">Select violation type</option>
+                          {violationTypes.map((type) => (
+                            <option key={type.id} value={type.id}>{type.code} - {type.description}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Violation Description *</label>
+                        <textarea
+                          value={formData.description}
+                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                          rows="3"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Detailed description of the violation..."
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Counselor Remarks</label>
+                        <textarea
+                          value={formData.remarks}
+                          onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                          rows="2"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Additional remarks or recommendations..."
+                        />
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button type="submit" disabled={loading} className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">
+                          {loading ? 'Submitting...' : `Complete Form for ${selectedSlip.student_name}`}
+                        </button>
+                        <button type="button" onClick={() => setIsModalOpen(false)} className="bg-gray-200 py-2 px-4 rounded">Cancel</button>
+                      </div>
+                    </form>
+                  )}
+                </div>
               </div>
             )}
           </div>
