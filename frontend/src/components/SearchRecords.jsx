@@ -1,31 +1,25 @@
 // src/components/SearchRecords.jsx
 import React, { useState, useEffect } from 'react';
-import { getAdmissionSlips } from '../services/api';
+import { useSlips } from '../contexts/SlipsContext';
 import { Search, Filter, FileText, User, Calendar } from 'lucide-react';
 
 const SearchRecords = () => {
-  const [slips, setSlips] = useState([]);
+  const { slips, loadSlips } = useSlips();
   const [filteredSlips, setFilteredSlips] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
 
   useEffect(() => {
-    loadSlips();
+    // initial load is done by SlipsProvider; ensure we have data
+    if (!slips || slips.length === 0) loadSlips();
   }, []);
 
   useEffect(() => {
     filterSlips();
   }, [slips, searchTerm, statusFilter, dateFilter]);
 
-  const loadSlips = async () => {
-    try {
-      const response = await getAdmissionSlips();
-      setSlips(response.data);
-    } catch (error) {
-      console.error('Failed to load slips:', error);
-    }
-  };
+  // loadSlips provided by context
 
   const filterSlips = () => {
     let filtered = slips;
@@ -133,25 +127,25 @@ const SearchRecords = () => {
 
         {/* Results */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-700">
-            <div className="col-span-3">Student & Slip Info</div>
-            <div className="col-span-2">Violation</div>
-            <div className="col-span-3">Details</div>
-            <div className="col-span-2">Dates</div>
+          {/* Header */}
+          <div className="sticky top-0 z-10 grid grid-cols-12 gap-4 p-4 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-700">
+            <div className="col-span-3 border-r border-gray-200 pr-3">Student & Slip Info</div>
+            <div className="col-span-2 border-r border-gray-200 pr-3">Violation</div>
+            <div className="col-span-3 border-r border-gray-200 pr-3">Details</div>
+            <div className="col-span-2 border-r border-gray-200 pr-3">Dates</div>
             <div className="col-span-2">Status</div>
           </div>
 
-          <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+          {/* Body - fixed max height, scrollable */}
+          <div className="max-h-96 overflow-y-auto min-h-0">
             {filteredSlips.map((slip) => (
-              <div key={slip.id} className="p-4 hover:bg-gray-50 transition-colors">
+              <div key={slip.id} className="p-4 hover:bg-gray-50 transition-colors border-b border-gray-200">
                 <div className="grid grid-cols-12 gap-4 items-center text-sm">
-                  <div className="col-span-3">
-                    <div className="flex items-center">
-                      <User className="w-4 h-4 text-gray-400 mr-2" />
-                      <div>
-                        <p className="font-medium text-gray-900">{slip.student_name}</p>
-                        <p className="text-gray-600 text-xs">{slip.slip_number}</p>
-                      </div>
+                  <div className="col-span-3 flex items-center">
+                    <User className="w-4 h-4 text-gray-400 mr-2" />
+                    <div>
+                      <p className="font-medium text-gray-900">{slip.student_name}</p>
+                      <p className="text-gray-600 text-xs">{slip.slip_number}</p>
                     </div>
                   </div>
 
@@ -177,14 +171,10 @@ const SearchRecords = () => {
                     )}
                   </div>
 
-                  <div className="col-span-2">
-                    <p className="text-gray-900 text-xs">
-                      Issued: {new Date(slip.created_at).toLocaleDateString()}
-                    </p>
+                  <div className="col-span-2 text-xs">
+                    <p className="text-gray-900">Issued: {slip.created_at ? new Date(slip.created_at).toLocaleDateString() : '-'}</p>
                     {slip.updated_at && (
-                      <p className="text-gray-600 text-xs">
-                        Updated: {new Date(slip.updated_at).toLocaleDateString()}
-                      </p>
+                      <p className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleDateString()}</p>
                     )}
                   </div>
 

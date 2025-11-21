@@ -1,10 +1,11 @@
 // src/components/CompleteForm.jsx
 import React, { useState, useEffect } from 'react';
-import { getAdmissionSlips, getViolationTypes, completeForm, approveSlip } from '../services/api';
+import { getViolationTypes } from '../services/api';
+import { useSlips } from '../contexts/SlipsContext';
 import { FileText, CheckCircle, Search } from 'lucide-react';
 
 const CompleteForm = () => {
-  const [slips, setSlips] = useState([]);
+  const { slips, loadSlips, completeSlip, approveSlip: approveSlipApi, updateSlipInState } = useSlips();
   const [violationTypes, setViolationTypes] = useState([]);
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -21,14 +22,9 @@ const CompleteForm = () => {
 
   const loadData = async () => {
     try {
-      console.log('🔄 Loading data from backend...');
-      const [slipsResponse, violationsResponse] = await Promise.all([
-        getAdmissionSlips(),
-        getViolationTypes()
-      ]);
-      setSlips(slipsResponse.data);
+      console.log('🔄 Loading violations from backend...');
+      const violationsResponse = await getViolationTypes();
       setViolationTypes(violationsResponse.data);
-      console.log('✅ Data loaded successfully:', slipsResponse.data);
     } catch (error) {
       console.error('❌ Failed to load data:', error);
     }
@@ -79,11 +75,8 @@ const CompleteForm = () => {
 
       console.log('📤 Sending data to API:', submitData);
 
-      const response = await completeForm(selectedSlip.id, submitData);
+      const response = await completeSlip(selectedSlip.id, submitData);
       console.log('✅ SUCCESS - Form completed:', response.data);
-      // Update slips in-place using returned slip (no full re-fetch)
-      const updatedSlip = response.data.slip;
-      setSlips(prev => prev.map(s => (s.id === updatedSlip.id ? updatedSlip : s)));
       setSelectedSlip(null);
       setFormData({ violationTypeId: '', description: '', remarks: '' });
       alert('Form completed successfully! Status updated to "Form Completed".');
@@ -109,21 +102,18 @@ const CompleteForm = () => {
       console.log('🔄 Using fallback - updating local state only');
       
       // Update local state to simulate success
-      const updatedSlips = slips.map(slip => 
-        slip.id === selectedSlip.id 
-          ? { 
-              ...slip, 
-              status: 'form_completed',
-              violation_type_id: parseInt(formData.violationTypeId),
-              description: formData.description,
-              teacher_comments: formData.remarks,
-              violation_code: violationTypes.find(vt => vt.id == formData.violationTypeId)?.code,
-              violation_description: violationTypes.find(vt => vt.id == formData.violationTypeId)?.description
-            }
-          : slip
-      );
-      
-      setSlips(updatedSlips);
+      const updatedSlip = {
+        ...(selectedSlip || {}),
+        status: 'form_completed',
+        violation_type_id: parseInt(formData.violationTypeId),
+        description: formData.description,
+        teacher_comments: formData.remarks,
+        violation_code: violationTypes.find(vt => vt.id == formData.violationTypeId)?.code,
+        violation_description: violationTypes.find(vt => vt.id == formData.violationTypeId)?.description
+      };
+
+      // update shared state
+      if (updateSlipInState) updateSlipInState(updatedSlip);
       setSelectedSlip(null);
       setFormData({ violationTypeId: '', description: '', remarks: '' });
       
@@ -139,9 +129,8 @@ const CompleteForm = () => {
 
     try {
       console.log('✅ Attempting to approve slip:', slipId);
-      const response = await approveSlip(slipId);
-      const updatedSlip = response.data.slip;
-      setSlips(prev => prev.map(s => (s.id === updatedSlip.id ? updatedSlip : s)));
+      const response = await approveSlipApi(slipId);
+      console.log('✅ Approve response:', response.data);
       alert('Slip approved successfully!');
     } catch (error) {
       console.error('❌ Approve slip error:', error);
@@ -149,12 +138,8 @@ const CompleteForm = () => {
       // Fallback for approve
       if (error.response?.status === 404) {
         console.log('🔧 Approve endpoint not found, using fallback...');
-        const updatedSlips = slips.map(slip => 
-          slip.id === slipId 
-            ? { ...slip, status: 'approved' }
-            : slip
-        );
-        setSlips(updatedSlips);
+        const updatedSlip = { ...(slips.find(s => s.id === slipId) || {}), status: 'approved' };
+        if (updateSlipInState) updateSlipInState(updatedSlip);
         alert('Slip approved successfully! (Local update)');
       } else {
         const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to approve slip';
@@ -211,7 +196,7 @@ const CompleteForm = () => {
           {/* Slip List */}
           <div>
             <h2 className="text-lg font-semibold mb-4">Issued Admission Slips</h2>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-3 max-h-96 overflow-y-auto min-h-0">
               {filteredSlips.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
@@ -221,36 +206,41 @@ const CompleteForm = () => {
                 filteredSlips.map((slip) => (
                   <div
                     key={slip.id}
-                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                    className={`p-4 border-b border-gray-200 cursor-pointer transition-colors ${
                       selectedSlip?.id === slip.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-300'
+                        ? 'bg-blue-50'
+                        : 'hover:bg-gray-50'
                     }`}
                     onClick={() => handleSelectSlip(slip)}
                   >
-                    <div className="flex justify-between items-start">
-                      <div>
+                    <div className="grid grid-cols-12 gap-4 items-start text-sm">
+                      <div className="col-span-8">
                         <h3 className="font-medium text-gray-900">{slip.student_name}</h3>
-                        <p className="text-sm text-gray-600">{slip.year} - {slip.section}</p>
-                        <p className="text-xs text-gray-500">Slip: {slip.slip_number}</p>
-                        <p className="text-xs text-gray-400">ID: {slip.id}</p>
+                        <p className="text-sm text-gray-600">{slip.year} - {slip.section} • <span className="text-xs text-gray-500">Slip: {slip.slip_number}</span></p>
                       </div>
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(slip.status)}`}>
-                        {getStatusDisplay(slip.status)}
-                      </span>
+                      <div className="col-span-2 text-right">
+                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(slip.status)}`}>
+                          {getStatusDisplay(slip.status)}
+                        </span>
+                      </div>
+                      <div className="col-span-12 mt-2 text-xs text-gray-600">
+                        {slip.violation_code ? `${slip.violation_code} — ${slip.violation_description}` : 'No violation specified'}
+                      </div>
+                      {slip.status === 'form_completed' && (
+                        <div className="col-span-12 mt-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleApprove(slip.id);
+                            }}
+                            className="mt-2 w-full bg-green-600 text-white py-1 px-3 rounded text-sm hover:bg-green-700 transition-colors flex items-center justify-center"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Approve Slip
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    {slip.status === 'form_completed' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleApprove(slip.id);
-                        }}
-                        className="mt-2 w-full bg-green-600 text-white py-1 px-3 rounded text-sm hover:bg-green-700 transition-colors flex items-center justify-center"
-                      >
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Approve Slip
-                      </button>
-                    )}
                   </div>
                 ))
               )}

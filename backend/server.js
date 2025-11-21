@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
+// shared DB pool is in ./config/database.js
 
 const app = express();
 
@@ -20,12 +20,10 @@ app.use(cors({
 
 app.use(express.json());
 
-// Database connection
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-});
+// Database pool (created in config/database.js)
+const pool = require('./config/database');
 
-// Test database connection
+// Test database connection (best-effort)
 pool.connect((err, client, release) => {
   if (err) {
     console.error('❌ Database connection error:', err.message);

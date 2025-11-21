@@ -1,11 +1,13 @@
 // src/components/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { getAdmissionSlips } from '../services/api';
+// getAdmissionSlips handled by SlipsContext
 import { FileText, CheckCircle, Clock, Users, TrendingUp } from 'lucide-react';
 import '../App.css';
+import { useSlips } from '../contexts/SlipsContext';
 
 const Dashboard = () => {
-  const [slips, setSlips] = useState([]);
+  const { slips, loadSlips } = useSlips();
+
   const [stats, setStats] = useState({
     total: 0,
     issued: 0,
@@ -14,26 +16,19 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    loadSlips();
+    // ensure context has loaded slips
+    if (!slips || slips.length === 0) loadSlips();
   }, []);
 
-  const loadSlips = async () => {
-    try {
-      const response = await getAdmissionSlips();
-      const slipsData = response.data;
-      setSlips(slipsData);
-
-      // Calculate statistics
-      setStats({
-        total: slipsData.length,
-        issued: slipsData.filter(s => s.status === 'issued').length,
-        formCompleted: slipsData.filter(s => s.status === 'form_completed').length,
-        approved: slipsData.filter(s => s.status === 'approved').length
-      });
-    } catch (error) {
-      console.error('Failed to load slips:', error);
-    }
-  };
+  useEffect(() => {
+    const slipsData = slips || [];
+    setStats({
+      total: slipsData.length,
+      issued: slipsData.filter(s => s.status === 'issued').length,
+      formCompleted: slipsData.filter(s => s.status === 'form_completed').length,
+      approved: slipsData.filter(s => s.status === 'approved').length
+    });
+  }, [slips]);
 
   const recentSlips = slips.slice(0, 5);
 
@@ -90,23 +85,22 @@ const Dashboard = () => {
         {/* Recent Activity */}
         <div className="dashboard-section">
           <h2 className="section-title">Recent Admission Slips</h2>
-          <div className="slips-list">
-            {recentSlips.map((slip) => (
-              <div key={slip.id} className="slip-item">
-                <div className="slip-info">
-                  <p className="slip-name">{slip.student_name}</p>
-                  <p className="slip-details">{slip.year} - {slip.section}</p>
-                  <p className="slip-number">{slip.slip_number}</p>
+            <div className="slips-list max-h-64 overflow-y-auto min-h-0 border border-gray-100 rounded-lg">
+              {recentSlips.length === 0 && (
+                <p className="p-4 text-sm text-gray-500">No admission slips found</p>
+              )}
+              {recentSlips.map((slip) => (
+                <div key={slip.id} className="slip-item p-3 border-b border-gray-100 flex justify-between items-center">
+                  <div className="slip-info">
+                    <p className="slip-name font-medium text-gray-900">{slip.student_name}</p>
+                    <p className="slip-details text-xs text-gray-600">{slip.year} - {slip.section} • <span className="text-xs text-gray-500">{slip.slip_number}</span></p>
+                  </div>
+                  <span className={`status-badge status-${slip.status} text-xs`}>
+                    {slip.status?.replace('_', ' ').toUpperCase()}
+                  </span>
                 </div>
-                <span className={`status-badge status-${slip.status}`}>
-                  {slip.status?.replace('_', ' ').toUpperCase()}
-                </span>
-              </div>
-            ))}
-            {recentSlips.length === 0 && (
-              <p className="no-data">No admission slips found</p>
-            )}
-          </div>
+              ))}
+            </div>
         </div>
 
         {/* Quick Actions */}

@@ -1,6 +1,7 @@
 // src/components/PrintAdmissionSlip.jsx
 import React, { useState } from 'react';
 import { issueAdmissionSlip } from '../services/api';
+import { useSlips } from '../contexts/SlipsContext';
 import { Printer, User, Book, Users } from 'lucide-react';
 
 const PrintAdmissionSlip = () => {
@@ -20,6 +21,8 @@ const PrintAdmissionSlip = () => {
     });
   };
 
+  const { issueSlip } = useSlips();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -27,15 +30,17 @@ const PrintAdmissionSlip = () => {
     setResult(null);
 
     try {
-      const response = await issueAdmissionSlip(formData);
-      setResult(response.data);
-      
+      // Prefer to use context helper so state is updated centrally
+      if (issueSlip) {
+        const response = await issueSlip(formData);
+        setResult(response.data);
+      } else {
+        const response = await issueAdmissionSlip(formData);
+        setResult(response.data);
+      }
+
       // Reset form
-      setFormData({
-        studentName: '',
-        year: '',
-        section: ''
-      });
+      setFormData({ studentName: '', year: '', section: '' });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to issue admission slip');
     } finally {
