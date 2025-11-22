@@ -47,7 +47,7 @@ const Dashboard = () => {
   );
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container container">
       <div className="dashboard-header">
         <h1 className="dashboard-title">Dashboard</h1>
         <p className="dashboard-subtitle">Web-based Guidance Monitoring and Record-Keeping System</p>
@@ -83,7 +83,7 @@ const Dashboard = () => {
 
       <div className="dashboard-content">
         {/* Recent Activity */}
-        <div className="dashboard-section">
+          <div className="dashboard-section card surface">
           <h2 className="section-title">Recent Admission Slips</h2>
             <div className="slips-list max-h-64 overflow-y-auto min-h-0 border border-gray-100 rounded-lg">
               {recentSlips.length === 0 && (
@@ -104,7 +104,7 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="dashboard-section">
+        <div className="dashboard-section card surface">
           <h2 className="section-title">Quick Actions</h2>
           <div className="quick-actions">
             <a

@@ -107,11 +107,11 @@ const SearchRecords = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center mb-6">
-          <Search className="w-8 h-8 text-blue-600 mr-3" />
-          <h1 className="text-2xl font-bold text-gray-900">Search Records</h1>
+    <div className="container">
+      <div className="card" style={{ padding: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+          <Search style={{ width: 26, height: 26, color: 'var(--primary)', marginRight: 10 }} />
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>Search Records</h1>
         </div>
 
         <p className="text-gray-600 mb-6">
@@ -119,7 +119,7 @@ const SearchRecords = () => {
         </p>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 12, padding: 12, background: 'rgba(15,23,42,0.02)', borderRadius: 8 }}>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Search className="w-4 h-4 inline mr-1" />
@@ -130,7 +130,7 @@ const SearchRecords = () => {
               placeholder="Search by name, slip number, year, section..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="form-input"
             />
           </div>
 
@@ -166,7 +166,7 @@ const SearchRecords = () => {
         </div>
 
         {/* Results - semantic table with resizable columns */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="card" style={{ overflow: 'hidden' }}>
           <div className="records-table-container">
             <table className="records-table" ref={tableRef}>
               <colgroup>
@@ -247,8 +247,8 @@ const SearchRecords = () => {
           </div>
 
           {filteredSlips.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+            <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
+              <FileText style={{ width: 48, height: 48, margin: '0 auto 12px', color: 'rgba(15,23,42,0.25)' }} />
               <p>No records found matching your search criteria</p>
             </div>
           )}

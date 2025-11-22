@@ -30,28 +30,26 @@ const Login = () => {
 
   return (
     <div className="login-container">
-      <div className="login-card">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
+      <div className="login-card card">
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
             <div className="icon-container">
               <School className="icon" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">CounselMate</h1>
-          <p className="text-gray-600">Guidance Counselor Portal</p>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>CounselMate</h1>
+          <p className="text-muted">Guidance Counselor Portal</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="" style={{ display: 'grid', gap: '0.75rem' }}>
           {error && (
             <div className="alert alert-error">
               {error}
             </div>
           )}
 
-          <div className="form-group">
-            <label className="form-label">
-              Email Address
-            </label>
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.95rem' }}>Email Address</label>
             <div className="input-with-icon">
               <User className="icon" />
               <input
@@ -65,10 +63,8 @@ const Login = () => {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">
-              Password
-            </label>
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.95rem' }}>Password</label>
             <div className="input-with-icon">
               <Lock className="icon" />
               <input
@@ -85,13 +81,14 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="btn btn-primary w-full"
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: '6px' }}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
+        <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.9rem' }} className="text-muted">
           <p>Web-based Guidance Monitoring and Record-Keeping System</p>
         </div>
       </div>

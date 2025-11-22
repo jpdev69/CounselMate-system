@@ -54,7 +54,7 @@ const Layout = ({ children }) => {
             </div>
             <button
               onClick={logout}
-              className="logout-btn"
+              className="btn btn-ghost logout-btn"
               title="Logout"
             >
               <LogOut className="logout-icon" />

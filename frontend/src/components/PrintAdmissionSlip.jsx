@@ -84,11 +84,11 @@ const PrintAdmissionSlip = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center mb-6">
-          <Printer className="w-8 h-8 text-blue-600 mr-3" />
-          <h1 className="text-2xl font-bold text-gray-900">Print Admission Slip</h1>
+    <div className="container">
+      <div className="card" style={{ padding: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+          <Printer style={{ width: 28, height: 28, color: 'var(--primary)' }} />
+          <h1 style={{ marginLeft: 12, fontSize: 20, fontWeight: 700 }}>Print Admission Slip</h1>
         </div>
 
         <p className="text-gray-600 mb-6">
@@ -96,7 +96,7 @@ const PrintAdmissionSlip = () => {
           The system will log the issuance and generate a printable slip.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="" style={{ display: 'grid', gap: 12 }}>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Student Name
@@ -162,20 +162,21 @@ const PrintAdmissionSlip = () => {
           )}
 
           {result && (
-            <div className="p-4 text-sm text-green-700 bg-green-100 rounded-lg">
-              <p className="font-medium">Admission slip issued successfully!</p>
+            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(16,185,129,0.08)', color: 'var(--success)' }}>
+              <p style={{ fontWeight: 600 }}>Admission slip issued successfully!</p>
               <p>Slip Number: {result.slip.slip_number}</p>
               {printedSlipId !== result.slip.id && (
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                  className="btn btn-primary"
+                  style={{ marginTop: 8 }}
                 >
                   Print Slip
                 </button>
               )}
               {printedSlipId === result.slip.id && (
-                <p className="mt-2 text-sm text-gray-700">Slip has been printed.</p>
+                <p style={{ marginTop: 8, fontSize: 13, color: 'var(--muted)' }}>Slip has been printed.</p>
               )}
             </div>
           )}
@@ -185,7 +186,8 @@ const PrintAdmissionSlip = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '12px', fontWeight: 600 }}
             >
               {loading ? 'Issuing Slip...' : 'Issue Admission Slip'}
             </button>
