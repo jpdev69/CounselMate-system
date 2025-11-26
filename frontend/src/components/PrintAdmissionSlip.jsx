@@ -7,7 +7,9 @@ import { Printer, User, Book, Users } from 'lucide-react';
 
 const PrintAdmissionSlip = () => {
   const [formData, setFormData] = useState({
-    studentName: '',
+    firstName: '',
+    middleName: '',
+    lastName: '',
     year: '',
     section: ''
   });
@@ -33,7 +35,11 @@ const PrintAdmissionSlip = () => {
 
     try {
       // Basic client-side validation to avoid blank users
-      if (!formData.studentName || !formData.studentName.toString().trim() || !formData.section || !formData.section.toString().trim()) {
+      const studentName = [formData.firstName, formData.middleName, formData.lastName]
+        .map(s => (s || '').toString().trim())
+        .filter(Boolean)
+        .join(' ');
+      if (!studentName || !formData.section || !formData.section.toString().trim()) {
         setError('Student name and section are required');
         setLoading(false);
         return;
@@ -42,9 +48,9 @@ const PrintAdmissionSlip = () => {
       // Prefer to use context helper so state is updated centrally
       let response;
       if (issueSlip) {
-        response = await issueSlip(formData);
+        response = await issueSlip({ ...formData, studentName });
       } else {
-        response = await issueAdmissionSlip(formData);
+        response = await issueAdmissionSlip({ ...formData, studentName });
       }
       setResult(response.data);
 
@@ -64,7 +70,7 @@ const PrintAdmissionSlip = () => {
       }
 
       // Reset form
-      setFormData({ studentName: '', year: '', section: '' });
+      setFormData({ firstName: '', middleName: '', lastName: '', year: '', section: '' });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to issue admission slip');
     } finally {
@@ -101,17 +107,40 @@ const PrintAdmissionSlip = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Student Name
             </label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                name="studentName"
-                value={formData.studentName}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                placeholder="Enter student's full name"
-                required
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+              <div className="input-with-icon">
+                <User className="icon" />
+                <input
+                  type="text"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  className="form-input"
+                  placeholder="First name"
+                  required
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  name="middleName"
+                  value={formData.middleName}
+                  onChange={handleChange}
+                  className="form-input"
+                  placeholder="Middle name (optional)"
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  className="form-input"
+                  placeholder="Last name"
+                  required
+                />
+              </div>
             </div>
           </div>
 
@@ -119,13 +148,13 @@ const PrintAdmissionSlip = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Year Level
             </label>
-            <div className="relative">
-              <Book className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <div className="input-with-icon">
+              <Book className="icon" />
               <select
                 name="year"
                 value={formData.year}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="form-input"
                 required
               >
                 <option value="">Select year level</option>
@@ -133,6 +162,7 @@ const PrintAdmissionSlip = () => {
                 <option value="2nd Year">2nd Year</option>
                 <option value="3rd Year">3rd Year</option>
                 <option value="4th Year">4th Year</option>
+                <option value="5th Year">5th Year</option>
               </select>
             </div>
           </div>
@@ -141,17 +171,20 @@ const PrintAdmissionSlip = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Section
             </label>
-            <div className="relative">
-              <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
+            <div className="input-with-icon">
+              <Users className="icon" />
+              <select
                 name="section"
                 value={formData.section}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                placeholder="Enter section (e.g., A, B, C)"
+                className="form-input"
                 required
-              />
+              >
+                <option value="">Select section</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
             </div>
           </div>
 

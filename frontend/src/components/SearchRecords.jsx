@@ -66,46 +66,6 @@ const SearchRecords = () => {
     );
   };
 
-  // Table ref for resizing calculations
-  const tableRef = useRef(null);
-  const [colWidths, setColWidths] = useState([28, 14, 16, 14, 10, 10, 8]);
-  const sampleViolationDescriptions = [
-    "I don't know",
-    'Sikka: The student is not acting properly',
-    'Neiga'
-  ];
-  const resizing = useRef({ index: null, startX: 0, startWidths: [] });
-
-  const startResize = (e, index) => {
-    e.preventDefault();
-    resizing.current = { index, startX: e.clientX, startWidths: [...colWidths] };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', stopResize);
-  };
-
-  const onMouseMove = (e) => {
-    if (resizing.current.index === null) return;
-    const dx = e.clientX - resizing.current.startX;
-    const tableWidth = tableRef.current?.getBoundingClientRect().width || 1;
-    const deltaPercent = (dx / tableWidth) * 100;
-    const newWidths = [...resizing.current.startWidths];
-    const i = resizing.current.index;
-    const next = i + 1 < newWidths.length ? i + 1 : null;
-
-    newWidths[i] = Math.max(5, Math.min(80, resizing.current.startWidths[i] + deltaPercent));
-    if (next !== null) {
-      newWidths[next] = Math.max(5, Math.min(80, resizing.current.startWidths[next] - deltaPercent));
-    }
-
-    setColWidths(newWidths);
-  };
-
-  const stopResize = () => {
-    resizing.current = { index: null, startX: 0, startWidths: [] };
-    window.removeEventListener('mousemove', onMouseMove);
-    window.removeEventListener('mouseup', stopResize);
-  };
-
   return (
     <div className="container">
       <div className="card" style={{ padding: 20 }}>
@@ -125,13 +85,16 @@ const SearchRecords = () => {
               <Search className="w-4 h-4 inline mr-1" />
               Search
             </label>
-            <input
-              type="text"
-              placeholder="Search by name, slip number, year, section..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="form-input"
-            />
+              <div className="input-with-icon">
+                <Search className="icon" />
+                <input
+                  type="text"
+                  placeholder="Search by name, slip number, year, section..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="form-input"
+                />
+              </div>
           </div>
 
           <div>
@@ -139,16 +102,19 @@ const SearchRecords = () => {
               <Filter className="w-4 h-4 inline mr-1" />
               Status
             </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            >
-              <option value="all">All Status</option>
-              <option value="issued">Issued</option>
-              <option value="form_completed">Form Completed</option>
-              <option value="approved">Approved</option>
-            </select>
+              <div className="input-with-icon">
+                <Filter className="icon" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="form-input"
+                >
+                  <option value="all">All Status</option>
+                  <option value="issued">Issued</option>
+                  <option value="form_completed">Form Completed</option>
+                  <option value="approved">Approved</option>
+                </select>
+              </div>
           </div>
 
           <div>
@@ -156,38 +122,36 @@ const SearchRecords = () => {
               <Calendar className="w-4 h-4 inline mr-1" />
               Date
             </label>
-            <input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            />
+              <div className="input-with-icon">
+                <Calendar className="icon" />
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="form-input"
+                />
+              </div>
           </div>
         </div>
 
-        {/* Results - semantic table with resizable columns */}
-        <div className="card" style={{ overflow: 'hidden' }}>
-          <div className="records-table-container">
-            <table className="records-table" ref={tableRef}>
-              <colgroup>
-                {colWidths.map((w, i) => (
-                  <col key={i} style={{ width: `${w}%` }} />
-                ))}
-              </colgroup>
-
+        {/* Results - semantic table with auto-sizing, edge-to-edge inside card */}
+        <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
+          <div className="records-table-container" style={{ overflowX: 'auto' }}>
+            <div className="records-table-scroll">
+              <table className="records-table">
               <thead>
                 <tr>
-                  <th>Student & Slip Info<div className="resizer" onMouseDown={(e) => startResize(e, 0)} aria-hidden="true" /></th>
-                  <th>Violation<div className="resizer" onMouseDown={(e) => startResize(e, 1)} aria-hidden="true" /></th>
-                  <th>Violation Description<div className="resizer" onMouseDown={(e) => startResize(e, 2)} aria-hidden="true" /></th>
-                  <th>Year &amp; Section<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
-                  <th>Date &amp; Time<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
-                  <th>Status<div className="resizer" onMouseDown={(e) => startResize(e, 4)} aria-hidden="true" /></th>
-                  <th>Counselor Remarks<div className="resizer" onMouseDown={(e) => startResize(e, 5)} aria-hidden="true" /></th>
+                  <th>Student & Slip Info</th>
+                  <th>Violation</th>
+                  <th>Violation Description</th>
+                  <th>Year &amp; Section</th>
+                  <th>Date &amp; Time</th>
+                  <th>Status</th>
+                  <th>Counselor Remarks</th>
                 </tr>
               </thead>
 
-              <tbody className="max-h-96 overflow-y-auto">
+              <tbody>
                 {filteredSlips.map((slip) => (
                   <tr key={slip.id}>
                     <td>
@@ -214,7 +178,7 @@ const SearchRecords = () => {
                       {slip.description ? (
                         <p className="text-gray-600 text-xs truncate">{slip.description}</p>
                       ) : (
-                        <p className="text-gray-400 text-xs truncate">{sampleViolationDescriptions.join(', ')}</p>
+                        <span className="text-gray-400">-</span>
                       )}
                     </td>
 
@@ -243,7 +207,8 @@ const SearchRecords = () => {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
 
           {filteredSlips.length === 0 && (

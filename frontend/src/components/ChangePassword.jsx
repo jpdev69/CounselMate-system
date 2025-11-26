@@ -94,22 +94,24 @@ const ChangePassword = () => {
   };
 
   return (
-    <div style={{ maxWidth: '500px', margin: '0 auto', padding: '20px' }}>
-      <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-          <Key style={{ width: '32px', height: '32px', color: '#3b82f6', marginRight: '12px' }} />
-          <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>
+    <div className="container" style={{ maxWidth: '500px' }}>
+      <div className="card" style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+          <div className="icon-container" style={{ width: '48px', height: '48px', marginRight: '12px' }}>
+            <Key style={{ width: '24px', height: '24px' }} />
+          </div>
+          <h1 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>
             Change Password
           </h1>
         </div>
 
-        <p style={{ color: '#6b7280', marginBottom: '24px', lineHeight: '1.5' }}>
+        <p className="text-muted" style={{ marginBottom: '20px', lineHeight: '1.5', fontSize: '0.95rem' }}>
           Update your account password. For security reasons, please choose a strong, unique password.
         </p>
 
-        <form onSubmit={handleSubmit} style={{ marginBottom: '24px' }}>
-          <div className="form-group">
-            <label className="form-label">
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '14px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 500 }}>
               Current Password
             </label>
             <div className="input-with-icon" style={{ position: 'relative' }}>
@@ -143,8 +145,8 @@ const ChangePassword = () => {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 500 }}>
               New Password
             </label>
             <div className="input-with-icon" style={{ position: 'relative' }}>
@@ -179,8 +181,8 @@ const ChangePassword = () => {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 500 }}>
               Confirm New Password
             </label>
             <div className="input-with-icon" style={{ position: 'relative' }}>
@@ -222,7 +224,7 @@ const ChangePassword = () => {
           )}
 
           {message && (
-            <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(16,185,129,0.08)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center' }}>
               <CheckCircle style={{ width: '16px', height: '16px', marginRight: '8px' }} />
               <div>
                 <strong>Success!</strong> {message}
@@ -233,8 +235,8 @@ const ChangePassword = () => {
           <button
             type="submit"
             disabled={loading}
-            className="btn btn-primary w-full"
-            style={{ marginTop: '16px' }}
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: '8px', padding: '12px', fontWeight: 600 }}
           >
             {loading ? (
               <>

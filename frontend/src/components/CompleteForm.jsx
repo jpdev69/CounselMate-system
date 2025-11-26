@@ -39,48 +39,6 @@ const CompleteForm = () => {
       slip.slip_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-  // Table resize state
-  const tableRef = useRef(null);
-  const [colWidths, setColWidths] = useState([30, 12, 14, 12, 12, 10, 8, 4]);
-  const resizing = useRef({ index: null, startX: 0, startWidths: [] });
-
-  const startResize = (e, index) => {
-    e.preventDefault();
-    resizing.current = { index, startX: e.clientX, startWidths: [...colWidths] };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', stopResize);
-  };
-
-  const onMouseMove = (e) => {
-    if (resizing.current.index === null) return;
-    const dx = e.clientX - resizing.current.startX;
-    const tableWidth = tableRef.current?.getBoundingClientRect().width || 1;
-    const deltaPercent = (dx / tableWidth) * 100;
-    const newWidths = [...resizing.current.startWidths];
-    const i = resizing.current.index;
-    const next = i + 1 < newWidths.length ? i + 1 : null;
-
-    newWidths[i] = Math.max(5, Math.min(80, resizing.current.startWidths[i] + deltaPercent));
-    if (next !== null) {
-      newWidths[next] = Math.max(5, Math.min(80, resizing.current.startWidths[next] - deltaPercent));
-    }
-
-    setColWidths(newWidths);
-  };
-
-  const stopResize = () => {
-    resizing.current = { index: null, startX: 0, startWidths: [] };
-    window.removeEventListener('mousemove', onMouseMove);
-    window.removeEventListener('mouseup', stopResize);
-  };
-
-  useEffect(() => {
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', stopResize);
-    };
-  }, []);
-
   const handleSelectSlip = (slip) => {
     console.log('📝 Selected slip:', slip);
     setSelectedSlip(slip);
@@ -220,27 +178,29 @@ const CompleteForm = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center mb-6">
-          <FileText className="w-8 h-8 text-blue-600 mr-3" />
-          <h1 className="text-2xl font-bold text-gray-900">Complete Admission Form</h1>
+    <div className="container">
+      <div className="card" style={{ padding: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+          <div className="icon-container" style={{ width: '48px', height: '48px', marginRight: '12px' }}>
+            <FileText style={{ width: '24px', height: '24px' }} />
+          </div>
+          <h1 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>Complete Admission Form</h1>
         </div>
 
-        <p className="text-gray-600 mb-6">
+        <p className="text-muted" style={{ marginBottom: '16px', fontSize: '0.95rem' }}>
           Search for issued admission slips and complete the violation details after the student returns the filled form.
         </p>
 
         {/* Search */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <div style={{ marginBottom: '16px' }}>
+          <div className="input-with-icon">
+            <Search className="icon" />
             <input
               type="text"
               placeholder="Search by student name or slip number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="form-input"
             />
           </div>
         </div>
@@ -249,26 +209,22 @@ const CompleteForm = () => {
           {/* Slip List */}
           <div>
             <h2 className="text-lg font-semibold mb-4">Issued Admission Slips</h2>
-              <div className="records-table-container">
-                <table className="records-table" ref={tableRef}>
-                  <colgroup>
-                    {colWidths.map((w, i) => (
-                      <col key={i} style={{ width: `${w}%` }} />
-                    ))}
-                  </colgroup>
+              <div className="records-table-container" style={{ overflowX: 'auto' }}>
+                <div className="records-table-scroll">
+                  <table className="records-table">
                   <thead>
                     <tr>
-                      <th>Student<div className="resizer" onMouseDown={(e) => startResize(e, 0)} aria-hidden="true" /></th>
-                      <th>Status<div className="resizer" onMouseDown={(e) => startResize(e, 1)} aria-hidden="true" /></th>
-                      <th>Violation<div className="resizer" onMouseDown={(e) => startResize(e, 2)} aria-hidden="true" /></th>
-                      <th>Violation Description<div className="resizer" onMouseDown={(e) => startResize(e, 3)} aria-hidden="true" /></th>
-                      <th>Year & Section<div className="resizer" onMouseDown={(e) => startResize(e, 4)} aria-hidden="true" /></th>
-                      <th>Date &amp; Time<div className="resizer" onMouseDown={(e) => startResize(e, 5)} aria-hidden="true" /></th>
-                      <th>Counselor Remarks<div className="resizer" onMouseDown={(e) => startResize(e, 6)} aria-hidden="true" /></th>
+                      <th>Student</th>
+                      <th>Status</th>
+                      <th>Violation</th>
+                      <th>Violation Description</th>
+                      <th>Year & Section</th>
+                      <th>Date &amp; Time</th>
+                      <th>Counselor Remarks</th>
                       <th></th>
                     </tr>
                   </thead>
-                  <tbody className="max-h-96 overflow-y-auto">
+                  <tbody>
                     {filteredSlips.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="text-center py-8 text-gray-500">
@@ -340,7 +296,8 @@ const CompleteForm = () => {
                       ))
                     )}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               </div>
           </div>
 
@@ -373,16 +330,16 @@ const CompleteForm = () => {
 
             {/* Modal popup for complete/view details */}
             {isModalOpen && selectedSlip && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-                <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <div className="flex items-start justify-between mb-4">
+              <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
+                <div className="card" style={{ width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', padding: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', marginBottom: '12px' }}>
                     <div>
-                      <h3 className="text-lg font-semibold">Student &amp; Slip Info</h3>
-                      <p className="text-sm text-gray-600"><strong>Name:</strong> {selectedSlip.student_name}</p>
-                      <p className="text-sm text-gray-600"><strong>Slip:</strong> {selectedSlip.slip_number}</p>
+                      <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>Student &amp; Slip Info</h3>
+                      <p style={{ fontSize: '0.9rem', marginBottom: '4px' }} className="text-muted"><strong>Name:</strong> {selectedSlip.student_name}</p>
+                      <p style={{ fontSize: '0.9rem' }} className="text-muted"><strong>Slip:</strong> {selectedSlip.slip_number}</p>
                     </div>
                     <div>
-                      <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-gray-800">Close</button>
+                      <button onClick={() => setIsModalOpen(false)} className="btn btn-ghost" style={{ padding: '6px 12px' }}>Close</button>
                     </div>
                   </div>
 
@@ -408,24 +365,24 @@ const CompleteForm = () => {
                         <p className="text-gray-700">{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</p>
                       </div>
 
-                      <div className="flex gap-3">
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                         <button
                           onClick={async () => { await handleApprove(selectedSlip.id); setIsModalOpen(false); }}
-                          className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700"
+                          className="btn btn-primary"
                         >
                           Approve Slip
                         </button>
-                        <button onClick={() => setIsModalOpen(false)} className="bg-gray-200 py-2 px-4 rounded">Close</button>
+                        <button onClick={() => setIsModalOpen(false)} className="btn btn-ghost">Close</button>
                       </div>
                     </div>
                   ) : (
-                    <form onSubmit={async (e) => { await handleSubmit(e); setIsModalOpen(false); }} className="space-y-4">
+                    <form onSubmit={async (e) => { await handleSubmit(e); setIsModalOpen(false); }} style={{ display: 'grid', gap: '12px' }}>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Violation Type *</label>
+                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 500 }}>Violation Type *</label>
                         <select
                           value={formData.violationTypeId}
                           onChange={(e) => setFormData({ ...formData, violationTypeId: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          className="form-input"
                           required
                         >
                           <option value="">Select violation type</option>
@@ -436,33 +393,33 @@ const CompleteForm = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Violation Description *</label>
+                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 500 }}>Violation Description *</label>
                         <textarea
                           value={formData.description}
                           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                           rows="3"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          className="form-input"
                           placeholder="Detailed description of the violation..."
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Counselor Remarks</label>
+                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 500 }}>Counselor Remarks</label>
                         <textarea
                           value={formData.remarks}
                           onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                           rows="2"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          className="form-input"
                           placeholder="Additional remarks or recommendations..."
                         />
                       </div>
 
-                      <div className="flex gap-3">
-                        <button type="submit" disabled={loading} className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        <button type="submit" disabled={loading} className="btn btn-primary">
                           {loading ? 'Submitting...' : `Complete Form for ${selectedSlip.student_name}`}
                         </button>
-                        <button type="button" onClick={() => setIsModalOpen(false)} className="bg-gray-200 py-2 px-4 rounded">Cancel</button>
+                        <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-ghost">Cancel</button>
                       </div>
                     </form>
                   )}
