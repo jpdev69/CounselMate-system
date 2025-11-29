@@ -50,6 +50,9 @@ export const changePassword = (data) =>
 export const issueAdmissionSlip = (data) => 
   api.post('/admission-slips/issue', data);
 
+export const verifyStudent = (data) =>
+  api.post('/admission-slips/verify', data);
+
 export const completeForm = (slipId, data) => 
   api.put(`/admission-slips/${slipId}/complete`, data);
 

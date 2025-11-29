@@ -61,6 +61,53 @@ router.post('/issue', async (req, res) => {
   }
 });
 
+// Verify whether a student with the same name, year and section already exists
+router.post('/verify', async (req, res) => {
+  try {
+    const { firstName, middleName, lastName, year, section } = req.body;
+
+    // Basic validation
+    const f = (firstName || '').toString().trim();
+    const m = (middleName || '').toString().trim();
+    const l = (lastName || '').toString().trim();
+    if (!f || !l || !year || !section) {
+      return res.status(400).json({ error: 'firstName, lastName, year and section are required for verification' });
+    }
+
+    // Build tolerant search: require first and last name tokens to appear in full_name (case-insensitive)
+    const firstToken = f;
+    const lastToken = l;
+
+    // Use ILIKE for case-insensitive matching and check both tokens exist in full_name
+    const query = `
+      SELECT id, student_id, full_name, year, section
+      FROM students
+      WHERE full_name ILIKE $1
+        AND full_name ILIKE $2
+        AND year = $3
+        AND section = $4
+      LIMIT 1
+    `;
+    const values = [`%${firstToken}%`, `%${lastToken}%`, year, section];
+    let result;
+    try {
+      result = await db.query(query, values);
+    } catch (sqlErr) {
+      console.error('Verify student SQL error:', sqlErr.message || sqlErr);
+      return res.status(500).json({ error: 'Database query failed during verification' });
+    }
+
+    if (result.rows.length > 0) {
+      return res.json({ exists: true, message: 'There already exists a student with the given year level and section', student: result.rows[0] });
+    }
+
+    res.json({ exists: false });
+  } catch (error) {
+    console.error('Verify student error:', error);
+    res.status(500).json({ error: 'Failed to verify student' });
+  }
+});
+
 // Render a printable admission slip in a new tab/window
 router.get('/print-slip', async (req, res) => {
   const slipId = req.query.slip_id;

@@ -1,6 +1,6 @@
 // src/components/PrintAdmissionSlip.jsx
-import React, { useState } from 'react';
-import { issueAdmissionSlip } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { issueAdmissionSlip, verifyStudent } from '../services/api';
 import api from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
 import { Printer, User, Book, Users } from 'lucide-react';
@@ -17,13 +17,73 @@ const PrintAdmissionSlip = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [printedSlipId, setPrintedSlipId] = useState(null);
+  const [verified, setVerified] = useState(null); // null = not checked, true = ok, false = duplicate
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState('');
+  const verifyTimer = useRef(null);
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
+    // Reset verification state when user edits the name/year/section
+    if (['firstName', 'middleName', 'lastName', 'year', 'section'].includes(e.target.name)) {
+      setVerified(null);
+      setVerificationMessage('');
+      setError('');
+    }
   };
+
+  // Real-time (debounced) verification when name/year/section change
+  useEffect(() => {
+    // Only attempt verification when required fields are filled
+    const firstName = (formData.firstName || '').toString().trim();
+    const middleName = (formData.middleName || '').toString().trim();
+    const lastName = (formData.lastName || '').toString().trim();
+    const year = (formData.year || '').toString().trim();
+    const section = (formData.section || '').toString().trim();
+
+    if (!firstName || !lastName || !year || !section) {
+      // incomplete — clear verification state
+      setVerified(null);
+      setVerificationMessage('Fill first/last name, year and section to verify');
+      setVerificationLoading(false);
+      return;
+    }
+
+    // debounce to avoid calling API on every keystroke
+    setVerificationLoading(true);
+    if (verifyTimer.current) clearTimeout(verifyTimer.current);
+    verifyTimer.current = setTimeout(async () => {
+      try {
+        const resp = await verifyStudent({ firstName, middleName, lastName, year, section });
+        if (resp.data?.exists) {
+          setVerified(false);
+          setVerificationMessage(resp.data.message || 'A matching student was found');
+          setError(resp.data.message || 'There already exists a student with the given year level and section');
+        } else {
+          setVerified(true);
+          setVerificationMessage('No matching student found. You may issue the slip.');
+          setError('');
+        }
+      } catch (vErr) {
+        console.error('Verification error:', vErr);
+        setVerified(false);
+        setVerificationMessage(vErr.response?.data?.error || 'Verification failed');
+        setError(vErr.response?.data?.error || 'Verification failed');
+      } finally {
+        setVerificationLoading(false);
+      }
+    }, 600);
+
+    return () => {
+      if (verifyTimer.current) {
+        clearTimeout(verifyTimer.current);
+        verifyTimer.current = null;
+      }
+    };
+  }, [formData.firstName, formData.middleName, formData.lastName, formData.year, formData.section]);
 
   const { issueSlip } = useSlips();
 
@@ -32,6 +92,13 @@ const PrintAdmissionSlip = () => {
     setLoading(true);
     setError('');
     setResult(null);
+
+    // Ensure verification passed before issuing
+    if (verified !== true) {
+      setError('Please verify the student first before issuing an admission slip.');
+      setLoading(false);
+      return;
+    }
 
     try {
       // Basic client-side validation to avoid blank users
@@ -71,12 +138,16 @@ const PrintAdmissionSlip = () => {
 
       // Reset form
       setFormData({ firstName: '', middleName: '', lastName: '', year: '', section: '' });
+      setVerified(null);
+      setVerificationMessage('');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to issue admission slip');
     } finally {
       setLoading(false);
     }
   };
+
+  // Manual verify removed — verification runs automatically via the debounced effect above.
 
   const handlePrint = () => {
     // Prefer opening the backend print endpoint if available
@@ -194,6 +265,13 @@ const PrintAdmissionSlip = () => {
             </div>
           )}
 
+          {/* Verification status (automatic) */}
+          <div style={{ marginTop: 6 }}>
+            <div style={{ fontSize: 13, color: verified === true ? 'green' : verified === false ? '#b91c1c' : '#6b7280' }}>
+              {verificationLoading ? 'Verifying...' : verificationMessage}
+            </div>
+          </div>
+
           {result && (
             <div style={{ padding: 12, borderRadius: 8, background: 'rgba(16,185,129,0.08)', color: 'var(--success)' }}>
               <p style={{ fontWeight: 600 }}>Admission slip issued successfully!</p>
@@ -218,11 +296,11 @@ const PrintAdmissionSlip = () => {
           {!(printedSlipId && result && printedSlipId === result.slip.id) && (
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || verificationLoading || verified !== true}
               className="btn btn-primary"
-              style={{ width: '100%', padding: '12px', fontWeight: 600 }}
+              style={{ width: '100%', padding: '12px', fontWeight: 600, opacity: verified === true ? 1 : 0.6 }}
             >
-              {loading ? 'Issuing Slip...' : 'Issue Admission Slip'}
+              {loading ? 'Issuing Slip...' : verified === true ? 'Issue Admission Slip' : 'Issue Admission Slip (verify first)'}
             </button>
           )}
         </form>

@@ -173,6 +173,32 @@ app.get('/api/violation-types', async (req, res) => {
 const admissionSlipsRouter = require('./routes/admissionSlips');
 app.use('/api/admission-slips', admissionSlipsRouter);
 
+// Debug endpoint: check database connectivity and simple students count
+app.get('/api/debug/db', async (req, res) => {
+  try {
+    // Simple ping
+    const ping = await pool.query('SELECT 1 as ok');
+    // Try to get students count if table exists
+    let studentsCount = null;
+    try {
+      const c = await pool.query('SELECT count(*) as cnt FROM students');
+      studentsCount = parseInt(c.rows[0].cnt, 10);
+    } catch (innerErr) {
+      // table might not exist; include message but don't fail the ping
+      console.warn('Debug students count error:', innerErr.message || innerErr);
+      studentsCount = null;
+    }
+
+    return res.json({
+      db_connected: !!ping.rows,
+      students_count: studentsCount
+    });
+  } catch (err) {
+    console.error('DB debug endpoint error:', err.message || err);
+    return res.status(500).json({ error: 'Database connection failed', details: err.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
