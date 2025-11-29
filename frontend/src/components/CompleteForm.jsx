@@ -231,20 +231,18 @@ const CompleteForm = () => {
                   <table className="records-table">
                   <thead>
                     <tr>
-                      <th>Student</th>
+                      <th>Student & Slip Info</th>
                       <th>Status</th>
                       <th>Violation</th>
-                      <th>Violation Description</th>
                       <th>Year & Section</th>
                       <th>Date &amp; Time</th>
-                      <th>Counselor Remarks</th>
                       <th></th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredSlips.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="text-center py-8 text-gray-500">
+                        <td colSpan={6} className="text-center py-8 text-gray-500">
                           <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                           <p>No admission slips found</p>
                         </td>
@@ -258,7 +256,7 @@ const CompleteForm = () => {
                         >
                           <td>
                             <h3 className="font-medium text-gray-900">{slip.student_name}</h3>
-                            <p className="text-xs text-gray-500">Slip: {slip.slip_number}</p>
+                            <p className="text-xs text-gray-500">{slip.slip_number}</p>
                           </td>
 
                           <td className="text-right">
@@ -270,14 +268,6 @@ const CompleteForm = () => {
                           <td className="text-xs text-gray-600">{slip.violation_description || 'No violation specified'}</td>
 
                           <td className="text-xs text-gray-600">
-                            {slip.description ? (
-                              <div className="text-gray-600 text-xs truncate">{slip.description}</div>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-
-                          <td className="text-xs text-gray-600">
                             <div className="text-sm text-gray-700">{slip.year} - {slip.section}</div>
                           </td>
 
@@ -285,14 +275,6 @@ const CompleteForm = () => {
                             <div className="text-gray-700">Issued: {slip.created_at ? new Date(slip.created_at).toLocaleString() : '-'}</div>
                             {slip.updated_at && slip.status !== 'issued' && slip.updated_at !== slip.created_at && (
                               <div className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleString()}</div>
-                            )}
-                          </td>
-
-                          <td className="text-xs text-gray-600">
-                            {slip.teacher_comments || slip.remarks ? (
-                              <div className="text-gray-600 text-xs truncate">{slip.teacher_comments || slip.remarks}</div>
-                            ) : (
-                              <span className="text-gray-400">-</span>
                             )}
                           </td>
 
@@ -325,8 +307,8 @@ const CompleteForm = () => {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedSlip.student_name}</h3>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
-                      <span className="text-xs text-gray-500">Slip: {selectedSlip.slip_number}</span>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                      <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
                       <span className="text-xs text-gray-500">•</span>
                       <span className="text-xs text-gray-500">{selectedSlip.year} - {selectedSlip.section}</span>
                     </div>

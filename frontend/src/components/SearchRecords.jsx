@@ -10,6 +10,8 @@ const SearchRecords = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
   const [sortOrder, setSortOrder] = useState('newest');
+  const [selectedSlip, setSelectedSlip] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     // initial load is done by SlipsProvider; ensure we have data
@@ -86,6 +88,11 @@ const SearchRecords = () => {
         {config.label}
       </span>
     );
+  };
+
+  const handleSelectSlip = (slip) => {
+    setSelectedSlip(slip);
+    setIsModalOpen(true);
   };
 
   return (
@@ -182,18 +189,20 @@ const SearchRecords = () => {
               <thead>
                 <tr>
                   <th>Student & Slip Info</th>
+                  <th>Status</th>
                   <th>Violation</th>
-                  <th>Violation Description</th>
                   <th>Year &amp; Section</th>
                   <th>Date &amp; Time</th>
-                  <th>Status</th>
-                  <th>Counselor Remarks</th>
                 </tr>
               </thead>
 
               <tbody>
                 {filteredSlips.map((slip) => (
-                  <tr key={slip.id}>
+                  <tr
+                    key={slip.id}
+                    onClick={() => handleSelectSlip(slip)}
+                    className={selectedSlip?.id === slip.id ? 'bg-blue-50 cursor-pointer' : 'hover:bg-gray-50 cursor-pointer'}
+                  >
                     <td>
                       <div className="flex items-center">
                         <User className="w-4 h-4 text-gray-400 mr-2" />
@@ -205,20 +214,16 @@ const SearchRecords = () => {
                     </td>
 
                     <td>
+                      {getStatusBadge(slip.status)}
+                    </td>
+
+                    <td>
                       {slip.violation_description ? (
                         <div>
                           <p className="font-medium">{slip.violation_description}</p>
                         </div>
                       ) : (
                         <span className="text-gray-400">Not specified</span>
-                      )}
-                    </td>
-
-                    <td className="text-xs text-gray-600">
-                      {slip.description ? (
-                        <p className="text-gray-600 text-xs truncate">{slip.description}</p>
-                      ) : (
-                        <span className="text-gray-400">-</span>
                       )}
                     </td>
 
@@ -232,24 +237,49 @@ const SearchRecords = () => {
                         <p className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleString()}</p>
                       )}
                     </td>
-
-                    <td>
-                      {getStatusBadge(slip.status)}
-                    </td>
-
-                    <td className="text-xs text-gray-600">
-                      {slip.teacher_comments || slip.remarks ? (
-                        <p className="text-gray-600 text-xs truncate">{slip.teacher_comments || slip.remarks}</p>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
               </table>
             </div>
           </div>
+
+          {isModalOpen && selectedSlip && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
+              <div className="card" style={{ width: '100%', maxWidth: '760px', maxHeight: '90vh', overflowY: 'auto', padding: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedSlip.student_name}</h3>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                      <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
+                      <span className="text-xs text-gray-500">•</span>
+                      <span className="text-xs text-gray-500">{selectedSlip.year} - {selectedSlip.section}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <button onClick={() => { setIsModalOpen(false); setSelectedSlip(null); }} className="btn btn-ghost" style={{ padding: '6px 12px' }}>Close</button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Violation</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.violation_description || 'No violation specified'}</div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Description</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.description || '-'}</div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Counselor Remarks</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {filteredSlips.length === 0 && (
             <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
