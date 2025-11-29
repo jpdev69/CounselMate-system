@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getViolationTypes } from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
-import { FileText, CheckCircle, Search } from 'lucide-react';
+import { FileText, CheckCircle, Search, Filter } from 'lucide-react';
 
 const CompleteForm = () => {
   const { slips, loadSlips, completeSlip, approveSlip: approveSlipApi, updateSlipInState } = useSlips();
@@ -10,6 +10,7 @@ const CompleteForm = () => {
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState('newest');
   const [formData, setFormData] = useState({
     violationTypeId: '',
     description: '',
@@ -37,7 +38,12 @@ const CompleteForm = () => {
     .filter(slip =>
       slip.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       slip.slip_number?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    )
+    .sort((a, b) => {
+      const dateA = new Date(a.created_at);
+      const dateB = new Date(b.created_at);
+      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
 
   const handleSelectSlip = (slip) => {
     console.log('📝 Selected slip:', slip);
@@ -191,8 +197,8 @@ const CompleteForm = () => {
           Search for issued admission slips and complete the violation details after the student returns the filled form.
         </p>
 
-        {/* Search */}
-        <div style={{ marginBottom: '16px' }}>
+        {/* Search and Sort */}
+        <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
           <div className="input-with-icon">
             <Search className="icon" />
             <input
@@ -202,6 +208,17 @@ const CompleteForm = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="form-input"
             />
+          </div>
+          <div className="input-with-icon">
+            <Filter className="icon" />
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="form-input"
+            >
+              <option value="newest">Most Recent First</option>
+              <option value="oldest">Oldest First</option>
+            </select>
           </div>
         </div>
 
@@ -301,132 +318,121 @@ const CompleteForm = () => {
               </div>
           </div>
 
-          {/* Form (opens in modal) */}
-          <div>
-            <h2 className="text-lg font-semibold mb-4">Select a Slip</h2>
-
-            {selectedSlip ? (
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <h3 className="font-medium text-gray-900">{selectedSlip.student_name}</h3>
-                <p className="text-sm text-gray-600">{selectedSlip.year} - {selectedSlip.section}</p>
-                <p className="text-xs text-gray-500">Slip: {selectedSlip.slip_number}</p>
-                <p className="text-xs text-gray-400">Status: {getStatusDisplay(selectedSlip.status)}</p>
-
-                <div className="mt-3">
-                  <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Open Details
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center text-gray-500 py-8">
-                <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                <p>Select an admission slip from the list to complete the form</p>
-              </div>
-            )}
-
-            {/* Modal popup for complete/view details */}
-            {isModalOpen && selectedSlip && (
-              <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
-                <div className="card" style={{ width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', padding: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <div>
-                      <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>Student &amp; Slip Info</h3>
-                      <p style={{ fontSize: '0.9rem', marginBottom: '4px' }} className="text-muted"><strong>Name:</strong> {selectedSlip.student_name}</p>
-                      <p style={{ fontSize: '0.9rem' }} className="text-muted"><strong>Slip:</strong> {selectedSlip.slip_number}</p>
-                    </div>
-                    <div>
-                      <button onClick={() => setIsModalOpen(false)} className="btn btn-ghost" style={{ padding: '6px 12px' }}>Close</button>
+          {isModalOpen && selectedSlip && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
+              <div className="card" style={{ width: '100%', maxWidth: '760px', maxHeight: '90vh', overflowY: 'auto', padding: '18px' }}>
+                {/* Header: compact title + actions */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedSlip.student_name}</h3>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                      <span className="text-xs text-gray-500">Slip: {selectedSlip.slip_number}</span>
+                      <span className="text-xs text-gray-500">•</span>
+                      <span className="text-xs text-gray-500">{selectedSlip.year} - {selectedSlip.section}</span>
                     </div>
                   </div>
-
-                  <div className="mb-4">
-                    <p className="text-sm font-medium">Year &amp; Section</p>
-                    <p className="text-gray-700">{selectedSlip.year} - {selectedSlip.section}</p>
-                    <p className="text-sm font-medium mt-2">Date &amp; Time</p>
-                    <p className="text-gray-700">{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</p>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(selectedSlip.status)}`}>
+                      {getStatusDisplay(selectedSlip.status)}
+                    </span>
+                    <button onClick={() => setIsModalOpen(false)} className="btn btn-ghost" style={{ padding: '6px 12px' }}>Close</button>
                   </div>
-
-                  {selectedSlip.status === 'form_completed' ? (
-                    <div>
-                      <div className="mb-4">
-                        <p className="text-sm font-medium">Violation</p>
-                        <p className="text-gray-700">{selectedSlip.violation_description || 'No violation specified'}</p>
-                      </div>
-                      <div className="mb-4">
-                        <p className="text-sm font-medium">Description</p>
-                        <p className="text-gray-700">{selectedSlip.description || '-'}</p>
-                      </div>
-                      <div className="mb-4">
-                        <p className="text-sm font-medium">Counselor Remarks</p>
-                        <p className="text-gray-700">{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</p>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                        <button
-                          onClick={async () => { await handleApprove(selectedSlip.id); setIsModalOpen(false); }}
-                          className="btn btn-primary"
-                        >
-                          Approve Slip
-                        </button>
-                        <button onClick={() => setIsModalOpen(false)} className="btn btn-ghost">Close</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <form onSubmit={async (e) => { await handleSubmit(e); setIsModalOpen(false); }} style={{ display: 'grid', gap: '12px' }}>
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 500 }}>Violation Type *</label>
-                        <select
-                          value={formData.violationTypeId}
-                          onChange={(e) => setFormData({ ...formData, violationTypeId: e.target.value })}
-                          className="form-input"
-                          required
-                        >
-                          <option value="">Select violation type</option>
-                          {violationTypes.map((type) => (
-                            <option key={type.id} value={type.id}>{type.description}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 500 }}>Violation Description *</label>
-                        <textarea
-                          value={formData.description}
-                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                          rows="3"
-                          className="form-input"
-                          placeholder="Detailed description of the violation..."
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 500 }}>Counselor Remarks</label>
-                        <textarea
-                          value={formData.remarks}
-                          onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                          rows="2"
-                          className="form-input"
-                          placeholder="Additional remarks or recommendations..."
-                        />
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                        <button type="submit" disabled={loading} className="btn btn-primary">
-                          {loading ? 'Submitting...' : `Complete Form for ${selectedSlip.student_name}`}
-                        </button>
-                        <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-ghost">Cancel</button>
-                      </div>
-                    </form>
-                  )}
                 </div>
+
+                {/* Meta rows */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date &amp; Time</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Last Updated</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{(selectedSlip.updated_at && selectedSlip.updated_at !== selectedSlip.created_at) ? new Date(selectedSlip.updated_at).toLocaleString() : '-'}</div>
+                  </div>
+                </div>
+
+                {/* Content */}
+                {selectedSlip.status === 'form_completed' ? (
+                  <div style={{ display: 'grid', gap: '12px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Violation</div>
+                      <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.violation_description || 'No violation specified'}</div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Description</div>
+                      <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.description || '-'}</div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Counselor Remarks</div>
+                      <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                      <button
+                        onClick={async () => { await handleApprove(selectedSlip.id); setIsModalOpen(false); }}
+                        className="btn btn-primary"
+                      >
+                        Approve Slip
+                      </button>
+                      <button onClick={() => setIsModalOpen(false)} className="btn btn-ghost">Close</button>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={async (e) => { await handleSubmit(e); setIsModalOpen(false); }} style={{ display: 'grid', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type *</label>
+                      <select
+                        value={formData.violationTypeId}
+                        onChange={(e) => setFormData({ ...formData, violationTypeId: e.target.value })}
+                        className="form-input"
+                        required
+                        style={{ width: '100%' }}
+                      >
+                        <option value="">Select violation type</option>
+                        {violationTypes.map((type) => (
+                          <option key={type.id} value={type.id}>{type.description}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Description *</label>
+                      <textarea
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        rows="4"
+                        className="form-input"
+                        placeholder="Detailed description of the violation..."
+                        required
+                        style={{ width: '100%', resize: 'vertical' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Counselor Remarks</label>
+                      <textarea
+                        value={formData.remarks}
+                        onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                        rows="3"
+                        className="form-input"
+                        placeholder="Additional remarks or recommendations..."
+                        style={{ width: '100%', resize: 'vertical' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button type="submit" disabled={loading} className="btn btn-primary">
+                        {loading ? 'Submitting...' : `Complete Form for ${selectedSlip.student_name}`}
+                      </button>
+                      <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-ghost">Cancel</button>
+                    </div>
+                  </form>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

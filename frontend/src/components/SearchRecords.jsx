@@ -9,6 +9,7 @@ const SearchRecords = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
+  const [sortOrder, setSortOrder] = useState('newest');
 
   useEffect(() => {
     // initial load is done by SlipsProvider; ensure we have data
@@ -17,7 +18,7 @@ const SearchRecords = () => {
 
   useEffect(() => {
     filterSlips();
-  }, [slips, searchTerm, statusFilter, dateFilter]);
+  }, [slips, searchTerm, statusFilter, dateFilter, sortOrder]);
 
   // loadSlips provided by context
 
@@ -46,6 +47,27 @@ const SearchRecords = () => {
         return slipDate === dateFilter;
       });
     }
+
+    // Sort by date (operate on a shallow copy to avoid mutating context state):
+    // - 'newest' should reflect recent updates (use `updated_at` when present, fallback to `created_at`)
+    // - 'oldest' should be based on Issued date (`created_at`) only
+    filtered = [...filtered].sort((a, b) => {
+      const parseTime = (slip, mode) => {
+        const dateStr = mode === 'newest' ? (slip.updated_at || slip.created_at) : slip.created_at;
+        const t = new Date(dateStr).getTime();
+        return Number.isFinite(t) ? t : 0;
+      };
+
+      if (sortOrder === 'newest') {
+        const tA = parseTime(a, 'newest');
+        const tB = parseTime(b, 'newest');
+        return tB - tA; // descending (most recent first)
+      }
+
+      const tA = parseTime(a, 'oldest');
+      const tB = parseTime(b, 'oldest');
+      return tA - tB; // ascending (oldest first)
+    });
 
     setFilteredSlips(filtered);
   };
@@ -79,7 +101,7 @@ const SearchRecords = () => {
         </p>
 
         {/* Filters */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 12, padding: 12, background: 'rgba(15,23,42,0.02)', borderRadius: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '12px', marginBottom: 12, padding: 12, background: 'rgba(15,23,42,0.02)', borderRadius: 8 }}>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Search className="w-4 h-4 inline mr-1" />
@@ -130,6 +152,24 @@ const SearchRecords = () => {
                   onChange={(e) => setDateFilter(e.target.value)}
                   className="form-input"
                 />
+              </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Filter className="w-4 h-4 inline mr-1" />
+              Sort By
+            </label>
+              <div className="input-with-icon">
+                <Filter className="icon" />
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  className="form-input"
+                >
+                  <option value="newest">Most Recently Updated</option>
+                  <option value="oldest">Oldest Issued</option>
+                </select>
               </div>
           </div>
         </div>
