@@ -53,6 +53,14 @@ const ChangePassword = () => {
       return;
     }
 
+    // Client-side validation: new password must be alphanumeric and include at least one letter and one number
+    const requireLetterAndDigit = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$/;
+    if (!requireLetterAndDigit.test(formData.newPassword)) {
+      setError('New password must be alphanumeric and include at least one letter and one number');
+      setLoading(false);
+      return;
+    }
+
     try {
       const result = await changePassword(formData.currentPassword, formData.newPassword);
       
@@ -272,32 +280,11 @@ const ChangePassword = () => {
             padding: 0, 
             margin: 0 
           }}>
-            <li style={{ 
-              fontSize: '13px', 
-              color: '#6b7280', 
-              padding: '4px 0', 
-              position: 'relative', 
-              paddingLeft: '16px' 
-            }}>
+            <li style={{ fontSize: '13px', color: '#6b7280', padding: '4px 0', position: 'relative', paddingLeft: '16px' }}>
               • At least 6 characters long
             </li>
-            <li style={{ 
-              fontSize: '13px', 
-              color: '#6b7280', 
-              padding: '4px 0', 
-              position: 'relative', 
-              paddingLeft: '16px' 
-            }}>
-              • Include uppercase and lowercase letters
-            </li>
-            <li style={{ 
-              fontSize: '13px', 
-              color: '#6b7280', 
-              padding: '4px 0', 
-              position: 'relative', 
-              paddingLeft: '16px' 
-            }}>
-              • Include numbers and special characters
+            <li style={{ fontSize: '13px', color: '#6b7280', padding: '4px 0', position: 'relative', paddingLeft: '16px' }}>
+              • Must contain at least one letter and one number
             </li>
             
           </ul>

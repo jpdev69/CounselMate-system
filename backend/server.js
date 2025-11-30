@@ -129,11 +129,28 @@ app.put('/api/auth/change-password', async (req, res) => {
 
     const user = userResult.rows[0];
 
+    // Ensure both passwords are provided
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Both current and new passwords are required'
+      });
+    }
+
     // Verify current password
     if (currentPassword !== user.password_hash) {
       return res.status(400).json({ 
         success: false,
         error: 'Current password is incorrect' 
+      });
+    }
+
+    // Validate new password: must be alphanumeric and include at least one letter and one number
+    const requireLetterAndDigit = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$/;
+    if (!requireLetterAndDigit.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        error: 'New password must be alphanumeric and include at least one letter and one number'
       });
     }
 
