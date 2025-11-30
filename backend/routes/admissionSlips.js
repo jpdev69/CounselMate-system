@@ -4,7 +4,7 @@ const db = require('../config/database'); // Your database connection
 
 // Issue admission slip
 router.post('/issue', async (req, res) => {
-  const { studentName, year, section } = req.body;
+  const { studentName, year, section, course } = req.body;
   // Validate required student fields to avoid creating blank users
   if (!studentName || !studentName.toString().trim() || !section || !section.toString().trim()) {
     return res.status(400).json({ error: 'Student name and section are required to issue an admission slip' });
@@ -22,10 +22,10 @@ router.post('/issue', async (req, res) => {
     const studentId = studentResult.rows[0].id;
 
     const slipResult = await db.query(
-      `INSERT INTO admission_slips (slip_number, student_id, issued_by, status) 
-       VALUES ($1, $2, $3, 'issued') 
+      `INSERT INTO admission_slips (slip_number, student_id, issued_by, status, course) 
+       VALUES ($1, $2, $3, 'issued', $4) 
        RETURNING *`,
-      [slipNumber, studentId, 'system']
+      [slipNumber, studentId, 'system', course || null]
     );
 
     try {
@@ -221,21 +221,22 @@ router.get('/', async (req, res) => {
 router.put('/:id/complete', async (req, res) => {
   try {
     const { id } = req.params;
-    const { violation_type_id, description, teacher_comments } = req.body;
+    const { violation_type_id, description, teacher_comments, course } = req.body;
 
     const query = `
       UPDATE admission_slips 
       SET violation_type_id = $1, 
           description = $2, 
           teacher_comments = $3, 
+          course = $4,
           status = 'form_completed',
           form_completed_at = NOW(),
           updated_at = NOW()
-      WHERE id = $4
+      WHERE id = $5
       RETURNING *
     `;
-
-    const values = [violation_type_id, description, teacher_comments, id];
+    // Note: adjust parameter indexes to match the query above
+    const values = [violation_type_id, description, teacher_comments, course, id];
     const result = await db.query(query, values);
 
     if (result.rows.length === 0) {

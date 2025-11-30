@@ -1,10 +1,10 @@
 // src/components/SearchRecords.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useSlips } from '../contexts/SlipsContext';
-import { Search, Filter, FileText, User, Calendar } from 'lucide-react';
+import { Search, Filter, FileText, User, Calendar, CheckCircle } from 'lucide-react';
 
 const SearchRecords = () => {
-  const { slips, loadSlips } = useSlips();
+  const { slips, loadSlips, approveSlip: approveSlipApi, updateSlipInState } = useSlips();
   const [filteredSlips, setFilteredSlips] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -88,6 +88,45 @@ const SearchRecords = () => {
         {config.label}
       </span>
     );
+  };
+
+  const getStatusDisplay = (status) => {
+    const statusMap = {
+      issued: 'ISSUED',
+      form_completed: 'FORM COMPLETED',
+      approved: 'APPROVED'
+    };
+    return statusMap[status] || (status || '').toString().toUpperCase();
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'issued': return 'bg-yellow-100 text-yellow-800';
+      case 'form_completed': return 'bg-blue-100 text-blue-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleApprove = async (slipId) => {
+    if (!confirm('Are you sure you want to approve this slip?')) return;
+    try {
+      const resp = await approveSlipApi(slipId);
+      setIsModalOpen(false);
+      setSelectedSlip(null);
+      alert('Slip approved successfully!');
+    } catch (err) {
+      console.error('Approve error:', err);
+      if (err.response?.status === 404) {
+        const updatedSlip = { ...(slips.find(s => s.id === slipId) || {}), status: 'approved' };
+        if (updateSlipInState) updateSlipInState(updatedSlip);
+        setIsModalOpen(false);
+        setSelectedSlip(null);
+        alert('Slip approved (local update)');
+      } else {
+        alert(err.response?.data?.error || 'Failed to approve slip');
+      }
+    }
   };
 
   const handleSelectSlip = (slip) => {
@@ -254,10 +293,31 @@ const SearchRecords = () => {
                       <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
                       <span className="text-xs text-gray-500">•</span>
                       <span className="text-xs text-gray-500">{selectedSlip.year} - {selectedSlip.section}</span>
+                      {selectedSlip.course && (
+                        <>
+                          <span className="text-xs text-gray-500">•</span>
+                          <span className="text-xs text-gray-500">{selectedSlip.course}</span>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(selectedSlip.status)}`}>
+                      {getStatusDisplay(selectedSlip.status)}
+                    </span>
                     <button onClick={() => { setIsModalOpen(false); setSelectedSlip(null); }} className="btn btn-ghost" style={{ padding: '6px 12px' }}>Close</button>
+                  </div>
+                </div>
+
+                {/* Meta rows */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date &amp; Time</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Last Updated</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{(selectedSlip.updated_at && selectedSlip.updated_at !== selectedSlip.created_at) ? new Date(selectedSlip.updated_at).toLocaleString() : '-'}</div>
                   </div>
                 </div>
 
@@ -276,6 +336,12 @@ const SearchRecords = () => {
                     <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Counselor Remarks</div>
                     <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</div>
                   </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Course</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.course || '-'}</div>
+                  </div>
+                  {/* Buttons removed per design: modal is read-only text-only */}
                 </div>
               </div>
             </div>

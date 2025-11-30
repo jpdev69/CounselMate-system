@@ -14,7 +14,8 @@ const CompleteForm = () => {
   const [formData, setFormData] = useState({
     violationTypeId: '',
     description: '',
-    remarks: ''
+    remarks: '',
+    course: ''
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -51,7 +52,8 @@ const CompleteForm = () => {
     setFormData({
       violationTypeId: slip.violation_type_id || '',
       description: slip.description || '',
-      remarks: slip.remarks || ''
+      remarks: slip.remarks || '',
+      course: slip.course || ''
     });
     // open modal immediately to avoid scrolling
     setIsModalOpen(true);
@@ -72,6 +74,16 @@ const CompleteForm = () => {
       alert('Please provide a violation description.');
       return;
     }
+    // Require course when completing an ISSUED slip
+    if ((selectedSlip.status === 'issued' || !selectedSlip.status) && !formData.course?.toString().trim()) {
+      alert('Please enter the student\'s Course before completing the form.');
+      return;
+    }
+
+    // Confirm with a simple message
+    if (!window.confirm('Proceed to complete this form?')) {
+      return; // user cancelled
+    }
 
     setLoading(true);
     try {
@@ -82,6 +94,7 @@ const CompleteForm = () => {
         violation_type_id: parseInt(formData.violationTypeId),
         description: formData.description,
         teacher_comments: formData.remarks, // Match your API field name
+        course: formData.course,
         status: 'form_completed'
       };
 
@@ -90,8 +103,9 @@ const CompleteForm = () => {
       const response = await completeSlip(selectedSlip.id, submitData);
       console.log('✅ SUCCESS - Form completed:', response.data);
       setSelectedSlip(null);
-      setFormData({ violationTypeId: '', description: '', remarks: '' });
+      setFormData({ violationTypeId: '', description: '', remarks: '', course: '' });
       alert('Form completed successfully! Status updated to "Form Completed".');
+      setIsModalOpen(false);
     } catch (error) {
       console.error('❌ COMPLETE FORM ERROR:', error);
       
@@ -99,6 +113,7 @@ const CompleteForm = () => {
       if (error.response?.status === 404) {
         console.log('🔧 Endpoint not found, using fallback...');
         await handleSubmitFallback();
+        setIsModalOpen(false);
       } else {
         const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to complete form';
         alert(`Error: ${errorMessage}`);
@@ -120,6 +135,7 @@ const CompleteForm = () => {
         violation_type_id: parseInt(formData.violationTypeId),
         description: formData.description,
         teacher_comments: formData.remarks,
+        course: formData.course,
         violation_code: violationTypes.find(vt => vt.id == formData.violationTypeId)?.code,
         violation_description: violationTypes.find(vt => vt.id == formData.violationTypeId)?.description
       };
@@ -127,7 +143,7 @@ const CompleteForm = () => {
       // update shared state
       if (updateSlipInState) updateSlipInState(updatedSlip);
       setSelectedSlip(null);
-      setFormData({ violationTypeId: '', description: '', remarks: '' });
+      setFormData({ violationTypeId: '', description: '', remarks: '', course: '' });
       
       alert('Form completed successfully! (Local update - backend endpoint not available)');
     } catch (fallbackError) {
@@ -311,6 +327,12 @@ const CompleteForm = () => {
                       <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
                       <span className="text-xs text-gray-500">•</span>
                       <span className="text-xs text-gray-500">{selectedSlip.year} - {selectedSlip.section}</span>
+                      {selectedSlip.course && (
+                        <>
+                          <span className="text-xs text-gray-500">•</span>
+                          <span className="text-xs text-gray-500">{selectedSlip.course}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -351,6 +373,11 @@ const CompleteForm = () => {
                       <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</div>
                     </div>
 
+                    <div>
+                      <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Course</div>
+                      <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.course || '-'}</div>
+                    </div>
+
                     <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                       <button
                         onClick={async () => { await handleApprove(selectedSlip.id); setIsModalOpen(false); }}
@@ -362,7 +389,17 @@ const CompleteForm = () => {
                     </div>
                   </div>
                 ) : (
-                  <form onSubmit={async (e) => { await handleSubmit(e); setIsModalOpen(false); }} style={{ display: 'grid', gap: '12px' }}>
+                  <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Course</label>
+                      <input
+                        value={formData.course}
+                        onChange={(e) => setFormData({ ...formData, course: e.target.value })}
+                        className="form-input"
+                        placeholder="Student's course (e.g., BS Computer Science)"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type *</label>
                       <select
@@ -405,7 +442,11 @@ const CompleteForm = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                      <button type="submit" disabled={loading} className="btn btn-primary">
+                      <button
+                        type="submit"
+                        disabled={loading || ((selectedSlip.status === 'issued' || !selectedSlip.status) && !formData.course?.toString().trim())}
+                        className="btn btn-primary"
+                      >
                         {loading ? 'Submitting...' : `Complete Form for ${selectedSlip.student_name}`}
                       </button>
                       <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-ghost">Cancel</button>
