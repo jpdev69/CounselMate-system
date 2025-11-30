@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useSlips } from '../contexts/SlipsContext';
 import { getStudentAdmissionSlips } from '../services/api';
 import api from '../services/api';
+import * as XLSX from 'xlsx';
 import { Search, FileText, User, Calendar, CheckCircle } from 'lucide-react';
 
 const SearchRecords = () => {
@@ -179,6 +180,37 @@ const SearchRecords = () => {
     setIsModalOpen(true);
   };
 
+  // Count of approved slips in current filtered results
+  const approvedCount = filteredSlips.filter(s => s.status === 'approved').length;
+
+  const exportApprovedToXLSX = () => {
+    const approved = filteredSlips.filter(s => s.status === 'approved');
+    if (!approved || approved.length === 0) {
+      alert('No APPROVED records to export');
+      return;
+    }
+
+    // Map slips to a flat JSON structure suitable for XLSX
+    const rows = approved.map(s => ({
+      SlipNumber: s.slip_number || '',
+      StudentName: s.student_name || '',
+      StudentId: s.student_id || '',
+      Year: s.year || '',
+      Section: s.section || '',
+      Status: (s.status || '').toString().toUpperCase(),
+      DateIssued: s.created_at || '',
+      LastUpdated: s.updated_at || '',
+      Violation: s.violation_description || '',
+      Description: s.description || '',
+      CounselorRemarks: s.teacher_comments || s.remarks || ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Approved Slips');
+    XLSX.writeFile(wb, `approved_slips_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
   const location = useLocation();
 
   // If a slipId is provided in the URL, open that slip's details/modal
@@ -199,15 +231,12 @@ const SearchRecords = () => {
       <div className="card" style={{ padding: 20 }}>
         
 
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, justifyContent: 'flex-start' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <Search style={{ width: 26, height: 26, color: 'var(--primary)', marginRight: 10 }} />
             <h1 style={{ fontSize: 20, fontWeight: 700 }}>Search Records</h1>
           </div>
-        </div>
 
-        {/* Controls: number-of-records sort only */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, justifyContent: 'flex-end' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ fontSize: 13, color: '#374151' }}>Sort by Records:</label>
             <select value={numberSort} onChange={(e) => setNumberSort(e.target.value)} className="form-input">
@@ -216,6 +245,8 @@ const SearchRecords = () => {
             </select>
           </div>
         </div>
+
+        
 
         {/* Results - semantic table with auto-sizing, edge-to-edge inside card */}
         <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
@@ -523,8 +554,23 @@ const SearchRecords = () => {
 
         <div className="mt-4 text-sm text-gray-600">
           <p>
-            Showing {groupedList.length} existing student{groupedList.length !== 1 ? 's' : ''} ({filteredSlips.length} records) of {slips.length} total records
+            Showing {groupedList.length} existing student{groupedList.length !== 1 ? 's' : ''} of {slips.length} total records
           </p>
+        </div>
+        {/* Floating Export button (bottom-right) */}
+        <div style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 1000 }}>
+          <button
+            onClick={exportApprovedToXLSX}
+            className="btn btn-primary"
+            disabled={approvedCount === 0}
+            title={approvedCount === 0 ? 'No approved records to export' : `Export ${approvedCount} approved record${approvedCount!==1?'s':''} to XLSX`}
+            style={{ padding: '10px 14px', borderRadius: 8, boxShadow: '0 6px 18px rgba(15,23,42,0.12)', display: 'flex', alignItems: 'center', gap: 8 }}
+          >
+            Export to XLSX
+            {approvedCount > 0 && (
+              <span style={{ background: 'rgba(255,255,255,0.12)', padding: '2px 8px', borderRadius: 9999, fontSize: 12 }}>{approvedCount}</span>
+            )}
+          </button>
         </div>
       </div>
     </div>

@@ -181,6 +181,8 @@ const CompleteForm = () => {
     }
   };
 
+  
+
   const handleApprove = async (slipId) => {
     if (!confirm('Are you sure you want to approve this slip?')) return;
 
@@ -356,14 +358,8 @@ const CompleteForm = () => {
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedSlip.student_name}</h3>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
-                      <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
-                      {selectedSlip.course && (
-                        <>
-                          <span className="text-xs text-gray-500">•</span>
-                          <span className="text-xs text-gray-500">{selectedSlip.course}</span>
-                        </>
-                      )}
-                    </div>
+                        <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
+                      </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(selectedSlip.status)}`}>
@@ -408,9 +404,17 @@ const CompleteForm = () => {
                       <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.description || '-'}</div>
                     </div>
 
+
                     <div>
                       <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Counselor Remarks</div>
-                      <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</div>
+                      <textarea
+                        value={formData.remarks}
+                        onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                        rows="4"
+                        className="form-input"
+                        placeholder="Add counselor remarks or recommendations..."
+                        style={{ width: '100%', resize: 'vertical' }}
+                      />
                     </div>
 
                     <div>
@@ -425,6 +429,7 @@ const CompleteForm = () => {
                       >
                         Approve Slip
                       </button>
+
                       <button
                         onClick={() => setIsModalOpen(false)}
                         className="btn"

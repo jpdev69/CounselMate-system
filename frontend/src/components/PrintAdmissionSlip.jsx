@@ -242,9 +242,8 @@ const PrintAdmissionSlip = () => {
           <h1 style={{ marginLeft: 12, fontSize: 20, fontWeight: 700 }}>Print Admission Slip</h1>
         </div>
 
-        <p className="text-gray-600 mb-6">
-          Issue an admission slip for a student who has violated university policy.
-          The system will log the issuance and generate a printable slip.
+        <p className="text-muted" style={{ marginBottom: '16px', lineHeight: '1.5', fontSize: '0.95rem' }}>
+          Issue an admission slip for a student who has violated university policy. The system will log the issuance and generate a printable slip.
         </p>
 
         <form onSubmit={handleSubmit} className="" style={{ display: 'grid', gap: 12 }}>
