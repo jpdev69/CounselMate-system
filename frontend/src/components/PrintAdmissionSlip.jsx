@@ -1,6 +1,6 @@
 // src/components/PrintAdmissionSlip.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { issueAdmissionSlip, verifyStudent } from '../services/api';
+import { issueAdmissionSlip, verifyStudent, getStudentAdmissionSlips } from '../services/api';
 import api from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
 import { Printer, User, Book, Users } from 'lucide-react';
@@ -18,6 +18,12 @@ const PrintAdmissionSlip = () => {
   const [error, setError] = useState('');
   const [printedSlipId, setPrintedSlipId] = useState(null);
   const [verified, setVerified] = useState(null); // null = not checked, true = ok, false = duplicate
+  const [matchedStudent, setMatchedStudent] = useState(null);
+  const [studentSlips, setStudentSlips] = useState([]);
+  const [slipsPage, setSlipsPage] = useState(1);
+  const [slipsPageSize] = useState(5);
+  const [slipsTotal, setSlipsTotal] = useState(0);
+  const [slipsLoading, setSlipsLoading] = useState(false);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
   const verifyTimer = useRef(null);
@@ -32,6 +38,7 @@ const PrintAdmissionSlip = () => {
       setVerified(null);
       setVerificationMessage('');
       setError('');
+      setMatchedStudent(null);
     }
   };
 
@@ -60,6 +67,27 @@ const PrintAdmissionSlip = () => {
         const resp = await verifyStudent({ firstName, middleName, lastName, year, section });
         if (resp.data?.exists) {
           setVerified(false);
+          // store matched student info so we can attach slips to the existing record
+          setMatchedStudent(resp.data.student || null);
+          // autofill form with existing student details (retain previous data)
+          try {
+            const s = resp.data.student || {};
+            const full = (s.full_name || '').toString().trim();
+            const parts = full.split(/\s+/).filter(Boolean);
+            const first = parts[0] || '';
+            const last = parts.length > 1 ? parts[parts.length - 1] : '';
+            const middle = parts.length > 2 ? parts.slice(1, -1).join(' ') : '';
+            setFormData(fd => ({
+              ...fd,
+              firstName: first,
+              middleName: middle,
+              lastName: last,
+              year: s.year || fd.year,
+              section: s.section || fd.section
+            }));
+          } catch (e) {
+            // ignore autofill errors
+          }
           // show the duplicate message in the verification status only (avoid duplicating it in the error box)
           setVerificationMessage(resp.data.message || 'A matching student was found');
         } else {
@@ -85,6 +113,38 @@ const PrintAdmissionSlip = () => {
     };
   }, [formData.firstName, formData.middleName, formData.lastName, formData.year, formData.section]);
 
+  // Fetch matched student's slips with pagination when a student is matched
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSlips = async () => {
+      if (!matchedStudent || !matchedStudent.id) {
+        setStudentSlips([]);
+        setSlipsTotal(0);
+        return;
+      }
+      setSlipsLoading(true);
+      try {
+        const resp = await getStudentAdmissionSlips(matchedStudent.id, slipsPage, slipsPageSize);
+        if (cancelled) return;
+        if (resp.data?.success) {
+          setStudentSlips(resp.data.slips || []);
+          setSlipsTotal(resp.data.total || 0);
+        } else {
+          setStudentSlips([]);
+          setSlipsTotal(0);
+        }
+      } catch (e) {
+        console.error('Failed to load student slips:', e);
+        setStudentSlips([]);
+        setSlipsTotal(0);
+      } finally {
+        if (!cancelled) setSlipsLoading(false);
+      }
+    };
+    fetchSlips();
+    return () => { cancelled = true; };
+  }, [matchedStudent, slipsPage, slipsPageSize]);
+
   const { issueSlip } = useSlips();
 
   const handleSubmit = async (e) => {
@@ -93,8 +153,8 @@ const PrintAdmissionSlip = () => {
     setError('');
     setResult(null);
 
-    // Ensure verification passed before issuing
-    if (verified !== true) {
+    // Ensure verification ran before issuing (either new or existing student)
+    if (verified === null) {
       setError('Please verify the student first before issuing an admission slip.');
       setLoading(false);
       return;
@@ -113,11 +173,14 @@ const PrintAdmissionSlip = () => {
       }
 
       // Prefer to use context helper so state is updated centrally
+      // If we matched an existing student, include its DB id so backend will attach the slip
+      const payload = { ...formData, studentName };
+      if (matchedStudent && matchedStudent.id) payload.student_id = matchedStudent.id;
       let response;
       if (issueSlip) {
-        response = await issueSlip({ ...formData, studentName });
+        response = await issueSlip(payload);
       } else {
-        response = await issueAdmissionSlip({ ...formData, studentName });
+        response = await issueAdmissionSlip(payload);
       }
       setResult(response.data);
 
@@ -140,6 +203,7 @@ const PrintAdmissionSlip = () => {
       setFormData({ firstName: '', middleName: '', lastName: '', year: '', section: '' });
       setVerified(null);
       setVerificationMessage('');
+      setMatchedStudent(null);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to issue admission slip');
     } finally {
@@ -159,6 +223,16 @@ const PrintAdmissionSlip = () => {
       setPrintedSlipId(slipId);
     }
   };
+
+  // Determine submit button state and label based on verification
+  const submitDisabled = loading || verificationLoading || verified === null;
+  const submitLabel = loading
+    ? 'Issuing Slip...'
+    : verified === true
+      ? 'New Student'
+      : verified === false
+        ? 'Add to Existing Student'
+        : 'Issue Admission Slip';
 
   return (
     <div className="container">
@@ -272,6 +346,60 @@ const PrintAdmissionSlip = () => {
             </div>
           </div>
 
+          {/* Matched student's previous slips */}
+          {matchedStudent && (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 8, background: '#f8fafc' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ fontWeight: 600 }}>Previous slips for: {matchedStudent.full_name || matchedStudent.student_id || '—'}</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>{slipsTotal} total</div>
+              </div>
+
+              {slipsLoading ? (
+                <div style={{ fontSize: 13, color: '#6b7280' }}>Loading slips…</div>
+              ) : studentSlips.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#6b7280' }}>No previously issued slips for this student.</div>
+              ) : (
+                <div>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {studentSlips.map(s => (
+                      <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e6edf3' }}>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{s.slip_number}</div>
+                          <div style={{ fontSize: 13, color: '#6b7280' }}>{new Date(s.created_at || Date.now()).toLocaleString()}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <div style={{ fontSize: 13, color: '#374151' }}>{s.status || ''}</div>
+                          <button type="button" className="btn btn-secondary" onClick={() => {
+                            const base = api.defaults?.baseURL || 'http://localhost:5000/api';
+                            const url = `${base.replace(/\/$/, '')}/admission-slips/print-slip?slip_id=${encodeURIComponent(s.id)}`;
+                            window.open(url, '_blank');
+                          }}>Print</button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* Pagination buttons */}
+                  <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {(() => {
+                      const totalPages = Math.max(1, Math.ceil((slipsTotal || 0) / slipsPageSize));
+                      const pages = [];
+                      for (let i = 1; i <= totalPages; i++) pages.push(i);
+                      return pages.map(p => (
+                        <button
+                          key={p}
+                          onClick={() => setSlipsPage(p)}
+                          className={`btn ${p === slipsPage ? 'btn-primary' : 'btn-outline'}`}
+                          style={{ padding: '6px 10px' }}
+                        >{p}</button>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {result && (
             <div style={{ padding: 12, borderRadius: 8, background: 'rgba(16,185,129,0.08)', color: 'var(--success)' }}>
               <p style={{ fontWeight: 600 }}>Admission slip issued successfully!</p>
@@ -296,11 +424,11 @@ const PrintAdmissionSlip = () => {
           {!(printedSlipId && result && printedSlipId === result.slip.id) && (
             <button
               type="submit"
-              disabled={loading || verificationLoading || verified !== true}
+              disabled={submitDisabled}
               className="btn btn-primary"
-              style={{ width: '100%', padding: '12px', fontWeight: 600, opacity: verified === true ? 1 : 0.6 }}
+              style={{ width: '100%', padding: '12px', fontWeight: 600, opacity: submitDisabled ? 0.6 : 1 }}
             >
-              {loading ? 'Issuing Slip...' : 'Issue Admission Slip'}
+              {submitLabel}
             </button>
           )}
         </form>

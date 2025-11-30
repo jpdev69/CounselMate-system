@@ -73,6 +73,8 @@ const CompleteForm = () => {
       return tA - tB; // oldest issued first
     });
 
+    
+
   const handleSelectSlip = (slip) => {
     console.log('📝 Selected slip:', slip);
     setSelectedSlip(slip);
@@ -486,6 +488,7 @@ const CompleteForm = () => {
               </div>
             </div>
           )}
+          
         </div>
       </div>
     </div>

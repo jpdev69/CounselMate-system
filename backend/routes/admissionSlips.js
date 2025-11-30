@@ -4,22 +4,34 @@ const db = require('../config/database'); // Your database connection
 
 // Issue admission slip
 router.post('/issue', async (req, res) => {
-  const { studentName, year, section, course } = req.body;
-  // Validate required student fields to avoid creating blank users
-  if (!studentName || !studentName.toString().trim() || !section || !section.toString().trim()) {
-    return res.status(400).json({ error: 'Student name and section are required to issue an admission slip' });
+  const { studentName, year, section, course, student_id } = req.body;
+
+  // If no existing student id is provided, validate required student fields to avoid creating blank users
+  if (!student_id) {
+    if (!studentName || !studentName.toString().trim() || !section || !section.toString().trim()) {
+      return res.status(400).json({ error: 'Student name and section are required to issue an admission slip' });
+    }
   }
   try {
     const slipNumber = `SLIP-${Date.now()}`;
-
-    const studentResult = await db.query(
-      `INSERT INTO students (student_id, full_name, year, section) 
-       VALUES ($1, $2, $3, $4) 
-       RETURNING id`,
-      [`STU-${Date.now()}`, studentName, year, section]
-    );
-
-    const studentId = studentResult.rows[0].id;
+    // Determine student id: use provided student_id when present, otherwise insert a new student
+    let studentId;
+    if (student_id) {
+      // Verify that the provided student exists
+      const existing = await db.query(`SELECT id FROM students WHERE id = $1 LIMIT 1`, [student_id]);
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ error: 'Provided student_id not found' });
+      }
+      studentId = existing.rows[0].id;
+    } else {
+      const studentResult = await db.query(
+        `INSERT INTO students (student_id, full_name, year, section) 
+         VALUES ($1, $2, $3, $4) 
+         RETURNING id`,
+        [`STU-${Date.now()}`, studentName, year, section]
+      );
+      studentId = studentResult.rows[0].id;
+    }
 
     const slipResult = await db.query(
       `INSERT INTO admission_slips (slip_number, student_id, issued_by, status, course) 
@@ -213,6 +225,34 @@ router.get('/', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Get slips error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get admission slips for a specific student (paginated)
+router.get('/student/:studentId/slips', async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const page = parseInt(req.query.page, 10) || 1;
+    const pageSize = parseInt(req.query.pageSize, 10) || 5;
+    const offset = (page - 1) * pageSize;
+
+    // total count
+    const countRes = await db.query(`SELECT COUNT(*) FROM admission_slips WHERE student_id = $1`, [studentId]);
+    const total = parseInt(countRes.rows[0].count, 10) || 0;
+
+    const slipsRes = await db.query(`
+      SELECT asl.*, vt.code as violation_code, vt.description as violation_description
+      FROM admission_slips asl
+      LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
+      WHERE asl.student_id = $1
+      ORDER BY asl.created_at DESC
+      LIMIT $2 OFFSET $3
+    `, [studentId, pageSize, offset]);
+
+    res.json({ success: true, total, page, pageSize, slips: slipsRes.rows });
+  } catch (error) {
+    console.error('Get student slips error:', error);
     res.status(500).json({ error: error.message });
   }
 });
