@@ -300,7 +300,7 @@ const PrintAdmissionSlip = () => {
               className="btn btn-primary"
               style={{ width: '100%', padding: '12px', fontWeight: 600, opacity: verified === true ? 1 : 0.6 }}
             >
-              {loading ? 'Issuing Slip...' : verified === true ? 'Issue Admission Slip' : 'Issue Admission Slip (verify first)'}
+              {loading ? 'Issuing Slip...' : 'Issue Admission Slip'}
             </button>
           )}
         </form>

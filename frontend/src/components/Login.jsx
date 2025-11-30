@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { School, User, Lock } from 'lucide-react';
+import { School, User, Lock, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -81,15 +82,25 @@ const Login = () => {
 
           <div>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.95rem' }}>Password</label>
-            <div className="input-with-icon">
+            <div className="input-with-icon" style={{ position: 'relative' }}>
               <Lock className="icon" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="form-input"
                 placeholder="Enter your password"
+                aria-label="Password"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="password-toggle"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
