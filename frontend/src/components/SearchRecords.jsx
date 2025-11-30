@@ -1,5 +1,6 @@
 // src/components/SearchRecords.jsx
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useSlips } from '../contexts/SlipsContext';
 import { Search, Filter, FileText, User, Calendar, CheckCircle } from 'lucide-react';
 
@@ -134,6 +135,21 @@ const SearchRecords = () => {
     setIsModalOpen(true);
   };
 
+  const location = useLocation();
+
+  // If a slipId is provided in the URL, open that slip's details/modal
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const slipId = params.get('slipId');
+    if (slipId && slips && slips.length) {
+      const found = slips.find(s => String(s.id) === String(slipId));
+      if (found && (!selectedSlip || selectedSlip.id !== found.id)) {
+        setSelectedSlip(found);
+        setIsModalOpen(true);
+      }
+    }
+  }, [location.search, slips]);
+
   return (
     <div className="container">
       <div className="card" style={{ padding: 20 }}>
@@ -149,12 +165,7 @@ const SearchRecords = () => {
         {/* Filters */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '12px', marginBottom: 12, padding: 12, background: 'rgba(15,23,42,0.02)', borderRadius: 8 }}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Search className="w-4 h-4 inline mr-1" />
-              Search
-            </label>
-              <div className="input-with-icon">
-                <Search className="icon" />
+              <div>
                 <input
                   type="text"
                   placeholder="Search by name, slip number, year, section..."
@@ -166,12 +177,7 @@ const SearchRecords = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Filter className="w-4 h-4 inline mr-1" />
-              Status
-            </label>
-              <div className="input-with-icon">
-                <Filter className="icon" />
+              <div>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -186,12 +192,7 @@ const SearchRecords = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Calendar className="w-4 h-4 inline mr-1" />
-              Date
-            </label>
-              <div className="input-with-icon">
-                <Calendar className="icon" />
+              <div>
                 <input
                   type="date"
                   value={dateFilter}
@@ -202,12 +203,7 @@ const SearchRecords = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Filter className="w-4 h-4 inline mr-1" />
-              Sort By
-            </label>
-              <div className="input-with-icon">
-                <Filter className="icon" />
+              <div>
                 <select
                   value={sortOrder}
                   onChange={(e) => setSortOrder(e.target.value)}
@@ -246,8 +242,8 @@ const SearchRecords = () => {
                       <div className="flex items-center">
                         <User className="w-4 h-4 text-gray-400 mr-2" />
                         <div>
-                          <p className="font-medium text-gray-900">{slip.student_name}</p>
-                          <p className="text-gray-600 text-xs">{slip.slip_number}</p>
+                          <h3 className="font-medium text-gray-900">{slip.student_name}</h3>
+                          <p className="text-xs text-gray-500">{slip.slip_number}</p>
                         </div>
                       </div>
                     </td>

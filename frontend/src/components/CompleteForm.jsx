@@ -1,5 +1,6 @@
 // src/components/CompleteForm.jsx
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getViolationTypes } from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
 import { FileText, CheckCircle, Search, Filter } from 'lucide-react';
@@ -23,6 +24,20 @@ const CompleteForm = () => {
     loadData();
   }, []);
 
+  const location = useLocation();
+
+  // If a slipId is provided in the URL, open that slip's details/modal
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const slipId = params.get('slipId');
+    if (slipId && slips && slips.length) {
+      const found = slips.find(s => String(s.id) === String(slipId));
+      if (found && (!selectedSlip || selectedSlip.id !== found.id)) {
+        handleSelectSlip(found);
+      }
+    }
+  }, [location.search, slips]);
+
   const loadData = async () => {
     try {
       console.log('🔄 Loading violations from backend...');
@@ -41,9 +56,21 @@ const CompleteForm = () => {
       slip.slip_number?.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
-      const dateA = new Date(a.created_at);
-      const dateB = new Date(b.created_at);
-      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+      const parseTime = (slip, mode) => {
+        const dateStr = mode === 'newest' ? (slip.updated_at || slip.created_at) : slip.created_at;
+        const t = new Date(dateStr).getTime();
+        return Number.isFinite(t) ? t : 0;
+      };
+
+      if (sortOrder === 'newest') {
+        const tA = parseTime(a, 'newest');
+        const tB = parseTime(b, 'newest');
+        return tB - tA; // most recently updated first
+      }
+
+      const tA = parseTime(a, 'oldest');
+      const tB = parseTime(b, 'oldest');
+      return tA - tB; // oldest issued first
     });
 
   const handleSelectSlip = (slip) => {
@@ -232,8 +259,8 @@ const CompleteForm = () => {
               onChange={(e) => setSortOrder(e.target.value)}
               className="form-input"
             >
-              <option value="newest">Most Recent First</option>
-              <option value="oldest">Oldest First</option>
+              <option value="newest">Most Recently Updated</option>
+              <option value="oldest">Oldest Issued</option>
             </select>
           </div>
         </div>
@@ -313,6 +340,9 @@ const CompleteForm = () => {
                   </tbody>
                   </table>
                 </div>
+              </div>
+              <div className="mt-4 text-sm text-gray-600" style={{ paddingLeft: '4px' }}>
+                <p>Showing {filteredSlips.length} of {slips.length} total records</p>
               </div>
           </div>
 

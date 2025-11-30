@@ -299,15 +299,7 @@ const ChangePassword = () => {
             }}>
               • Include numbers and special characters
             </li>
-            <li style={{ 
-              fontSize: '13px', 
-              color: '#6b7280', 
-              padding: '4px 0', 
-              position: 'relative', 
-              paddingLeft: '16px' 
-            }}>
-              • Different from your previous passwords
-            </li>
+            
           </ul>
         </div>
       </div>
