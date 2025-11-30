@@ -10,7 +10,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   console.log(`Making ${config.method?.toUpperCase()} request to: ${config.url}`);
-  const token = localStorage.getItem('authToken');
+  const token = sessionStorage.getItem('authToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -34,9 +34,9 @@ api.interceptors.response.use(
       const requestUrl = error.config?.url || '';
       const isLoginRequest = requestUrl.includes('/auth/login');
 
-      // Clear local session data for any 401
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
+      // Clear session data for any 401
+      sessionStorage.removeItem('authToken');
+      sessionStorage.removeItem('userData');
 
       // If it's NOT a login request, perform the existing redirect to the login page.
       // For the login request itself we avoid forcing a full-page navigation so the
