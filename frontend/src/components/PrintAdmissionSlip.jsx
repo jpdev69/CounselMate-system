@@ -21,7 +21,7 @@ const PrintAdmissionSlip = () => {
   const [matchedStudent, setMatchedStudent] = useState(null);
   const [studentSlips, setStudentSlips] = useState([]);
   const [slipsPage, setSlipsPage] = useState(1);
-  const [slipsPageSize] = useState(5);
+  const [slipsPageSize] = useState(3);
   const [slipsTotal, setSlipsTotal] = useState(0);
   const [slipsLoading, setSlipsLoading] = useState(false);
   const [verificationLoading, setVerificationLoading] = useState(false);
@@ -368,33 +368,32 @@ const PrintAdmissionSlip = () => {
                           <div style={{ fontSize: 13, color: '#6b7280' }}>{new Date(s.created_at || Date.now()).toLocaleString()}</div>
                         </div>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <div style={{ fontSize: 13, color: '#374151' }}>{s.status || ''}</div>
-                          <button type="button" className="btn btn-secondary" onClick={() => {
-                            const base = api.defaults?.baseURL || 'http://localhost:5000/api';
-                            const url = `${base.replace(/\/$/, '')}/admission-slips/print-slip?slip_id=${encodeURIComponent(s.id)}`;
-                            window.open(url, '_blank');
-                          }}>Print</button>
+                          <div style={{ fontSize: 13, color: '#374151' }}>{(s.status || '').toString().toUpperCase()}</div>
                         </div>
                       </li>
                     ))}
                   </ul>
 
                   {/* Pagination buttons */}
-                  <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {(() => {
-                      const totalPages = Math.max(1, Math.ceil((slipsTotal || 0) / slipsPageSize));
-                      const pages = [];
-                      for (let i = 1; i <= totalPages; i++) pages.push(i);
-                      return pages.map(p => (
-                        <button
-                          key={p}
-                          onClick={() => setSlipsPage(p)}
-                          className={`btn ${p === slipsPage ? 'btn-primary' : 'btn-outline'}`}
-                          style={{ padding: '6px 10px' }}
-                        >{p}</button>
-                      ));
-                    })()}
-                  </div>
+                  {(() => {
+                    const totalPages = Math.ceil((slipsTotal || 0) / slipsPageSize);
+                    if (totalPages <= 1) return null;
+                    const pages = [];
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    return (
+                      <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {pages.map(p => (
+                          <button
+                            type="button"
+                            key={p}
+                            onClick={() => setSlipsPage(p)}
+                            className={`btn ${p === slipsPage ? 'btn-primary' : 'btn-outline'}`}
+                            style={{ padding: '6px 10px' }}
+                          >{p}</button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

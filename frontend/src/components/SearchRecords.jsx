@@ -13,6 +13,7 @@ const SearchRecords = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
   const [sortOrder, setSortOrder] = useState('newest');
+  const [numberSort, setNumberSort] = useState('highest');
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [groupViewStudent, setGroupViewStudent] = useState(null);
@@ -107,7 +108,16 @@ const SearchRecords = () => {
       latest,
       slips: sorted
     };
-  }).sort((a,b) => b.latest && a.latest ? new Date(b.latest.created_at).getTime() - new Date(a.latest.created_at).getTime() : 0);
+  });
+
+  // Apply optional sorting by number of records (highest/lowest). If not requested, sort by most recent slip.
+  if (numberSort === 'highest') {
+    groupedList.sort((a, b) => b.count - a.count);
+  } else if (numberSort === 'lowest') {
+    groupedList.sort((a, b) => a.count - b.count);
+  } else {
+    groupedList.sort((a,b) => b.latest && a.latest ? new Date(b.latest.created_at).getTime() - new Date(a.latest.created_at).getTime() : 0);
+  }
 
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -196,6 +206,17 @@ const SearchRecords = () => {
           </div>
         </div>
 
+        {/* Controls: number-of-records sort only */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ fontSize: 13, color: '#374151' }}>Sort by Records:</label>
+            <select value={numberSort} onChange={(e) => setNumberSort(e.target.value)} className="form-input">
+              <option value="highest">Highest</option>
+              <option value="lowest">Lowest</option>
+            </select>
+          </div>
+        </div>
+
         {/* Results - semantic table with auto-sizing, edge-to-edge inside card */}
         <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
           <div className="records-table-container" style={{ overflowX: 'auto' }}>
@@ -204,7 +225,7 @@ const SearchRecords = () => {
               <thead>
                 <tr>
                   <th>Student Name</th>
-                  <th style={{ width: 140, textAlign: 'right' }}>Number of Records</th>
+                  <th style={{ width: 140, textAlign: 'center' }}>Number of Records</th>
                 </tr>
               </thead>
 
@@ -245,14 +266,16 @@ const SearchRecords = () => {
                       className={'hover:bg-gray-50 cursor-pointer'}
                     >
                       <td>
-                        <div className="flex items-center">
-                          <User className="w-4 h-4 text-gray-400 mr-2" />
-                          <div>
-                            <h3 className="font-medium text-gray-900">{group.student_name}</h3>
+                          <div className="flex items-center">
+                            <div style={{ width: 36, height: 36, borderRadius: 9999, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                              <User style={{ width: 16, height: 16, color: '#6b7280' }} />
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-gray-900">{group.student_name}</h3>
+                            </div>
                           </div>
-                        </div>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td style={{ textAlign: 'center' }}>
                         <span className="text-gray-700 font-medium">{group.count}</span>
                       </td>
                     </tr>
@@ -266,62 +289,63 @@ const SearchRecords = () => {
           {isModalOpen && selectedSlip && (
             <div style={{ position: 'fixed', inset: 0, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
               <div className="card" style={{ width: '100%', maxWidth: '760px', maxHeight: '90vh', overflowY: 'auto', padding: '18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '14px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedSlip.student_name}</h3>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
-                      <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
-                      <span className="text-xs text-gray-500">•</span>
-                      <span className="text-xs text-gray-500">{selectedSlip.year} - {selectedSlip.section}</span>
-                      {selectedSlip.course && (
-                        <>
-                          <span className="text-xs text-gray-500">•</span>
-                          <span className="text-xs text-gray-500">{selectedSlip.course}</span>
-                        </>
-                      )}
+                    <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>
+                      <span style={{ marginRight: 8 }}>{selectedSlip.slip_number}</span>
+                      <span style={{ marginRight: 8 }}>{[selectedSlip.year, selectedSlip.section].filter(Boolean).join(' ')}</span>
+                      {/* course removed from header as requested */}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(selectedSlip.status)}`}>
-                      {getStatusDisplay(selectedSlip.status)}
-                    </span>
-                    <button onClick={() => { setIsModalOpen(false); setSelectedSlip(null); }} className="btn btn-ghost" style={{ padding: '6px 12px' }}>Close</button>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ marginBottom: 6 }}>
+                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(selectedSlip.status)}`}>
+                          {getStatusDisplay(selectedSlip.status)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => { setIsModalOpen(false); setSelectedSlip(null); }}
+                        className="btn"
+                        style={{
+                          padding: '6px 12px',
+                          background: 'transparent',
+                          border: '1px solid var(--primary)',
+                          color: 'var(--primary)',
+                          borderRadius: 6
+                        }}
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Meta rows */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date &amp; Time</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</div>
-                  </div>
-                  <div>
+                {/* Improved details layout: label / value pairs */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8, alignItems: 'start' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date Issued</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827' }}>{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</div>
+
                     <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Last Updated</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{(selectedSlip.updated_at && selectedSlip.updated_at !== selectedSlip.created_at) ? new Date(selectedSlip.updated_at).toLocaleString() : '-'}</div>
-                  </div>
-                </div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827' }}>{(selectedSlip.updated_at && selectedSlip.updated_at !== selectedSlip.created_at) ? new Date(selectedSlip.updated_at).toLocaleString() : '-'}</div>
 
-                <div style={{ display: 'grid', gap: '12px' }}>
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Violation</div>
+
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Year &amp; Section</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827' }}>{[selectedSlip.year, selectedSlip.section].filter(Boolean).join(' ') || '-'}</div>
+
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Violation</div>
                     <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.violation_description || 'No violation specified'}</div>
-                  </div>
 
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Description</div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Description</div>
                     <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.description || '-'}</div>
-                  </div>
 
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Counselor Remarks</div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Counselor Remarks</div>
                     <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</div>
-                  </div>
 
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Course</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.course || '-'}</div>
+                    {/* course row removed as requested */}
                   </div>
-                  {/* Buttons removed per design: modal is read-only text-only */}
                 </div>
               </div>
             </div>
@@ -498,7 +522,9 @@ const SearchRecords = () => {
         </div>
 
         <div className="mt-4 text-sm text-gray-600">
-          <p>Showing {groupedList.length} grouped students ({filteredSlips.length} slips) of {slips.length} total records</p>
+          <p>
+            Showing {groupedList.length} existing student{groupedList.length !== 1 ? 's' : ''} ({filteredSlips.length} records) of {slips.length} total records
+          </p>
         </div>
       </div>
     </div>

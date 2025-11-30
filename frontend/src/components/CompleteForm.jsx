@@ -357,8 +357,6 @@ const CompleteForm = () => {
                     <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedSlip.student_name}</h3>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
                       <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
-                      <span className="text-xs text-gray-500">•</span>
-                      <span className="text-xs text-gray-500">{selectedSlip.year} - {selectedSlip.section}</span>
                       {selectedSlip.course && (
                         <>
                           <span className="text-xs text-gray-500">•</span>
@@ -371,12 +369,18 @@ const CompleteForm = () => {
                     <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(selectedSlip.status)}`}>
                       {getStatusDisplay(selectedSlip.status)}
                     </span>
-                    <button onClick={() => setIsModalOpen(false)} className="btn btn-ghost" style={{ padding: '6px 12px' }}>Close</button>
+                    <button
+                      onClick={() => setIsModalOpen(false)}
+                      className="btn"
+                      style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}
+                    >
+                      Close
+                    </button>
                   </div>
                 </div>
 
-                {/* Meta rows */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                {/* Meta rows - include Year & Section as its own labeled cell */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
                   <div>
                     <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date &amp; Time</div>
                     <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</div>
@@ -384,6 +388,10 @@ const CompleteForm = () => {
                   <div>
                     <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Last Updated</div>
                     <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{(selectedSlip.updated_at && selectedSlip.updated_at !== selectedSlip.created_at) ? new Date(selectedSlip.updated_at).toLocaleString() : '-'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Year &amp; Section</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{[selectedSlip.year, selectedSlip.section].filter(Boolean).join(' ') || '-'}</div>
                   </div>
                 </div>
 
@@ -417,7 +425,13 @@ const CompleteForm = () => {
                       >
                         Approve Slip
                       </button>
-                      <button onClick={() => setIsModalOpen(false)} className="btn btn-ghost">Close</button>
+                      <button
+                        onClick={() => setIsModalOpen(false)}
+                        className="btn"
+                        style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}
+                      >
+                        Close
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -481,7 +495,14 @@ const CompleteForm = () => {
                       >
                         {loading ? 'Submitting...' : `Complete Form for ${selectedSlip.student_name}`}
                       </button>
-                      <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-ghost">Cancel</button>
+                      <button
+                        type="button"
+                        onClick={() => setIsModalOpen(false)}
+                        className="btn"
+                        style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </form>
                 )}
