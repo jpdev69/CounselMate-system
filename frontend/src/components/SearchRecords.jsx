@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useSlips } from '../contexts/SlipsContext';
 import { getStudentAdmissionSlips } from '../services/api';
 import api from '../services/api';
-import { Search, Filter, FileText, User, Calendar, CheckCircle } from 'lucide-react';
+import { Search, FileText, User, Calendar, CheckCircle } from 'lucide-react';
 
 const SearchRecords = () => {
   const { slips, loadSlips, approveSlip: approveSlipApi, updateSlipInState } = useSlips();
@@ -15,13 +15,13 @@ const SearchRecords = () => {
   const [sortOrder, setSortOrder] = useState('newest');
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showFiltersPopup, setShowFiltersPopup] = useState(false);
   const [groupViewStudent, setGroupViewStudent] = useState(null);
   const [groupSlips, setGroupSlips] = useState([]);
   const [groupPage, setGroupPage] = useState(1);
-  const [groupPageSize] = useState(5);
+  const [groupPageSize] = useState(3);
   const [groupTotal, setGroupTotal] = useState(0);
   const [groupLoading, setGroupLoading] = useState(false);
+  const [groupFetchedAll, setGroupFetchedAll] = useState(false);
   const [groupSearchTerm, setGroupSearchTerm] = useState('');
   const [groupStatusFilter, setGroupStatusFilter] = useState('all');
   const [groupDateFilter, setGroupDateFilter] = useState('');
@@ -187,103 +187,14 @@ const SearchRecords = () => {
   return (
     <div className="container">
       <div className="card" style={{ padding: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-          <Search style={{ width: 26, height: 26, color: 'var(--primary)', marginRight: 10 }} />
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>Search Records</h1>
-        </div>
+        
 
-        <p className="text-gray-600 mb-6">
-          Search and review historical admission slip records. All actions are logged and can be reviewed at any time.
-        </p>
-
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, justifyContent: 'flex-start' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <Search style={{ width: 26, height: 26, color: 'var(--primary)', marginRight: 10 }} />
             <h1 style={{ fontSize: 20, fontWeight: 700 }}>Search Records</h1>
           </div>
-
-          <div>
-            <button onClick={() => setShowFiltersPopup(true)} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Filter style={{ width: 16, height: 16 }} />
-              Filters
-            </button>
-          </div>
         </div>
-
-        {/* Filters Pop-up */}
-        {showFiltersPopup && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', padding: '18px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Filters</h3>
-                  <div style={{ fontSize: 13, color: '#6b7280', marginTop: 6 }}>Refine your search results</div>
-                </div>
-                <div>
-                  <button onClick={() => setShowFiltersPopup(false)} className="btn btn-ghost" style={{ padding: '6px 12px' }}>Close</button>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '12px', marginBottom: 12 }}>
-                <div>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Search by name, slip number, year, section..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="form-input"
-                      />
-                    </div>
-                </div>
-
-                <div>
-                    <div>
-                      <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="form-input"
-                      >
-                        <option value="all">All Status</option>
-                        <option value="issued">Issued</option>
-                        <option value="form_completed">Form Completed</option>
-                        <option value="approved">Approved</option>
-                      </select>
-                    </div>
-                </div>
-
-                <div>
-                    <div>
-                      <input
-                        type="date"
-                        value={dateFilter}
-                        onChange={(e) => setDateFilter(e.target.value)}
-                        className="form-input"
-                      />
-                    </div>
-                </div>
-
-                <div>
-                    <div>
-                      <select
-                        value={sortOrder}
-                        onChange={(e) => setSortOrder(e.target.value)}
-                        className="form-input"
-                      >
-                        <option value="newest">Most Recently Updated</option>
-                        <option value="oldest">Oldest Issued</option>
-                      </select>
-                    </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); setDateFilter(''); setSortOrder('newest'); }} className="btn btn-outline">Reset</button>
-                <button onClick={() => setShowFiltersPopup(false)} className="btn btn-primary">Apply</button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Results - semantic table with auto-sizing, edge-to-edge inside card */}
         <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
@@ -292,58 +203,18 @@ const SearchRecords = () => {
               <table className="records-table">
               <thead>
                 <tr>
-                  <th>Student & Slip Info</th>
-                  <th>Status</th>
-                  <th>Violation</th>
-                  <th>Year &amp; Section</th>
-                  <th>Date &amp; Time</th>
+                  <th>Student Name</th>
+                  <th style={{ width: 140, textAlign: 'right' }}>Number of Records</th>
                 </tr>
               </thead>
 
               <tbody>
                 {groupedList.length === 0 ? (
-                  filteredSlips.map((slip) => (
-                    <tr
-                      key={slip.id}
-                      onClick={() => handleSelectSlip(slip)}
-                      className={selectedSlip?.id === slip.id ? 'bg-blue-50 cursor-pointer' : 'hover:bg-gray-50 cursor-pointer'}
-                    >
-                      <td>
-                        <div className="flex items-center">
-                          <User className="w-4 h-4 text-gray-400 mr-2" />
-                          <div>
-                            <h3 className="font-medium text-gray-900">{slip.student_name}</h3>
-                            <p className="text-xs text-gray-500">{slip.slip_number}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td>
-                        {getStatusBadge(slip.status)}
-                      </td>
-
-                      <td>
-                        {slip.violation_description ? (
-                          <div>
-                            <p className="font-medium">{slip.violation_description}</p>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">Not specified</span>
-                        )}
-                      </td>
-
-                      <td>
-                        <p className="text-gray-900">{slip.year} - {slip.section}</p>
-                      </td>
-
-                      <td className="text-xs">
-                        <p className="text-gray-900">Issued: {slip.created_at ? new Date(slip.created_at).toLocaleString() : '-'}</p>
-                        {slip.updated_at && slip.status !== 'issued' && slip.updated_at !== slip.created_at && (
-                          <p className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleString()}</p>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                  <tr>
+                    <td colSpan={2} style={{ textAlign: 'center', padding: 20 }}>
+                      <span className="text-gray-600">No records found</span>
+                    </td>
+                  </tr>
                 ) : (
                   groupedList.map(group => (
                     <tr
@@ -352,8 +223,9 @@ const SearchRecords = () => {
                         // Open group modal and load first page
                         setGroupViewStudent({ id: group.student_id, name: group.student_name });
                         setGroupPage(1);
+                        setGroupFetchedAll(false);
                         setGroupLoading(true);
-                        getStudentAdmissionSlips(group.student_id, 1, groupPageSize)
+                        getStudentAdmissionSlips(group.student_id, 1, groupPageSize, { sort: groupSortOrder })
                           .then(resp => {
                             if (resp.data?.success) {
                               setGroupSlips(resp.data.slips || []);
@@ -377,36 +249,11 @@ const SearchRecords = () => {
                           <User className="w-4 h-4 text-gray-400 mr-2" />
                           <div>
                             <h3 className="font-medium text-gray-900">{group.student_name}</h3>
-                            <p className="text-xs text-gray-500">{group.latest?.slip_number} • {group.count} record{group.count>1?'s':''}</p>
                           </div>
                         </div>
                       </td>
-
-                      <td>
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(group.latest?.status)}`}>
-                          {getStatusDisplay(group.latest?.status)}
-                        </span>
-                      </td>
-
-                      <td>
-                        {group.latest?.violation_description ? (
-                          <div>
-                            <p className="font-medium">{group.latest.violation_description}</p>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">Not specified</span>
-                        )}
-                      </td>
-
-                      <td>
-                        <p className="text-gray-900">{group.latest?.year} - {group.latest?.section}</p>
-                      </td>
-
-                      <td className="text-xs">
-                        <p className="text-gray-900">Issued: {group.latest?.created_at ? new Date(group.latest.created_at).toLocaleString() : '-'}</p>
-                        {group.latest?.updated_at && group.latest?.status !== 'issued' && group.latest?.updated_at !== group.latest?.created_at && (
-                          <p className="text-gray-600">Updated: {new Date(group.latest.updated_at).toLocaleString()}</p>
-                        )}
+                      <td style={{ textAlign: 'right' }}>
+                        <span className="text-gray-700 font-medium">{group.count}</span>
                       </td>
                     </tr>
                   ))
@@ -417,7 +264,7 @@ const SearchRecords = () => {
           </div>
 
           {isModalOpen && selectedSlip && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
               <div className="card" style={{ width: '100%', maxWidth: '760px', maxHeight: '90vh', overflowY: 'auto', padding: '18px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -538,6 +385,9 @@ const SearchRecords = () => {
                         // Apply client-side filtering and sorting to groupSlips
                         let list = (groupSlips || []).slice();
 
+                        // If we've fetched all slips for this student, apply pagination client-side
+                        const applyClientPagination = groupFetchedAll;
+
                         if (groupSearchTerm) {
                           const q = groupSearchTerm.toLowerCase();
                           list = list.filter(s => (s.slip_number || '').toLowerCase().includes(q) || (s.violation_description || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q));
@@ -552,6 +402,31 @@ const SearchRecords = () => {
                             const slipDate = new Date(s.created_at).toISOString().split('T')[0];
                             return slipDate === groupDateFilter;
                           });
+
+                          // When group filters are used, fetch all slips for the student (if total > pageSize)
+                          useEffect(() => {
+                            const shouldFetchAll = !!groupViewStudent && (groupSearchTerm || groupStatusFilter !== 'all' || groupDateFilter || groupSortOrder !== 'newest') && (groupTotal > groupPageSize) && !groupFetchedAll;
+                            if (!shouldFetchAll) return;
+
+                            let mounted = true;
+                            (async () => {
+                              setGroupLoading(true);
+                              try {
+                                const resp = await getStudentAdmissionSlips(groupViewStudent.id, 1, groupTotal || 1000);
+                                if (!mounted) return;
+                                if (resp.data?.success) {
+                                  setGroupSlips(resp.data.slips || []);
+                                  setGroupFetchedAll(true);
+                                }
+                              } catch (e) {
+                                console.error('Failed to fetch all group slips for filtering:', e);
+                              } finally {
+                                if (mounted) setGroupLoading(false);
+                              }
+                            })();
+
+                            return () => { mounted = false; };
+                          }, [groupSearchTerm, groupStatusFilter, groupDateFilter, groupSortOrder, groupViewStudent, groupTotal, groupFetchedAll, groupPageSize]);
                         }
 
                         list = list.sort((a, b) => {
@@ -559,6 +434,12 @@ const SearchRecords = () => {
                           const tB = new Date(groupSortOrder === 'newest' ? (b.updated_at || b.created_at) : b.created_at).getTime() || 0;
                           return groupSortOrder === 'newest' ? tB - tA : tA - tB;
                         });
+
+                        // If client-side pagination is active, slice the list for the current page
+                        if (applyClientPagination) {
+                          const start = (groupPage - 1) * groupPageSize;
+                          list = list.slice(start, start + groupPageSize);
+                        }
 
                         return list.map(s => (
                           <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e6edf3' }}>
@@ -568,12 +449,7 @@ const SearchRecords = () => {
                               <div style={{ fontSize: 12, color: '#6b7280' }}>{s.created_at ? new Date(s.created_at).toLocaleString() : '-'}</div>
                             </div>
                             <div style={{ display: 'flex', gap: 8 }}>
-                              <button className="btn btn-secondary" onClick={() => {
-                                const base = api.defaults?.baseURL || 'http://localhost:5000/api';
-                                const url = `${base.replace(/\/$/, '')}/admission-slips/print-slip?slip_id=${encodeURIComponent(s.id)}`;
-                                window.open(url, '_blank');
-                              }}>Print</button>
-                              <button className="btn btn-primary" onClick={() => { setGroupViewStudent(null); handleSelectSlip(s); }}>View</button>
+                              <button className="btn btn-primary" onClick={() => { handleSelectSlip(s); }}>View</button>
                             </div>
                           </li>
                         ));
@@ -589,9 +465,11 @@ const SearchRecords = () => {
                           <button key={p} onClick={async () => {
                             if (p === groupPage) return;
                             setGroupPage(p);
+                            // If we've already fetched all slips, perform client-side pagination only
+                            if (groupFetchedAll) return;
                             setGroupLoading(true);
                             try {
-                              const resp = await getStudentAdmissionSlips(groupViewStudent.id, p, groupPageSize);
+                              const resp = await getStudentAdmissionSlips(groupViewStudent.id, p, groupPageSize, { sort: groupSortOrder });
                               if (resp.data?.success) {
                                 setGroupSlips(resp.data.slips || []);
                                 setGroupTotal(resp.data.total || 0);

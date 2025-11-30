@@ -235,20 +235,26 @@ router.get('/student/:studentId/slips', async (req, res) => {
     const { studentId } = req.params;
     const page = parseInt(req.query.page, 10) || 1;
     const pageSize = parseInt(req.query.pageSize, 10) || 5;
+    // Optional sorting: 'newest' (default) or 'oldest'
+    const sort = (req.query.sort || 'newest').toString();
     const offset = (page - 1) * pageSize;
 
     // total count
     const countRes = await db.query(`SELECT COUNT(*) FROM admission_slips WHERE student_id = $1`, [studentId]);
     const total = parseInt(countRes.rows[0].count, 10) || 0;
 
-    const slipsRes = await db.query(`
-      SELECT asl.*, vt.code as violation_code, vt.description as violation_description
-      FROM admission_slips asl
-      LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
-      WHERE asl.student_id = $1
-      ORDER BY asl.created_at DESC
-      LIMIT $2 OFFSET $3
-    `, [studentId, pageSize, offset]);
+    // Build ORDER BY dynamically based on requested sort
+    const orderBy = sort === 'oldest' ? 'asl.created_at ASC' : 'asl.created_at DESC';
+
+    const slipsRes = await db.query(
+      `SELECT asl.*, vt.code as violation_code, vt.description as violation_description
+       FROM admission_slips asl
+       LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
+       WHERE asl.student_id = $1
+       ORDER BY ${orderBy}
+       LIMIT $2 OFFSET $3`,
+      [studentId, pageSize, offset]
+    );
 
     res.json({ success: true, total, page, pageSize, slips: slipsRes.rows });
   } catch (error) {

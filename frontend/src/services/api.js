@@ -78,7 +78,9 @@ export const getAdmissionSlip = (slipId) =>
 export const getViolationTypes = () => 
   api.get('/violation-types');
 
-export const getStudentAdmissionSlips = (studentId, page = 1, pageSize = 5) =>
-  api.get(`/admission-slips/student/${encodeURIComponent(studentId)}/slips?page=${page}&pageSize=${pageSize}`);
+export const getStudentAdmissionSlips = (studentId, page = 1, pageSize = 5, params = {}) => {
+  const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize), ...params }).toString();
+  return api.get(`/admission-slips/student/${encodeURIComponent(studentId)}/slips?${qs}`);
+};
 
 export default api;
