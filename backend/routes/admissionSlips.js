@@ -78,29 +78,34 @@ router.post('/verify', async (req, res) => {
     const firstToken = f;
     const lastToken = l;
 
-    // Use ILIKE for case-insensitive matching and check both tokens exist in full_name
-    const query = `
+    // First, check whether the full name (first + last tokens) already exists anywhere in the
+    // `students` table regardless of year or section. If it does, treat it as a duplicate.
+    // Use regex whole-word matching to avoid substring collisions (e.g., Romualdo vs Romualdez).
+    // PostgreSQL supports \m and \M for start/end of word in its regex flavor. Use case-insensitive match (~*).
+    const queryNameOnly = `
       SELECT id, student_id, full_name, year, section
       FROM students
-      WHERE full_name ILIKE $1
-        AND full_name ILIKE $2
-        AND year = $3
-        AND section = $4
+      WHERE full_name ~* $1
+        AND full_name ~* $2
       LIMIT 1
     `;
-    const values = [`%${firstToken}%`, `%${lastToken}%`, year, section];
+    // Build regex patterns that match whole words: \mWORD\M
+    const valuesNameOnly = [`\\m${firstToken}\\M`, `\\m${lastToken}\\M`];
+
     let result;
     try {
-      result = await db.query(query, values);
+      result = await db.query(queryNameOnly, valuesNameOnly);
     } catch (sqlErr) {
-      console.error('Verify student SQL error:', sqlErr.message || sqlErr);
+      console.error('Verify student SQL error (name-only regex):', sqlErr.message || sqlErr);
       return res.status(500).json({ error: 'Database query failed during verification' });
     }
 
     if (result.rows.length > 0) {
-      return res.json({ exists: true, message: 'There already exists a student with the given year level and section', student: result.rows[0] });
+      // Name exists somewhere in the system — consider it a duplicate regardless of year/section
+      return res.json({ exists: true, message: 'Student name already exists within the system', student: result.rows[0] });
     }
 
+    // No matching name found anywhere
     res.json({ exists: false });
   } catch (error) {
     console.error('Verify student error:', error);

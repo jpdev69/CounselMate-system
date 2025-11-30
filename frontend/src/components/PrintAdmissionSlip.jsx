@@ -47,7 +47,7 @@ const PrintAdmissionSlip = () => {
     if (!firstName || !lastName || !year || !section) {
       // incomplete — clear verification state
       setVerified(null);
-      setVerificationMessage('Fill first/last name, year and section to verify');
+      setVerificationMessage('Fill each form to verify');
       setVerificationLoading(false);
       return;
     }
@@ -60,8 +60,8 @@ const PrintAdmissionSlip = () => {
         const resp = await verifyStudent({ firstName, middleName, lastName, year, section });
         if (resp.data?.exists) {
           setVerified(false);
+          // show the duplicate message in the verification status only (avoid duplicating it in the error box)
           setVerificationMessage(resp.data.message || 'A matching student was found');
-          setError(resp.data.message || 'There already exists a student with the given year level and section');
         } else {
           setVerified(true);
           setVerificationMessage('No matching student found. You may issue the slip.');
