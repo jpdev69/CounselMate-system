@@ -32,9 +32,9 @@ export const AuthProvider = ({ children }) => {
       
       // Only allow counselor@university.edu
       if (email !== 'counselor@university.edu') {
-        return { 
-          success: false, 
-          error: 'Login Failed. You must be a guidance counselor.' 
+        return {
+          success: false,
+          error: 'Invalid email or password. Please check your credentials and try again.'
         };
       }
       

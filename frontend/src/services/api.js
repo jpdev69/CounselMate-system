@@ -31,9 +31,19 @@ api.interceptors.response.use(
     });
     
     if (error.response?.status === 401) {
+      const requestUrl = error.config?.url || '';
+      const isLoginRequest = requestUrl.includes('/auth/login');
+
+      // Clear local session data for any 401
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
-      window.location.href = '/login';
+
+      // If it's NOT a login request, perform the existing redirect to the login page.
+      // For the login request itself we avoid forcing a full-page navigation so the
+      // Login component can show the error and keep input values intact.
+      if (!isLoginRequest) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

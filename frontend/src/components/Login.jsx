@@ -15,17 +15,34 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Client-side validation (disable native browser validation via form noValidate)
+    if (!email || !password) {
+      // Keep message generic to avoid revealing which field is missing
+      setError('Invalid email or password. Please check your credentials and try again.');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      setError("Please include an '@' in the email address.");
+      return;
+    }
+
     setLoading(true);
 
-    const result = await login(email, password);
-    
-    if (result.success) {
-      navigate('/');
-    } else {
-      setError(result.error);
+    try {
+      const result = await login(email, password);
+
+      if (result.success) {
+        navigate('/');
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (
@@ -41,7 +58,7 @@ const Login = () => {
           <p className="text-muted">Guidance Counselor Portal</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="" style={{ display: 'grid', gap: '0.75rem' }}>
+        <form onSubmit={handleSubmit} noValidate className="" style={{ display: 'grid', gap: '0.75rem' }}>
           {error && (
             <div className="alert alert-error">
               {error}
@@ -58,7 +75,6 @@ const Login = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 className="form-input"
                 placeholder="Enter your email"
-                required
               />
             </div>
           </div>
@@ -73,7 +89,6 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="form-input"
                 placeholder="Enter your password"
-                required
               />
             </div>
           </div>
