@@ -242,6 +242,7 @@ const SearchRecords = () => {
             <select value={numberSort} onChange={(e) => setNumberSort(e.target.value)} className="form-input">
               <option value="highest">Highest</option>
               <option value="lowest">Lowest</option>
+              <option value="most_recent">Most recent</option>
             </select>
           </div>
         </div>

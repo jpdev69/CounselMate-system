@@ -3,6 +3,16 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Lock, Key, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
+// Small badge used by password intellisense to show pass/fail for rules
+const Badge = ({ ok, text }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: ok ? '#064e3b' : '#6b7280', background: ok ? 'rgba(16,185,129,0.06)' : 'transparent', padding: '4px 8px', borderRadius: 8, border: ok ? '1px solid rgba(16,185,129,0.10)' : '1px solid transparent' }}>
+    <div style={{ width: 12, height: 12, borderRadius: 12, background: ok ? '#10b981' : '#9ca3af', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 10, lineHeight: 1 }}>
+      {ok ? '✓' : '•'}
+    </div>
+    <div style={{ fontSize: 12 }}>{text}</div>
+  </div>
+);
+
 const ChangePassword = () => {
   const [formData, setFormData] = useState({
     currentPassword: '',
@@ -15,6 +25,15 @@ const ChangePassword = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [passwordFeedback, setPasswordFeedback] = useState({
+    length: false,
+    letter: false,
+    number: false,
+    upper: false,
+    special: false,
+    strength: 'Weak',
+    score: 0
+  });
   const { changePassword, user } = useAuth();
 
   const handleChange = (e) => {
@@ -27,6 +46,33 @@ const ChangePassword = () => {
       setMessage('');
       setError('');
     }
+    // live password intellisense for new password
+    if (e.target.name === 'newPassword') {
+      const fb = evaluatePassword(val);
+      setPasswordFeedback(fb);
+    }
+  };
+
+  const evaluatePassword = (pwd) => {
+    const length = pwd.length >= 6;
+    const letter = /[A-Za-z]/.test(pwd);
+    const number = /\d/.test(pwd);
+    const upper = /[A-Z]/.test(pwd);
+    const special = /[^A-Za-z0-9]/.test(pwd);
+
+    let score = 0;
+    if (length) score += 1;
+    if (letter) score += 1;
+    if (number) score += 1;
+    if (upper) score += 1;
+    if (special) score += 1;
+
+    let strength = 'Very Weak';
+    if (score >= 4 && pwd.length >= 10) strength = 'Strong';
+    else if (score >= 3) strength = 'Medium';
+    else if (score >= 2) strength = 'Weak';
+
+    return { length, letter, number, upper, special, strength, score };
   };
 
   const handleSubmit = async (e) => {
@@ -54,10 +100,10 @@ const ChangePassword = () => {
       return;
     }
 
-    // Client-side validation: new password must be alphanumeric and include at least one letter and one number
-    const requireLetterAndDigit = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$/;
+    // Client-side validation: new password must include at least one letter and one number (special chars allowed)
+    const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
     if (!requireLetterAndDigit.test(formData.newPassword)) {
-      setError('New password must be alphanumeric and include at least one letter and one number');
+      setError('New password must include at least one letter and one number');
       setLoading(false);
       return;
     }
@@ -190,6 +236,24 @@ const ChangePassword = () => {
                 {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+            {/* Password intellisense / feedback */}
+            <div style={{ marginTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div style={{ flex: 1, height: 8, borderRadius: 6, background: '#e6edf3', overflow: 'hidden' }}>
+                  <div style={{ width: `${(passwordFeedback.score / 5) * 100}%`, height: '100%', transition: 'width 160ms', background: passwordFeedback.score >= 4 ? '#10b981' : passwordFeedback.score >= 3 ? '#f59e0b' : '#ef4444' }} />
+                </div>
+                <div style={{ fontSize: 12, color: '#6b7280', minWidth: 64, textAlign: 'right' }}>{passwordFeedback.strength}</div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Badge ok={passwordFeedback.length} text="At least 6 characters" />
+                <Badge ok={passwordFeedback.letter} text="Contains at least one letter" />
+                <Badge ok={passwordFeedback.number} text="Contains at least one number" />
+                <Badge ok={passwordFeedback.upper} text="Contains an uppercase letter" />
+                <Badge ok={passwordFeedback.special} text="Contains a special character" />
+              </div>
+              
+            </div>
           </div>
 
           <div>
@@ -269,30 +333,7 @@ const ChangePassword = () => {
           </button>
         </form>
 
-        <div style={{ 
-          backgroundColor: '#f8fafc', 
-          border: '1px solid #e2e8f0', 
-          borderRadius: '8px', 
-          padding: '16px',
-          marginBottom: '16px'
-        }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
-            Password Requirements:
-          </h3>
-          <ul style={{ 
-            listStyleType: 'none', 
-            padding: 0, 
-            margin: 0 
-          }}>
-            <li style={{ fontSize: '13px', color: '#6b7280', padding: '4px 0', position: 'relative', paddingLeft: '16px' }}>
-              • At least 6 characters long
-            </li>
-            <li style={{ fontSize: '13px', color: '#6b7280', padding: '4px 0', position: 'relative', paddingLeft: '16px' }}>
-              • Must contain at least one letter and one number
-            </li>
-            
-          </ul>
-        </div>
+        
       </div>
 
       <style jsx>{`
