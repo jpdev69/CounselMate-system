@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
     const token = sessionStorage.getItem('authToken');
     const userData = sessionStorage.getItem('userData');
 
-    const SESSION_TTL_MS = 30 * 1000; // 30 seconds (testing)
+    const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
     const isTokenExpired = (t) => {
       if (!t) return true;

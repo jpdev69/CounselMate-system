@@ -133,7 +133,7 @@ const Dashboard = () => {
                 >
                   <div className="slip-info">
                     <p className="slip-name font-medium text-gray-900">{slip.student_name}</p>
-                    <p className="slip-details text-xs text-gray-600">{slip.year} - {slip.section} • <span className="text-xs text-gray-500">{slip.slip_number}</span></p>
+                    <p className="slip-details text-xs text-gray-600"><span className="text-xs text-gray-500">{slip.slip_number}</span></p>
                   </div>
                   <span className={`status-badge status-${slip.status} text-xs`}>
                     {slip.status?.replace('_', ' ').toUpperCase()}
