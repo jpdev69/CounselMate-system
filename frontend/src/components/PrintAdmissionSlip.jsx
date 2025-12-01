@@ -29,9 +29,10 @@ const PrintAdmissionSlip = () => {
   const verifyTimer = useRef(null);
 
   const handleChange = (e) => {
+    const val = (e.target.value || '').toString().slice(0, 32);
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: val
     });
     // Reset verification state when user edits the name/year/section
     if (['firstName', 'middleName', 'lastName', 'year', 'section'].includes(e.target.name)) {
@@ -262,6 +263,7 @@ const PrintAdmissionSlip = () => {
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
+                  maxLength={32}
                   className="form-input"
                   placeholder="First name"
                   required
@@ -273,6 +275,7 @@ const PrintAdmissionSlip = () => {
                   name="middleName"
                   value={formData.middleName}
                   onChange={handleChange}
+                  maxLength={32}
                   className="form-input"
                   placeholder="Middle name (optional)"
                 />
@@ -283,6 +286,7 @@ const PrintAdmissionSlip = () => {
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
+                  maxLength={32}
                   className="form-input"
                   placeholder="Last name"
                   required

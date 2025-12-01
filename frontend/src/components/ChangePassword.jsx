@@ -18,9 +18,10 @@ const ChangePassword = () => {
   const { changePassword, user } = useAuth();
 
   const handleChange = (e) => {
+    const val = (e.target.value || '').toString().slice(0, 32);
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: val
     });
     if (message || error) {
       setMessage('');
@@ -129,6 +130,7 @@ const ChangePassword = () => {
                 name="currentPassword"
                 value={formData.currentPassword}
                 onChange={handleChange}
+                maxLength={32}
                 className="form-input"
                 placeholder="Enter your current password"
                 required
@@ -164,6 +166,7 @@ const ChangePassword = () => {
                 name="newPassword"
                 value={formData.newPassword}
                 onChange={handleChange}
+                maxLength={32}
                 className="form-input"
                 placeholder="Enter new password (min. 6 characters)"
                 required
@@ -200,6 +203,7 @@ const ChangePassword = () => {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
+                maxLength={32}
                 className="form-input"
                 placeholder="Confirm your new password"
                 required

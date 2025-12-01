@@ -405,13 +405,14 @@ const SearchRecords = () => {
                     {/* Group filters (client-side) */}
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '12px', marginBottom: 12 }}>
                       <div>
-                        <input
-                          type="text"
-                          placeholder="Search within student slips..."
-                          value={groupSearchTerm}
-                          onChange={(e) => setGroupSearchTerm(e.target.value)}
-                          className="form-input"
-                        />
+                          <input
+                            type="text"
+                            placeholder="Search within student slips..."
+                            value={groupSearchTerm}
+                            onChange={(e) => setGroupSearchTerm((e.target.value || '').toString().slice(0, 32))}
+                            maxLength={32}
+                            className="form-input"
+                          />
                       </div>
 
                       <div>

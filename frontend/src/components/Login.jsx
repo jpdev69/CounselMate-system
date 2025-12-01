@@ -73,7 +73,8 @@ const Login = () => {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail((e.target.value || '').toString().slice(0, 32))}
+                maxLength={32}
                 className="form-input"
                 placeholder="Enter your email"
               />
@@ -87,7 +88,8 @@ const Login = () => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => setPassword((e.target.value || '').toString().slice(0, 32))}
+                maxLength={32}
                 className="form-input"
                 placeholder="Enter your password"
                 aria-label="Password"

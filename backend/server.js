@@ -20,6 +20,10 @@ app.use(cors({
 
 app.use(express.json());
 
+// Validate incoming string inputs across body, query and params (max 32 chars)
+const validateInput = require('./middleware/validateInput');
+app.use(validateInput);
+
 // Database pool (created in config/database.js)
 const pool = require('./config/database');
 

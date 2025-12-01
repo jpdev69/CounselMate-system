@@ -252,7 +252,8 @@ const CompleteForm = () => {
               type="text"
               placeholder="Search by student name or slip number..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm((e.target.value || '').toString().slice(0, 32))}
+              maxLength={32}
               className="form-input"
             />
           </div>
@@ -413,7 +414,8 @@ const CompleteForm = () => {
                       <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Counselor Remarks</div>
                       <textarea
                         value={formData.remarks}
-                        onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, remarks: (e.target.value || '').toString().slice(0, 128) })}
+                        maxLength={128}
                         rows="4"
                         className="form-input"
                         placeholder="Add counselor remarks or recommendations..."
@@ -446,7 +448,8 @@ const CompleteForm = () => {
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Course</label>
                       <input
                         value={formData.course}
-                        onChange={(e) => setFormData({ ...formData, course: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, course: (e.target.value || '').toString().slice(0, 32) })}
+                        maxLength={32}
                         className="form-input"
                         placeholder="Student's course (e.g., BS Computer Science)"
                         style={{ width: '100%' }}
@@ -472,7 +475,8 @@ const CompleteForm = () => {
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Description *</label>
                       <textarea
                         value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, description: (e.target.value || '').toString().slice(0, 128) })}
+                        maxLength={128}
                         rows="4"
                         className="form-input"
                         placeholder="Detailed description of the violation..."
@@ -485,7 +489,8 @@ const CompleteForm = () => {
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Counselor Remarks</label>
                       <textarea
                         value={formData.remarks}
-                        onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, remarks: (e.target.value || '').toString().slice(0, 128) })}
+                        maxLength={128}
                         rows="3"
                         className="form-input"
                         placeholder="Additional remarks or recommendations..."
