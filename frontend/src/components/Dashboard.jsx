@@ -32,7 +32,8 @@ const Dashboard = () => {
     });
   }, [slips]);
 
-  const recentSlips = slips.slice(0, 5);
+  // Limit the recent slips shown on the dashboard to 4 items
+  const recentSlips = slips.slice(0, 4);
 
   const handleSlipClick = (slip) => {
     // If the slip has been completed (awaiting review), open Complete Form
@@ -144,7 +145,7 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="dashboard-section card surface">
+        <div className="dashboard-section card surface quick-actions-card">
           <h2 className="section-title">Quick Actions</h2>
           <div className="quick-actions">
             <Link to="/print-slip" className="action-link">

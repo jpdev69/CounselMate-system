@@ -291,7 +291,9 @@
 
 .stat-content {
   display: flex;
-  align-items: center;
+  /* align items to the top so multi-line titles don't appear visually dropped
+     compared with single-line titles */
+  align-items: flex-start;
 }
 
 .stat-icon {
@@ -345,13 +347,15 @@
   font-size: 14px;
   font-weight: 500;
   color: #6b7280;
-  margin-bottom: 4px;
+  margin: 0 0 4px 0;
+  line-height: 1.15;
 }
 
 .stat-value {
   font-size: 24px;
   font-weight: 700;
   color: #111827;
+  margin-top: 4px;
 }
 
 .dashboard-content {
@@ -372,6 +376,21 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
   padding: 24px;
+}
+
+/* Quick Actions card: distribute vertical space between action links */
+.quick-actions-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-actions-card .quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* take remaining space under the title and distribute items evenly */
+  flex: 1 1 auto;
+  justify-content: space-between;
 }
 
 .section-title {
