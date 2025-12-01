@@ -375,8 +375,8 @@ const CompleteForm = () => {
                   </div>
                 </div>
 
-                {/* Meta rows - include Year & Section as its own labeled cell */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                {/* Meta rows - include Year, Section and Course as labeled cells */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
                   <div>
                     <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date &amp; Time</div>
                     <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</div>
@@ -388,6 +388,10 @@ const CompleteForm = () => {
                   <div>
                     <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Year &amp; Section</div>
                     <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{[selectedSlip.year, selectedSlip.section].filter(Boolean).join(' ') || '-'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Course</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{selectedSlip.course || '-'}</div>
                   </div>
                 </div>
 
@@ -417,10 +421,7 @@ const CompleteForm = () => {
                       />
                     </div>
 
-                    <div>
-                      <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Course</div>
-                      <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.course || '-'}</div>
-                    </div>
+                    {/* Course is shown in the meta header above */}
 
                     <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                       <button

@@ -39,6 +39,9 @@ const PrintAdmissionSlip = () => {
       setVerificationMessage('');
       setError('');
       setMatchedStudent(null);
+      // Clear any previous success result and printed flag when user begins a new entry
+      setResult(null);
+      setPrintedSlipId(null);
     }
   };
 
