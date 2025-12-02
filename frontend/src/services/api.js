@@ -37,6 +37,7 @@ api.interceptors.response.use(
       // Clear session data for any 401
       sessionStorage.removeItem('authToken');
       sessionStorage.removeItem('userData');
+      sessionStorage.removeItem('verifiedSecurityQuestion');
 
       // If it's NOT a login request, perform the existing redirect to the login page.
       // For the login request itself we avoid forcing a full-page navigation so the
@@ -55,6 +56,21 @@ export const login = (email, password) =>
 
 export const changePassword = (data) => 
   api.put('/auth/change-password', data);
+
+export const getSecurityQuestion = () =>
+  api.get('/auth/forgot');
+
+export const resetPasswordWithSecurity = (payload) =>
+  api.post('/auth/forgot/reset', payload);
+
+export const verifySecurityAnswer = (payload) =>
+  api.post('/auth/forgot/verify', payload);
+
+export const getMySecurityQuestion = () =>
+  api.get('/auth/me/security-question');
+
+export const updateMySecurityQuestion = (payload) =>
+  api.put('/auth/me/security-question', payload);
 
 // Admission Slips API
 export const issueAdmissionSlip = (data) => 

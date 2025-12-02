@@ -81,7 +81,7 @@ const CompleteForm = () => {
     setFormData({
       violationTypeId: slip.violation_type_id || '',
       description: slip.description || '',
-      remarks: slip.remarks || '',
+      remarks: slip.teacher_comments || slip.remarks || '',
       course: slip.course || ''
     });
     // open modal immediately to avoid scrolling

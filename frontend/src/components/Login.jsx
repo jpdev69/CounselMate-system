@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { School, User, Lock, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
@@ -115,9 +116,13 @@ const Login = () => {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.9rem' }} className="text-muted">
-          <p>Web-based Guidance Monitoring and Record-Keeping System</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem' }}>
+          <div style={{ fontSize: '0.9rem' }}>
+            <Link to="/forgot-password" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>Forgot password?</Link>
+          </div>
+          <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.9rem' }} className="text-muted">
+            <p style={{ margin: 0 }}>Web-based Guidance Monitoring and Record-Keeping System</p>
+          </div>
         </div>
       </div>
     </div>

@@ -11,7 +11,7 @@ function findTooLong(value, path = '', getMaxForPath) {
 
   if (Array.isArray(value)) {
     value.forEach((v, i) => {
-      results.push(...findTooLong(v, `${path}[${i}]`));
+      results.push(...findTooLong(v, `${path}[${i}]`, getMaxForPath));
     });
     return results;
   }
@@ -19,7 +19,7 @@ function findTooLong(value, path = '', getMaxForPath) {
   if (value && typeof value === 'object') {
     Object.keys(value).forEach((k) => {
       const newPath = path ? `${path}.${k}` : k;
-      results.push(...findTooLong(value[k], newPath));
+      results.push(...findTooLong(value[k], newPath, getMaxForPath));
     });
     return results;
   }
@@ -44,6 +44,27 @@ module.exports = (req, res, next) => {
       overrides.set('body.teacher_comments', 128);
       // Also accept 'description' or 'remarks' if front-end uses that naming in some payloads
       overrides.set('body.remarks', 128);
+    }
+
+    // Allow longer fields for forgot-password endpoints
+    const forgotGetMatch = req.path && req.path.match(/^\/api\/auth\/forgot$/);
+    const forgotResetMatch = req.path && req.path.match(/^\/api\/auth\/forgot\/reset$/);
+    if ((forgotGetMatch && String(req.method).toUpperCase() === 'GET') || (forgotResetMatch && String(req.method).toUpperCase() === 'POST')) {
+      // Enforce 32-char max for forgot-password inputs
+      overrides.set('body.answer', 32);
+      overrides.set('body.newPassword', 32);
+    }
+
+    // Allow getting/updating my security question
+    const mySecMatch = req.path && req.path.match(/^\/api\/auth\/me\/security-question$/);
+    if (mySecMatch) {
+      if (String(req.method).toUpperCase() === 'GET') {
+        overrides.set('query', 32);
+      }
+      if (String(req.method).toUpperCase() === 'PUT') {
+        overrides.set('body.security_question', 32);
+        overrides.set('body.security_answer', 32);
+      }
     }
 
     const getMaxForPath = (path) => {

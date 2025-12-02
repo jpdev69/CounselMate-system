@@ -17,6 +17,7 @@ const Layout = ({ children }) => {
     { name: 'Complete Form', href: '/complete-form', icon: FileText },
     { name: 'Search Records', href: '/search', icon: Search },
     { name: 'Change Password', href: '/change-password', icon: Key },
+    { name: 'Security Question', href: '/security-question', icon: User },
   ];
 
   return (

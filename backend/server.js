@@ -27,6 +27,17 @@ app.use(validateInput);
 // Database pool (created in config/database.js)
 const pool = require('./config/database');
 
+// Ensure security columns exist (safe to call repeatedly)
+async function ensureSecurityColumns() {
+  try {
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question VARCHAR(256);");
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer VARCHAR(256);");
+  } catch (err) {
+    // Non-fatal: log and continue — queries below will surface errors if necessary
+    console.warn('ensureSecurityColumns warning:', err.message || err);
+  }
+}
+
 // Test database connection (best-effort)
 pool.connect((err, client, release) => {
   if (err) {
@@ -149,12 +160,12 @@ app.put('/api/auth/change-password', async (req, res) => {
       });
     }
 
-    // Validate new password: must be alphanumeric and include at least one letter and one number
-    const requireLetterAndDigit = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$/;
+    // Validate new password: require at least one letter and one number (allow special characters)
+    const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
     if (!requireLetterAndDigit.test(newPassword)) {
       return res.status(400).json({
         success: false,
-        error: 'New password must be alphanumeric and include at least one letter and one number'
+        error: 'New password must include at least one letter and one number'
       });
     }
 
@@ -194,6 +205,37 @@ app.get('/api/violation-types', async (req, res) => {
 const admissionSlipsRouter = require('./routes/admissionSlips');
 app.use('/api/admission-slips', admissionSlipsRouter);
 
+// Get current user's saved security question (for counselor user)
+app.get('/api/auth/me/security-question', async (req, res) => {
+  try {
+    await ensureSecurityColumns();
+    const email = 'counselor@university.edu';
+    const userResult = await pool.query('SELECT security_question FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) return res.status(404).json({ success: false, error: 'User not found' });
+    return res.json({ success: true, securityQuestion: userResult.rows[0].security_question || null });
+  } catch (err) {
+    console.error('Get my security question error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to get security question' });
+  }
+});
+
+// Update current user's security question and answer (for counselor user)
+app.put('/api/auth/me/security-question', async (req, res) => {
+  try {
+    const { security_question, security_answer } = req.body || {};
+    if (!security_question || !security_answer) return res.status(400).json({ success: false, error: 'security_question and security_answer are required' });
+    const email = 'counselor@university.edu';
+    // Ensure columns exist before updating
+    await ensureSecurityColumns();
+    // In production, security answers should be hashed and stored securely
+    await pool.query('UPDATE users SET security_question = $1, security_answer = $2, updated_at = CURRENT_TIMESTAMP WHERE email = $3', [security_question, security_answer, email]);
+    return res.json({ success: true, message: 'Security question saved' });
+  } catch (err) {
+    console.error('Update my security question error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to update security question' });
+  }
+});
+
 // Debug endpoint: check database connectivity and simple students count
 app.get('/api/debug/db', async (req, res) => {
   try {
@@ -226,4 +268,73 @@ app.listen(PORT, () => {
   console.log(`📊 Database: ${DATABASE_URL ? 'Connected' : 'NOT CONFIGURED'}`);
   console.log(`🌐 CORS enabled for: ${CORS_ORIGIN}`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV}`);
+});
+
+// Forgot password - return the counselor's saved security question (no email required)
+app.get('/api/auth/forgot', async (req, res) => {
+  try {
+    const email = 'counselor@university.edu';
+    const userResult = await pool.query('SELECT security_question FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) return res.status(404).json({ success: false, error: 'User not found' });
+    return res.json({ success: true, securityQuestion: userResult.rows[0].security_question || null });
+  } catch (err) {
+    console.error('Forgot password (get) error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to retrieve security question' });
+  }
+});
+
+// Forgot password - verify provided answer against saved counselor answer and reset password
+app.post('/api/auth/forgot/reset', async (req, res) => {
+  const { answer, newPassword } = req.body || {};
+  if (!answer || !newPassword) return res.status(400).json({ success: false, error: 'Answer and newPassword are required' });
+
+  try {
+    const email = 'counselor@university.edu';
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'Invalid answer' });
+    }
+
+    const user = userResult.rows[0];
+
+    // In production, security answers should be hashed; this app stores plaintext for demo
+    if ((user.security_answer || '').toString().trim().toLowerCase() !== (answer || '').toString().trim().toLowerCase()) {
+      return res.status(400).json({ success: false, error: 'Invalid answer' });
+    }
+
+    const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\\d)/;
+    if (!requireLetterAndDigit.test(newPassword)) {
+      return res.status(400).json({ success: false, error: 'New password must include at least one letter and one number' });
+    }
+
+    await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [newPassword, email]);
+    return res.json({ success: true, message: 'Password reset successfully' });
+  } catch (err) {
+    console.error('Forgot password (reset) error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to reset password' });
+  }
+});
+
+// Forgot password - verify provided answer only (does not change password)
+app.post('/api/auth/forgot/verify', async (req, res) => {
+  const { answer } = req.body || {};
+  if (!answer) return res.status(400).json({ success: false, error: 'Answer is required' });
+
+  try {
+    const email = 'counselor@university.edu';
+    const userResult = await pool.query('SELECT security_answer FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'Invalid answer' });
+    }
+
+    const saved = (userResult.rows[0].security_answer || '').toString().trim().toLowerCase();
+    if (saved !== (answer || '').toString().trim().toLowerCase()) {
+      return res.status(400).json({ success: false, error: 'Invalid answer' });
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Forgot password (verify) error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to verify answer' });
+  }
 });

@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }) => {
         // Token appears expired — clear session to avoid restored logins
         sessionStorage.removeItem('authToken');
         sessionStorage.removeItem('userData');
+        sessionStorage.removeItem('verifiedSecurityQuestion');
         setUser(null);
       } else {
         setUser(JSON.parse(userData));
@@ -111,6 +112,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     sessionStorage.removeItem('authToken');
     sessionStorage.removeItem('userData');
+    sessionStorage.removeItem('verifiedSecurityQuestion');
     setUser(null);
   };
 

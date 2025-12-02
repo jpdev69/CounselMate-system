@@ -4,11 +4,13 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
+import ForgotPassword from './components/ForgotPassword';
 import Dashboard from './components/Dashboard';
 import PrintAdmissionSlip from './components/PrintAdmissionSlip';
 import CompleteForm from './components/CompleteForm';
 import SearchRecords from './components/SearchRecords';
 import ChangePassword from './components/ChangePassword';
+import SecurityQuestion from './components/SecurityQuestion';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -45,6 +47,14 @@ function App() {
                 </PublicRoute>
               } 
             />
+            <Route
+              path="/forgot-password"
+              element={
+                <PublicRoute>
+                  <ForgotPassword />
+                </PublicRoute>
+              }
+            />
             <Route 
               path="/*" 
               element={
@@ -56,6 +66,7 @@ function App() {
                       <Route path="/complete-form" element={<CompleteForm />} />
                       <Route path="/search" element={<SearchRecords />} />
                       <Route path="/change-password" element={<ChangePassword />} />
+                      <Route path="/security-question" element={<SecurityQuestion />} />
                       <Route path="*" element={<Navigate to="/" />} />
                       
                     </Routes>
