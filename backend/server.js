@@ -302,7 +302,7 @@ app.post('/api/auth/forgot/reset', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid answer' });
     }
 
-    const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\\d)/;
+    const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
     if (!requireLetterAndDigit.test(newPassword)) {
       return res.status(400).json({ success: false, error: 'New password must include at least one letter and one number' });
     }

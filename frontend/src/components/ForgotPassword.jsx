@@ -162,7 +162,21 @@ const ForgotPassword = () => {
                 <div style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '6px' }}>Security Question</div>
                 <div style={{ marginBottom: '8px' }}>{question || '-'}</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input value={answer} onChange={(e) => { setAnswer((e.target.value || '').toString().slice(0, 32)); if (answerVerified) setAnswerVerified(false); }} className="form-input" placeholder="Your answer" />
+                  <input
+                    value={answer}
+                    onChange={(e) => { setAnswer((e.target.value || '').toString().slice(0, 32)); if (answerVerified) setAnswerVerified(false); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        // If the answer isn't verified yet, treat Enter as a "Verify" action
+                        if (!answerVerified && answer.trim()) {
+                          handleVerifyAnswer();
+                        }
+                      }
+                    }}
+                    className="form-input"
+                    placeholder="Your answer"
+                  />
                   <button type="button" className="btn btn-primary" onClick={handleVerifyAnswer} disabled={verifying || !answer.trim()} style={{ whiteSpace: 'nowrap' }}>{verifying ? 'Verifying...' : 'Verify Answer'}</button>
                 </div>
               </>
