@@ -4,7 +4,9 @@ This documentation describes the new visualization and analytics system for the 
 
 ## Overview
 
-The visualization system provides multiple endpoints and utilities to analyze violation data:
+The visualization system provides multiple endpoints and utilities to analyze violation data.
+
+Note: All analytics endpoints only include admission slips that have been approved (status = 'approved').
 - **Student violations**: Who has the most/least violations
 - **Course analysis**: Which courses have the most violations
 - **Violation types**: Distribution of violation types

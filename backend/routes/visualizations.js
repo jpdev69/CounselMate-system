@@ -20,6 +20,7 @@ router.get('/health', (req, res) => {
  */
 router.get('/violations/by-student', async (req, res) => {
   try {
+    // Only count approved admission slips for analytics
     const result = await db.query(`
       SELECT 
         s.id,
@@ -31,7 +32,7 @@ router.get('/violations/by-student', async (req, res) => {
         ARRAY_AGG(DISTINCT vt.description) FILTER (WHERE vt.description IS NOT NULL) as violation_types,
         ARRAY_AGG(DISTINCT asl.course) FILTER (WHERE asl.course IS NOT NULL) as courses
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id
+      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
       LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
       GROUP BY s.id, s.student_id, s.full_name, s.year, s.section
       ORDER BY violation_count DESC, s.full_name ASC
@@ -54,6 +55,7 @@ router.get('/violations/by-student', async (req, res) => {
  */
 router.get('/violations/by-course', async (req, res) => {
   try {
+    // Only count approved admission slips for analytics
     const result = await db.query(`
       SELECT 
         asl.course,
@@ -62,7 +64,7 @@ router.get('/violations/by-course', async (req, res) => {
         ARRAY_AGG(DISTINCT vt.description) FILTER (WHERE vt.description IS NOT NULL) as violation_types
       FROM admission_slips asl
       LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
-      WHERE asl.course IS NOT NULL AND asl.course != ''
+      WHERE asl.course IS NOT NULL AND asl.course != '' AND asl.status = 'approved'
       GROUP BY asl.course
       ORDER BY violation_count DESC
     `);
@@ -84,6 +86,7 @@ router.get('/violations/by-course', async (req, res) => {
  */
 router.get('/violations/by-type', async (req, res) => {
   try {
+    // Only count approved admission slips for analytics
     const result = await db.query(`
       SELECT 
         vt.id,
@@ -92,7 +95,7 @@ router.get('/violations/by-type', async (req, res) => {
         COUNT(asl.id) as violation_count,
         COUNT(DISTINCT asl.student_id) as student_count
       FROM violation_types vt
-      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id
+      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id AND asl.status = 'approved'
       GROUP BY vt.id, vt.code, vt.description
       ORDER BY violation_count DESC
     `);
@@ -114,6 +117,7 @@ router.get('/violations/by-type', async (req, res) => {
  */
 router.get('/violations/by-year-section', async (req, res) => {
   try {
+    // Only count approved admission slips for analytics
     const result = await db.query(`
       SELECT 
         s.year,
@@ -122,7 +126,7 @@ router.get('/violations/by-year-section', async (req, res) => {
         COUNT(DISTINCT asl.student_id) as student_count,
         ARRAY_AGG(DISTINCT s.full_name) as students
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id
+      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
       WHERE s.year IS NOT NULL AND s.section IS NOT NULL
       GROUP BY s.year, s.section
       ORDER BY s.year ASC, s.section ASC
@@ -145,14 +149,15 @@ router.get('/violations/by-year-section', async (req, res) => {
  */
 router.get('/violations/summary', async (req, res) => {
   try {
+    // Summary metrics should reflect only approved slips
     // Total violations
     const totalViolations = await db.query(`
-      SELECT COUNT(*) as total FROM admission_slips
+      SELECT COUNT(*) as total FROM admission_slips WHERE status = 'approved'
     `);
     
     // Total students with violations
     const studentsWithViolations = await db.query(`
-      SELECT COUNT(DISTINCT student_id) as total FROM admission_slips
+      SELECT COUNT(DISTINCT student_id) as total FROM admission_slips WHERE status = 'approved'
     `);
     
     // Top violator
@@ -163,7 +168,7 @@ router.get('/violations/summary', async (req, res) => {
         s.section,
         COUNT(asl.id) as violation_count
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id
+      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
       GROUP BY s.id, s.full_name, s.year, s.section
       ORDER BY violation_count DESC
       LIMIT 1
@@ -176,7 +181,7 @@ router.get('/violations/summary', async (req, res) => {
         vt.description,
         COUNT(asl.id) as violation_count
       FROM violation_types vt
-      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id
+      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id AND asl.status = 'approved'
       GROUP BY vt.id, vt.code, vt.description
       ORDER BY violation_count DESC
       LIMIT 1
@@ -188,7 +193,7 @@ router.get('/violations/summary', async (req, res) => {
         course,
         COUNT(asl.id) as violation_count
       FROM admission_slips asl
-      WHERE course IS NOT NULL AND course != ''
+      WHERE course IS NOT NULL AND course != '' AND asl.status = 'approved'
       GROUP BY course
       ORDER BY violation_count DESC
       LIMIT 1
@@ -221,7 +226,7 @@ router.get('/dashboard', async (req, res) => {
         s.full_name,
         COUNT(asl.id) as violation_count
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id
+      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
       GROUP BY s.id, s.full_name
       ORDER BY violation_count DESC
       LIMIT 10
@@ -232,7 +237,7 @@ router.get('/dashboard', async (req, res) => {
         course,
         COUNT(asl.id) as violation_count
       FROM admission_slips asl
-      WHERE course IS NOT NULL AND course != ''
+      WHERE course IS NOT NULL AND course != '' AND asl.status = 'approved'
       GROUP BY course
       ORDER BY violation_count DESC
       LIMIT 10
@@ -243,7 +248,7 @@ router.get('/dashboard', async (req, res) => {
         vt.description,
         COUNT(asl.id) as violation_count
       FROM violation_types vt
-      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id
+      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id AND asl.status = 'approved'
       GROUP BY vt.id, vt.description
       ORDER BY violation_count DESC
       LIMIT 10
@@ -251,9 +256,9 @@ router.get('/dashboard', async (req, res) => {
 
     const summary = await db.query(`
       SELECT 
-        (SELECT COUNT(*) FROM admission_slips) as total_violations,
-        (SELECT COUNT(DISTINCT student_id) FROM admission_slips) as students_with_violations,
-        (SELECT COUNT(DISTINCT course) FROM admission_slips WHERE course IS NOT NULL) as courses_involved
+        (SELECT COUNT(*) FROM admission_slips WHERE status = 'approved') as total_violations,
+        (SELECT COUNT(DISTINCT student_id) FROM admission_slips WHERE status = 'approved') as students_with_violations,
+        (SELECT COUNT(DISTINCT course) FROM admission_slips WHERE course IS NOT NULL AND status = 'approved') as courses_involved
     `);
 
     const html = `

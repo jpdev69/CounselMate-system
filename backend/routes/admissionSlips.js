@@ -287,24 +287,41 @@ router.get('/student/:studentId/slips', async (req, res) => {
     const pageSize = parseInt(req.query.pageSize, 10) || 5;
     // Optional sorting: 'newest' (default) or 'oldest'
     const sort = (req.query.sort || 'newest').toString();
+    // Optional status filter for server-side filtering (e.g., 'approved', 'issued', 'form_completed')
+    const status = req.query.status ? req.query.status.toString() : null;
     const offset = (page - 1) * pageSize;
-
-    // total count
-    const countRes = await db.query(`SELECT COUNT(*) FROM admission_slips WHERE student_id = $1`, [studentId]);
+    // total count (optionally filtered by status)
+    let countQuery = `SELECT COUNT(*) FROM admission_slips WHERE student_id = $1`;
+    const countParams = [studentId];
+    if (status) {
+      countQuery += ` AND status = $2`;
+      countParams.push(status);
+    }
+    const countRes = await db.query(countQuery, countParams);
     const total = parseInt(countRes.rows[0].count, 10) || 0;
 
     // Build ORDER BY dynamically based on requested sort
     const orderBy = sort === 'oldest' ? 'asl.created_at ASC' : 'asl.created_at DESC';
 
-    const slipsRes = await db.query(
-      `SELECT asl.*, vt.code as violation_code, vt.description as violation_description
-       FROM admission_slips asl
-       LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
-       WHERE asl.student_id = $1
-       ORDER BY ${orderBy}
-       LIMIT $2 OFFSET $3`,
-      [studentId, pageSize, offset]
-    );
+    // Build query dynamically to include status filter when provided
+    const queryParts = [
+      `SELECT asl.*, vt.code as violation_code, vt.description as violation_description`,
+      `FROM admission_slips asl`,
+      `LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id`,
+      `WHERE asl.student_id = $1`
+    ];
+    const queryParams = [studentId];
+    let paramIndex = 2;
+    if (status) {
+      queryParts.push(`AND asl.status = $${paramIndex}`);
+      queryParams.push(status);
+      paramIndex++;
+    }
+    queryParts.push(`ORDER BY ${orderBy}`);
+    queryParts.push(`LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`);
+    queryParams.push(pageSize, offset);
+
+    const slipsRes = await db.query(queryParts.join('\n'), queryParams);
 
     res.json({ success: true, total, page, pageSize, slips: slipsRes.rows });
   } catch (error) {

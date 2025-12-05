@@ -38,6 +38,66 @@ const SearchRecords = () => {
     filterSlips();
   }, [slips, searchTerm, statusFilter, dateFilter, sortOrder]);
 
+  // Fetch current group page when group view student, page, pageSize, sort order, or status filter changes
+  useEffect(() => {
+    let mounted = true;
+    const fetchPage = async () => {
+      if (!groupViewStudent) return;
+      setGroupLoading(true);
+      try {
+        const params = { sort: groupSortOrder };
+        if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
+        const resp = await getStudentAdmissionSlips(groupViewStudent.id, groupPage, groupPageSize, params);
+        if (!mounted) return;
+        if (resp.data?.success) {
+          setGroupSlips(resp.data.slips || []);
+          setGroupTotal(resp.data.total || 0);
+        }
+      } catch (e) {
+        console.error('Failed to load group slips:', e);
+        setGroupSlips([]);
+        setGroupTotal(0);
+      } finally {
+        if (mounted) setGroupLoading(false);
+      }
+    };
+    fetchPage();
+    return () => { mounted = false; };
+  }, [groupViewStudent, groupPage, groupPageSize, groupSortOrder, groupStatusFilter]);
+
+  // If a client-side filter is applied and the student has more slips than the page size, fetch all slips so client-side filtering can operate across the whole set
+  useEffect(() => {
+    let mounted = true;
+      // Only fetch all slips when client-side searchable filters are applied; use server-side pagination for status-only filters
+      const shouldFetchAll = !!groupViewStudent && (groupSearchTerm || groupDateFilter || groupSortOrder !== 'newest') && (groupTotal > groupPageSize) && !groupFetchedAll;
+    if (!shouldFetchAll) return;
+    (async () => {
+      setGroupLoading(true);
+      try {
+        const params = { sort: groupSortOrder };
+        if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
+        const resp = await getStudentAdmissionSlips(groupViewStudent.id, 1, groupTotal || 1000, params);
+        if (!mounted) return;
+        if (resp.data?.success) {
+          setGroupSlips(resp.data.slips || []);
+          setGroupFetchedAll(true);
+        }
+      } catch (e) {
+        console.error('Failed to fetch all group slips for filtering:', e);
+      } finally {
+        if (mounted) setGroupLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [groupSearchTerm, groupStatusFilter, groupDateFilter, groupSortOrder, groupViewStudent, groupTotal, groupFetchedAll, groupPageSize]);
+
+  // Reset to first page when any group filter changes to keep pagination stable and predictable
+  useEffect(() => {
+    if (!groupViewStudent) return;
+    setGroupPage(1);
+    setGroupFetchedAll(false);
+  }, [groupSearchTerm, groupStatusFilter, groupDateFilter, groupSortOrder, groupViewStudent]);
+
   // loadSlips provided by context
 
   const filterSlips = () => {
@@ -278,7 +338,11 @@ const SearchRecords = () => {
                         setGroupPage(1);
                         setGroupFetchedAll(false);
                         setGroupLoading(true);
-                        getStudentAdmissionSlips(group.student_id, 1, groupPageSize, { sort: groupSortOrder })
+                        (() => {
+                          const params = { sort: groupSortOrder };
+                          if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
+                          return getStudentAdmissionSlips(group.student_id, 1, groupPageSize, params);
+                        })()
                           .then(resp => {
                             if (resp.data?.success) {
                               setGroupSlips(resp.data.slips || []);
@@ -454,37 +518,12 @@ const SearchRecords = () => {
                           list = list.filter(s => s.status === groupStatusFilter);
                         }
 
-                        if (groupDateFilter) {
-                          list = list.filter(s => {
-                            const slipDate = new Date(s.created_at).toISOString().split('T')[0];
-                            return slipDate === groupDateFilter;
-                          });
-
-                          // When group filters are used, fetch all slips for the student (if total > pageSize)
-                          useEffect(() => {
-                            const shouldFetchAll = !!groupViewStudent && (groupSearchTerm || groupStatusFilter !== 'all' || groupDateFilter || groupSortOrder !== 'newest') && (groupTotal > groupPageSize) && !groupFetchedAll;
-                            if (!shouldFetchAll) return;
-
-                            let mounted = true;
-                            (async () => {
-                              setGroupLoading(true);
-                              try {
-                                const resp = await getStudentAdmissionSlips(groupViewStudent.id, 1, groupTotal || 1000);
-                                if (!mounted) return;
-                                if (resp.data?.success) {
-                                  setGroupSlips(resp.data.slips || []);
-                                  setGroupFetchedAll(true);
-                                }
-                              } catch (e) {
-                                console.error('Failed to fetch all group slips for filtering:', e);
-                              } finally {
-                                if (mounted) setGroupLoading(false);
-                              }
-                            })();
-
-                            return () => { mounted = false; };
-                          }, [groupSearchTerm, groupStatusFilter, groupDateFilter, groupSortOrder, groupViewStudent, groupTotal, groupFetchedAll, groupPageSize]);
-                        }
+                          if (groupDateFilter) {
+                            list = list.filter(s => {
+                              const slipDate = new Date(s.created_at).toISOString().split('T')[0];
+                              return slipDate === groupDateFilter;
+                            });
+                          }
 
                         list = list.sort((a, b) => {
                           const tA = new Date(groupSortOrder === 'newest' ? (a.updated_at || a.created_at) : a.created_at).getTime() || 0;
@@ -505,7 +544,13 @@ const SearchRecords = () => {
                               <div style={{ fontSize: 13, color: '#6b7280' }}>{s.violation_description || 'No violation specified'}</div>
                               <div style={{ fontSize: 12, color: '#6b7280' }}>{s.created_at ? new Date(s.created_at).toLocaleString() : '-'}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              {/* Slip status badge displayed beside the View button */}
+                              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(s.status)}`} title={`Status: ${getStatusDisplay(s.status)}`}>
+                                  {getStatusDisplay(s.status)}
+                                </span>
+                              </span>
                               <button className="btn btn-primary" onClick={() => { handleSelectSlip(s); }}>View</button>
                             </div>
                           </li>
@@ -526,7 +571,9 @@ const SearchRecords = () => {
                             if (groupFetchedAll) return;
                             setGroupLoading(true);
                             try {
-                              const resp = await getStudentAdmissionSlips(groupViewStudent.id, p, groupPageSize, { sort: groupSortOrder });
+                              const params = { sort: groupSortOrder };
+                              if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
+                              const resp = await getStudentAdmissionSlips(groupViewStudent.id, p, groupPageSize, params);
                               if (resp.data?.success) {
                                 setGroupSlips(resp.data.slips || []);
                                 setGroupTotal(resp.data.total || 0);
