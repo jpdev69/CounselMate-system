@@ -60,16 +60,21 @@ app.get('/api/health', (req, res) => {
 
 // AUTHENTICATION ROUTES
 
+// Rate limiter middleware for auth
+const { precheckRateLimit, recordFailedAttempt, clearAttempts } = require('./middleware/rateLimiter');
+
 // Login endpoint
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
   const { email, password } = req.body;
 
   try {
     // Only allow counselor@university.edu
     if (email !== 'counselor@university.edu') {
+      // Record failed login for invalid email
+      try { recordFailedAttempt(req, 'login'); } catch (e) { /* no-op */ }
       return res.status(401).json({ 
         success: false,
-        error: 'Login Failed. You must be a guidance counselor.' 
+        error: 'Invalid email or password. Please check your credentials and try again.'
       });
     }
 
@@ -80,9 +85,11 @@ app.post('/api/auth/login', async (req, res) => {
     );
 
     if (userResult.rows.length === 0) {
+      // Record failed attempt when user not found
+      try { recordFailedAttempt(req, 'login'); } catch (e) { /* no-op */ }
       return res.status(401).json({ 
         success: false,
-        error: 'Invalid email or password' 
+        error: 'Invalid email or password. Please check your credentials and try again.' 
       });
     }
 
@@ -90,9 +97,11 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Check password (in production, you should use bcrypt for hashing)
     if (password !== user.password_hash) {
+      // Increment failed attempt count
+      try { recordFailedAttempt(req, 'login'); } catch (e) { /* no-op */ }
       return res.status(401).json({ 
         success: false,
-        error: 'Invalid email or password' 
+        error: 'Invalid email or password. Please check your credentials and try again.' 
       });
     }
 
@@ -107,6 +116,8 @@ app.post('/api/auth/login', async (req, res) => {
     // Simple token (in production, use JWT)
     const token = 'simple-token-' + Date.now();
 
+    // Clear attempts on successful login
+    try { clearAttempts(req, 'login'); } catch (e) { /* no-op */ }
     res.json({
       success: true,
       token,
@@ -210,7 +221,7 @@ const visualizationsRouter = require('./routes/visualizations');
 app.use('/api/visualizations', visualizationsRouter);
 
 // Get current user's saved security question (for counselor user)
-app.get('/api/auth/me/security-question', async (req, res) => {
+app.get('/api/auth/me/security-question', precheckRateLimit('me-security-question'), async (req, res) => {
   try {
     await ensureSecurityColumns();
     const email = 'counselor@university.edu';
@@ -224,7 +235,7 @@ app.get('/api/auth/me/security-question', async (req, res) => {
 });
 
 // Update current user's security question and answer (for counselor user)
-app.put('/api/auth/me/security-question', async (req, res) => {
+app.put('/api/auth/me/security-question', precheckRateLimit('me-security-question'), async (req, res) => {
   try {
     const { security_question, security_answer } = req.body || {};
     if (!security_question || !security_answer) return res.status(400).json({ success: false, error: 'security_question and security_answer are required' });
@@ -288,7 +299,7 @@ app.get('/api/auth/forgot', async (req, res) => {
 });
 
 // Forgot password - verify provided answer against saved counselor answer and reset password
-app.post('/api/auth/forgot/reset', async (req, res) => {
+app.post('/api/auth/forgot/reset', precheckRateLimit('forgot-reset'), async (req, res) => {
   const { answer, newPassword } = req.body || {};
   if (!answer || !newPassword) return res.status(400).json({ success: false, error: 'Answer and newPassword are required' });
 
@@ -296,6 +307,7 @@ app.post('/api/auth/forgot/reset', async (req, res) => {
     const email = 'counselor@university.edu';
     const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userResult.rows.length === 0) {
+      try { recordFailedAttempt(req, 'forgot-reset'); } catch (e) { /* no-op */ }
       return res.status(400).json({ success: false, error: 'Invalid answer' });
     }
 
@@ -303,6 +315,7 @@ app.post('/api/auth/forgot/reset', async (req, res) => {
 
     // In production, security answers should be hashed; this app stores plaintext for demo
     if ((user.security_answer || '').toString().trim().toLowerCase() !== (answer || '').toString().trim().toLowerCase()) {
+      try { recordFailedAttempt(req, 'forgot-reset'); } catch (e) { /* no-op */ }
       return res.status(400).json({ success: false, error: 'Invalid answer' });
     }
 
@@ -312,6 +325,8 @@ app.post('/api/auth/forgot/reset', async (req, res) => {
     }
 
     await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [newPassword, email]);
+    // Clear attempts when the answer is correct and reset occurs
+    try { clearAttempts(req, 'forgot-reset'); } catch (e) { /* no-op */ }
     return res.json({ success: true, message: 'Password reset successfully' });
   } catch (err) {
     console.error('Forgot password (reset) error:', err.message || err);
@@ -320,7 +335,8 @@ app.post('/api/auth/forgot/reset', async (req, res) => {
 });
 
 // Forgot password - verify provided answer only (does not change password)
-app.post('/api/auth/forgot/verify', async (req, res) => {
+// Rate limit attempts to verify security question answer
+app.post('/api/auth/forgot/verify', precheckRateLimit('forgot-verify'), async (req, res) => {
   const { answer } = req.body || {};
   if (!answer) return res.status(400).json({ success: false, error: 'Answer is required' });
 
@@ -328,14 +344,18 @@ app.post('/api/auth/forgot/verify', async (req, res) => {
     const email = 'counselor@university.edu';
     const userResult = await pool.query('SELECT security_answer FROM users WHERE email = $1', [email]);
     if (userResult.rows.length === 0) {
+      try { recordFailedAttempt(req, 'forgot-verify'); } catch (e) { /* no-op */ }
       return res.status(400).json({ success: false, error: 'Invalid answer' });
     }
 
     const saved = (userResult.rows[0].security_answer || '').toString().trim().toLowerCase();
     if (saved !== (answer || '').toString().trim().toLowerCase()) {
+      try { recordFailedAttempt(req, 'forgot-verify'); } catch (e) { /* no-op */ }
       return res.status(400).json({ success: false, error: 'Invalid answer' });
     }
 
+    // Success - clear attempts
+    try { clearAttempts(req, 'forgot-verify'); } catch (e) { /* no-op */ }
     return res.json({ success: true });
   } catch (err) {
     console.error('Forgot password (verify) error:', err.message || err);

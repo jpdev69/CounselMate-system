@@ -310,6 +310,52 @@ PORT=3001
 PORT=8080
 ```
 
+---
+
+## 🔐 Rate Limiting
+
+For security, the backend enforces a simple rate limit that blocks requests after a small number of failed attempts.
+By default:
+
+Example `.env`:
+```bash
+MAX_ATTEMPTS=3
+LOCKOUT_MINUTES=10
+RATE_LIMIT_WINDOW_MINUTES=15
+```
+
+You can optionally configure progressive lockout steps using a single global sequence or per-endpoint overrides:
+```bash
+# Global default
+ESCALATION_MINUTES_LIST=3,5,7,9,12,15
+
+# Per-endpoint override example (label names: login, forgot-verify, forgot-reset, me-security-question)
+ESCALATION_LOGIN=2,4,6
+ESCALATION_FORGOT_VERIFY=1,2,4
+```
+
+Example: test progressive lockouts (PowerShell):
+```powershell
+for ($round = 0; $round -lt 3; $round++) {
+  # Trigger a block (4th try will be blocked)
+  for ($i = 0; $i -lt 4; $i++) {
+    curl -Method POST 'http://localhost:5000/api/auth/login' -Body (ConvertTo-Json @{ email = 'wrong@domain.com'; password = 'bad' }) -ContentType 'application/json'
+  }
+  Write-Host "Round $round triggered. Wait for block to expire per response Retry-After, then try again to see increased lockout duration";
+}
+```
+
+### How to test (PowerShell)
+```powershell
+# Run 4 attempts - the 4th should get HTTP 429 (with default lockout 10 minutes)
+curl -Method POST 'http://localhost:5000/api/auth/login' -Body (ConvertTo-Json @{ email = 'wrong@domain.com'; password = 'bad' }) -ContentType 'application/json'
+curl -Method POST 'http://localhost:5000/api/auth/login' -Body (ConvertTo-Json @{ email = 'wrong@domain.com'; password = 'bad' }) -ContentType 'application/json'
+curl -Method POST 'http://localhost:5000/api/auth/login' -Body (ConvertTo-Json @{ email = 'wrong@domain.com'; password = 'bad' }) -ContentType 'application/json'
+curl -Method POST 'http://localhost:5000/api/auth/login' -Body (ConvertTo-Json @{ email = 'wrong@domain.com'; password = 'bad' }) -ContentType 'application/json'
+```
+
+You should see the first three attempts return 401 (Unauthorized); the 4th attempt should return 429 with a `retryAfterMs` field.
+
 Then use that port in URLs:
 ```
 http://localhost:5000/api/visualizations/dashboard

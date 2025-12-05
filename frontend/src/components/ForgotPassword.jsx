@@ -61,6 +61,8 @@ const ForgotPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const [retryAfterMs, setRetryAfterMs] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(null);
   const [answerVerified, setAnswerVerified] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const navigate = useNavigate();
@@ -111,8 +113,10 @@ const ForgotPassword = () => {
     setLoading(true);
     try {
       const res = await resetPasswordWithSecurity({ answer, newPassword });
-      if (res.data && res.data.success) {
-        setMessage({ type: 'success', text: 'Password reset successfully. Please sign in.' });
+        if (res.data && res.data.success) {
+          setMessage({ type: 'success', text: 'Password reset successfully. Please sign in.' });
+          setRetryAfterMs(null);
+          setTimeLeft(null);
         setTimeout(() => navigate('/login'), 1400);
       } else {
         setMessage({ type: 'error', text: res.data?.error || 'Failed to reset password' });
@@ -120,6 +124,8 @@ const ForgotPassword = () => {
     } catch (err) {
       console.error('Reset error', err);
       const errMsg = err.response?.data?.error || err.message || 'Failed to reset password';
+      const r = err.response?.data?.retryAfterMs || null;
+      if (r) setRetryAfterMs(r);
       setMessage({ type: 'error', text: errMsg });
     } finally {
       setLoading(false);
@@ -132,19 +138,47 @@ const ForgotPassword = () => {
     setVerifying(true);
     try {
       const res = await verifySecurityAnswer({ answer });
-      if (res.data && res.data.success) {
-        setAnswerVerified(true);
+        if (res.data && res.data.success) {
+          setAnswerVerified(true);
+          setRetryAfterMs(null);
+          setTimeLeft(null);
       } else {
         setMessage({ type: 'error', text: res.data?.error || 'Invalid answer' });
       }
     } catch (err) {
       console.error('Verify error', err);
       const errMsg = err.response?.data?.error || err.message || 'Failed to verify answer';
+      const r = err.response?.data?.retryAfterMs || null;
+      if (r) setRetryAfterMs(r);
       setMessage({ type: 'error', text: errMsg });
     } finally {
       setVerifying(false);
     }
   };
+
+  useEffect(() => {
+    if (!retryAfterMs) return undefined;
+    const end = Date.now() + retryAfterMs;
+    const fmt = (ms) => {
+      const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      if (minutes > 0) return `${minutes}:${String(seconds).padStart(2, '0')}`;
+      return `${seconds}s`;
+    };
+    setTimeLeft(fmt(retryAfterMs));
+    const t = setInterval(() => {
+      const remaining = end - Date.now();
+      if (remaining <= 0) {
+        setRetryAfterMs(null);
+        setTimeLeft(null);
+        clearInterval(t);
+        return;
+      }
+      setTimeLeft(fmt(remaining));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [retryAfterMs]);
   return (
     <div className="login-container">
       <div className="login-card card">
@@ -154,7 +188,14 @@ const ForgotPassword = () => {
         </div>
 
         <form onSubmit={handleReset} style={{ display: 'grid', gap: '0.75rem' }}>
-          {message && <div className={`alert ${message.type === 'error' ? 'alert-error' : message.type === 'success' ? 'alert-success' : 'alert-info'}`}>{message.text}</div>}
+          {message && (
+            <div className={`alert ${message.type === 'error' ? 'alert-error' : message.type === 'success' ? 'alert-success' : 'alert-info'}`}>
+              {message.text}
+              {retryAfterMs && (
+                <div style={{ fontSize: 12, marginTop: 6 }}>Try again in {timeLeft || 'a few seconds'}.</div>
+              )}
+            </div>
+          )}
 
           <div>
             {!answerVerified ? (
@@ -177,7 +218,7 @@ const ForgotPassword = () => {
                     className="form-input"
                     placeholder="Your answer"
                   />
-                  <button type="button" className="btn btn-primary" onClick={handleVerifyAnswer} disabled={verifying || !answer.trim()} style={{ whiteSpace: 'nowrap' }}>{verifying ? 'Verifying...' : 'Verify Answer'}</button>
+                  <button type="button" className="btn btn-primary" onClick={handleVerifyAnswer} disabled={verifying || !answer.trim() || !!retryAfterMs} style={{ whiteSpace: 'nowrap' }}>{verifying ? 'Verifying...' : 'Verify Answer'}</button>
                 </div>
               </>
             ) : (
@@ -286,7 +327,7 @@ const ForgotPassword = () => {
 
           {answerVerified && (
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-primary" disabled={loading} style={{ flex: 1 }}>{loading ? 'Resetting...' : 'Reset Password'}</button>
+              <button className="btn btn-primary" disabled={loading || !!retryAfterMs} style={{ flex: 1 }}>{loading ? 'Resetting...' : 'Reset Password'}</button>
               <button type="button" className="btn" onClick={() => navigate('/login')}>Cancel</button>
             </div>
           )}

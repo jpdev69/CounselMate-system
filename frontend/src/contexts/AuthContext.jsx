@@ -79,17 +79,22 @@ export const AuthProvider = ({ children }) => {
       sessionStorage.setItem('userData', JSON.stringify(user));
       setUser(user);
       
-      return { success: true };
+      return { success: true, retryAfterMs: null };
     } catch (error) {
       console.error('Login error details:', {
         status: error.response?.status,
         data: error.response?.data,
         message: error.message
       });
-      
+      // Propagate rate-limited messages (429) or server messages if present
+      const retryAfterMs = error.response?.data?.retryAfterMs || null;
+      if (error.response?.status === 429) {
+        return { success: false, error: error.response?.data?.error || 'Too many attempts. Try again later.', retryAfterMs };
+      }
       return { 
         success: false, 
-        error: 'Invalid email or password. Please check your credentials and try again.' 
+        error: error.response?.data?.error || 'Invalid email or password. Please check your credentials and try again.',
+        retryAfterMs
       };
     }
   };

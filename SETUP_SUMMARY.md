@@ -271,6 +271,48 @@ All should already exist in your CounselMate database.
 
 ---
 
+## 🔐 Security - Rate Limiting
+
+The server provides a simple in-memory rate limiter to help protect sensitive endpoints against brute-force attempts. By default the following endpoints are rate limited:
+
+- POST `/api/auth/login` (label: login)
+- POST `/api/auth/forgot/verify` (label: forgot-verify)
+- POST `/api/auth/forgot/reset` (label: forgot-reset)
+- GET/PUT `/api/auth/me/security-question` (label: me-security-question)
+
+Configuration (via environment variables):
+- `MAX_ATTEMPTS` (default: 3) - maximum failed attempts allowed within the configured window before lockout
+- `LOCKOUT_MINUTES` (default: 10) - length of the lockout period in minutes. When using escalation this default is superseded by escalation steps.
+- `RATE_LIMIT_WINDOW_MINUTES` (default: 15) - the time window that attempts are measured
+
+### Progressive Lockouts (Escalation)
+By default the rate limiter also supports progressive lockout durations after repeated lockouts for the same key (IP+email). The default escalation sequence is: 3, 5, 7, 9, 12, 15 (minutes). Each time the key triggers a lockout the next step in the list is used (capped at the final value).
+
+Configuration via `.env`:
+- `ESCALATION_MINUTES_LIST` — comma-separated minutes, e.g. `ESCALATION_MINUTES_LIST=3,5,7,9,12,15`. If not set, the default above is used.
+
+Per-endpoint escalation lists:
+- You can override escalation steps for each protected endpoint with environment variables named `ESCALATION_<LABEL>`, where `<LABEL>` is the label passed to the middleware uppercased and with non-alphanumeric characters replaced by underscores. Examples:
+  - `ESCALATION_LOGIN=2,4,6` — uses 2, 4, 6 minute lockouts for `/auth/login`
+  - `ESCALATION_FORGOT_VERIFY=1,2,4` — uses 1, 2, 4 minute lockouts for `/auth/forgot/verify`
+  - `ESCALATION_ME_SECURITY_QUESTION=2,4,8` — uses 2, 4, 8 minute lockouts for `/auth/me/security-question`
+
+Notes:
+- Endpoint labels used in code (for reference): `login`, `forgot-verify`, `forgot-reset`, `me-security-question`.
+- If neither global (`ESCALATION_MINUTES_LIST`) nor endpoint-specific env var is set, defaults are used (3,5,7,9,12,15 minutes).
+
+Behavior:
+- After `MAX_ATTEMPTS` failures within `RATE_LIMIT_WINDOW_MINUTES`, the key is locked out using the first escalation value (3 minutes by default).
+- If the key reaches another `MAX_ATTEMPTS` after the block expires, the lockout increases to the next escalation value (5 minutes), and so on until the list end (15 minutes).
+- After a period of inactivity longer than `RATE_LIMIT_WINDOW_MINUTES`, attempts and escalation tier are reset.
+
+Notes:
+- The rate limiter is an in-memory store and is reset when the server restarts. For production use, replace with a distributed store like Redis.
+- When the limit is exceeded, the server returns HTTP 429 with a `retryAfterMs` field indicating how long to wait.
+
+
+---
+
 ## 🎨 Features Highlights
 
 ### Dashboard

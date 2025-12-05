@@ -1,5 +1,5 @@
 // src/components/Login.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
@@ -10,6 +10,8 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [retryAfterMs, setRetryAfterMs] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(null);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -36,16 +38,53 @@ const Login = () => {
       const result = await login(email, password);
 
       if (result.success) {
+        // On success clear any previous rate-limit state
+        setRetryAfterMs(null);
+        setTimeLeft(null);
         navigate('/');
       } else {
         setError(result.error);
+        if (result.retryAfterMs) {
+          setRetryAfterMs(result.retryAfterMs);
+        }
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      // If login returns a failure object with retryAfterMs from AuthContext
+      if (err && err.retryAfterMs) {
+        setRetryAfterMs(err.retryAfterMs);
+        setError(err.error || 'Too many attempts. Try again later.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Timer for retryAfterMs
+  useEffect(() => {
+    if (!retryAfterMs) return undefined;
+    const end = Date.now() + retryAfterMs;
+    const fmt = (ms) => {
+      const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      if (minutes > 0) return `${minutes}:${String(seconds).padStart(2, '0')}`;
+      return `${seconds}s`;
+    };
+    setTimeLeft(fmt(retryAfterMs));
+    const t = setInterval(() => {
+      const remaining = end - Date.now();
+      if (remaining <= 0) {
+        setRetryAfterMs(null);
+        setTimeLeft(null);
+        clearInterval(t);
+        return;
+      }
+      setTimeLeft(fmt(remaining));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [retryAfterMs]);
 
   return (
     <div className="login-container">
@@ -64,6 +103,11 @@ const Login = () => {
           {error && (
             <div className="alert alert-error">
               {error}
+              {retryAfterMs && (
+                <div style={{ fontSize: 12, marginTop: 6 }}>
+                  Try again in {timeLeft || 'a few seconds'}.
+                </div>
+              )}
             </div>
           )}
 
@@ -78,6 +122,7 @@ const Login = () => {
                 maxLength={32}
                 className="form-input"
                 placeholder="Enter your email"
+                disabled={!!retryAfterMs}
               />
             </div>
           </div>
@@ -94,6 +139,7 @@ const Login = () => {
                 className="form-input"
                 placeholder="Enter your password"
                 aria-label="Password"
+                disabled={!!retryAfterMs}
               />
               <button
                 type="button"
@@ -109,7 +155,7 @@ const Login = () => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !!retryAfterMs}
             className="btn btn-primary"
             style={{ width: '100%', marginTop: '6px' }}
           >

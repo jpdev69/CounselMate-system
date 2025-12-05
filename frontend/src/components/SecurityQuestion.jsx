@@ -23,6 +23,8 @@ const SecurityQuestion = () => {
 	const [password, setPassword] = useState('');
 	const [showVerifyPassword, setShowVerifyPassword] = useState(false);
 	const [verifyError, setVerifyError] = useState(null);
+	const [retryAfterMs, setRetryAfterMs] = useState(null);
+	const [timeLeft, setTimeLeft] = useState(null);
 	const navigate = useNavigate();
 	const { user, login } = useAuth();
 
@@ -93,18 +95,47 @@ const SecurityQuestion = () => {
 			if (res && res.success) {
 				sessionStorage.setItem('verifiedSecurityQuestion', '1');
 				setVerified(true);
+				setRetryAfterMs(null);
+				setTimeLeft(null);
 			} else {
 				// Avoid showing the login page's verbose message here; show a generic verification failure
 				const errMsg = (res && res.error && res.error.includes('Invalid email or password'))
 					? 'Verification failed'
 					: (res?.error || 'Verification failed');
 				setVerifyError(errMsg);
+				if (res?.retryAfterMs) setRetryAfterMs(res.retryAfterMs);
 			}
 		} catch (err) {
 			console.error('Verify error', err);
+			const r = err.response?.data?.retryAfterMs || null;
+			if (r) setRetryAfterMs(r);
 			setVerifyError('Failed to verify password');
 		}
 	};
+
+	useEffect(() => {
+		if (!retryAfterMs) return undefined;
+		const end = Date.now() + retryAfterMs;
+		const fmt = (ms) => {
+			const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+			const minutes = Math.floor(totalSeconds / 60);
+			const seconds = totalSeconds % 60;
+			if (minutes > 0) return `${minutes}:${String(seconds).padStart(2, '0')}`;
+			return `${seconds}s`;
+		};
+		setTimeLeft(fmt(retryAfterMs));
+		const t = setInterval(() => {
+			const remaining = end - Date.now();
+			if (remaining <= 0) {
+				setRetryAfterMs(null);
+				setTimeLeft(null);
+				clearInterval(t);
+				return;
+			}
+			setTimeLeft(fmt(remaining));
+		}, 1000);
+		return () => clearInterval(t);
+	}, [retryAfterMs]);
 
 	if (!verified) {
 		return (
@@ -148,11 +179,18 @@ const SecurityQuestion = () => {
 								{showVerifyPassword ? <EyeOff size={16} /> : <Eye size={16} />}
 							</button>
 						</div>
-						<div style={{ display: 'flex', gap: 8 }}>
-							<button className="btn btn-primary" type="submit">Verify</button>
+							<div style={{ display: 'flex', gap: 8 }}>
+							<button className="btn btn-primary" type="submit" disabled={!!retryAfterMs}>Verify</button>
 							<button type="button" className="btn" onClick={() => navigate('/dashboard')}>Cancel</button>
 						</div>
-						{verifyError && <div className={`alert alert-error`} style={{ marginTop: 8 }}>{verifyError}</div>}
+												{verifyError && (
+													<div className={`alert alert-error`} style={{ marginTop: 8 }}>
+														{verifyError}
+														{retryAfterMs && (
+															<div style={{ fontSize: 12, marginTop: 6 }}>Try again in {timeLeft || 'a few seconds'}.</div>
+														)}
+													</div>
+												)}
 					</form>
 				</div>
 			</div>
