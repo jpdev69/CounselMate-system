@@ -17,13 +17,44 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    const userData = localStorage.getItem('userData');
-    
+    const token = sessionStorage.getItem('authToken');
+    const userData = sessionStorage.getItem('userData');
+
+    const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+    const isTokenExpired = (t) => {
+      if (!t) return true;
+      // token format used by backend: 'simple-token-<timestamp>'
+      const parts = t.split('-');
+      const ts = parseInt(parts[parts.length - 1], 10);
+      if (Number.isNaN(ts)) return true;
+      return (Date.now() - ts) > SESSION_TTL_MS;
+    };
+
     if (token && userData) {
-      setUser(JSON.parse(userData));
+      if (isTokenExpired(token)) {
+        // Token appears expired — clear session to avoid restored logins
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('userData');
+        sessionStorage.removeItem('verifiedSecurityQuestion');
+        setUser(null);
+      } else {
+        setUser(JSON.parse(userData));
+      }
     }
+
     setLoading(false);
+
+    // If the page becomes visible (e.g., restored by the browser), re-check token freshness
+    const handleVisibility = () => {
+      const t = sessionStorage.getItem('authToken');
+      if (isTokenExpired(t)) {
+        logout();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
   const login = async (email, password) => {
@@ -32,9 +63,9 @@ export const AuthProvider = ({ children }) => {
       
       // Only allow counselor@university.edu
       if (email !== 'counselor@university.edu') {
-        return { 
-          success: false, 
-          error: 'Login Failed. You must be a guidance counselor.' 
+        return {
+          success: false,
+          error: 'Invalid email or password. Please check your credentials and try again.'
         };
       }
       
@@ -43,8 +74,9 @@ export const AuthProvider = ({ children }) => {
       
       const { token, user } = response.data;
       
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('userData', JSON.stringify(user));
+      // Store session data in sessionStorage so it does not persist across browser restarts
+      sessionStorage.setItem('authToken', token);
+      sessionStorage.setItem('userData', JSON.stringify(user));
       setUser(user);
       
       return { success: true };
@@ -78,10 +110,37 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('userData');
+    sessionStorage.removeItem('verifiedSecurityQuestion');
     setUser(null);
   };
+
+  // Inactivity auto-logout (configurable). This helps prevent sessions staying active
+  // when users leave the application unattended.
+  useEffect(() => {
+    const INACTIVITY_MS = 15 * 60 * 1000; // 15 minutes
+    let timeoutId = null;
+
+    const resetTimeout = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        logout();
+      }, INACTIVITY_MS);
+    };
+
+    // Activity events to listen to
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'click'];
+    events.forEach((ev) => window.addEventListener(ev, resetTimeout));
+
+    // Reset on mount and when user changes
+    resetTimeout();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      events.forEach((ev) => window.removeEventListener(ev, resetTimeout));
+    };
+  }, [user]);
 
   const value = {
     user,

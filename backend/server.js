@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
+// shared DB pool is in ./config/database.js
 
 const app = express();
 
@@ -20,12 +20,25 @@ app.use(cors({
 
 app.use(express.json());
 
-// Database connection
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-});
+// Validate incoming string inputs across body, query and params (max 32 chars)
+const validateInput = require('./middleware/validateInput');
+app.use(validateInput);
 
-// Test database connection
+// Database pool (created in config/database.js)
+const pool = require('./config/database');
+
+// Ensure security columns exist (safe to call repeatedly)
+async function ensureSecurityColumns() {
+  try {
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question VARCHAR(256);");
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer VARCHAR(256);");
+  } catch (err) {
+    // Non-fatal: log and continue — queries below will surface errors if necessary
+    console.warn('ensureSecurityColumns warning:', err.message || err);
+  }
+}
+
+// Test database connection (best-effort)
 pool.connect((err, client, release) => {
   if (err) {
     console.error('❌ Database connection error:', err.message);
@@ -131,11 +144,28 @@ app.put('/api/auth/change-password', async (req, res) => {
 
     const user = userResult.rows[0];
 
+    // Ensure both passwords are provided
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Both current and new passwords are required'
+      });
+    }
+
     // Verify current password
     if (currentPassword !== user.password_hash) {
       return res.status(400).json({ 
         success: false,
         error: 'Current password is incorrect' 
+      });
+    }
+
+    // Validate new password: require at least one letter and one number (allow special characters)
+    const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
+    if (!requireLetterAndDigit.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        error: 'New password must include at least one letter and one number'
       });
     }
 
@@ -171,166 +201,64 @@ app.get('/api/violation-types', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// Mount router for admission slips (consolidated routes in router module)
+const admissionSlipsRouter = require('./routes/admissionSlips');
+app.use('/api/admission-slips', admissionSlipsRouter);
 
-// API route to issue admission slip
-app.post('/api/admission-slips/issue', async (req, res) => {
-  const { studentName, year, section } = req.body;
-  
+// Get current user's saved security question (for counselor user)
+app.get('/api/auth/me/security-question', async (req, res) => {
   try {
-    // Generate slip number
-    const slipNumber = `SLIP-${Date.now()}`;
-    
-    // Insert into students table
-    const studentResult = await pool.query(
-      `INSERT INTO students (student_id, full_name, year, section) 
-       VALUES ($1, $2, $3, $4) 
-       RETURNING id`,
-      [`STU-${Date.now()}`, studentName, year, section]
-    );
-    
-    const studentId = studentResult.rows[0].id;
-    
-    // Insert into admission_slips table
-    const slipResult = await pool.query(
-      `INSERT INTO admission_slips (slip_number, student_id, issued_by, status) 
-       VALUES ($1, $2, $3, 'issued') 
-       RETURNING *`,
-      [slipNumber, studentId, 'system']
-    );
-    
-    // Log the action
-    await pool.query(
-      `INSERT INTO audit_logs (admission_slip_id, user_email, action, old_status, new_status) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [slipResult.rows[0].id, 'system@school.edu', 'SLIP_ISSUED', null, 'issued']
-    );
-    
-    res.json({ 
-      success: true, 
-      slip: slipResult.rows[0],
-      message: 'Admission slip issued successfully'
-    });
-    
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    await ensureSecurityColumns();
+    const email = 'counselor@university.edu';
+    const userResult = await pool.query('SELECT security_question FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) return res.status(404).json({ success: false, error: 'User not found' });
+    return res.json({ success: true, securityQuestion: userResult.rows[0].security_question || null });
+  } catch (err) {
+    console.error('Get my security question error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to get security question' });
   }
 });
 
-
-// ADDED HEREBY!!!!!
-
-// API route to complete admission slip form
-app.put('/api/admission-slips/:id/complete', async (req, res) => {
+// Update current user's security question and answer (for counselor user)
+app.put('/api/auth/me/security-question', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { violation_type_id, description, teacher_comments } = req.body;
+    const { security_question, security_answer } = req.body || {};
+    if (!security_question || !security_answer) return res.status(400).json({ success: false, error: 'security_question and security_answer are required' });
+    const email = 'counselor@university.edu';
+    // Ensure columns exist before updating
+    await ensureSecurityColumns();
+    // In production, security answers should be hashed and stored securely
+    await pool.query('UPDATE users SET security_question = $1, security_answer = $2, updated_at = CURRENT_TIMESTAMP WHERE email = $3', [security_question, security_answer, email]);
+    return res.json({ success: true, message: 'Security question saved' });
+  } catch (err) {
+    console.error('Update my security question error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to update security question' });
+  }
+});
 
-    console.log('Completing form for slip:', id, req.body);
-
-    const query = `
-      UPDATE admission_slips 
-      SET violation_type_id = $1, 
-          description = $2, 
-          teacher_comments = $3, 
-          status = 'form_completed',
-          form_completed_at = NOW(),
-          updated_at = NOW()
-      WHERE id = $4
-      RETURNING *
-    `;
-
-    const values = [violation_type_id, description, teacher_comments, id];
-    const result = await pool.query(query, values);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Admission slip not found' });
+// Debug endpoint: check database connectivity and simple students count
+app.get('/api/debug/db', async (req, res) => {
+  try {
+    // Simple ping
+    const ping = await pool.query('SELECT 1 as ok');
+    // Try to get students count if table exists
+    let studentsCount = null;
+    try {
+      const c = await pool.query('SELECT count(*) as cnt FROM students');
+      studentsCount = parseInt(c.rows[0].cnt, 10);
+    } catch (innerErr) {
+      // table might not exist; include message but don't fail the ping
+      console.warn('Debug students count error:', innerErr.message || innerErr);
+      studentsCount = null;
     }
 
-    // Log the action
-    await pool.query(
-      `INSERT INTO audit_logs (admission_slip_id, user_email, action, old_status, new_status) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [id, 'counselor@university.edu', 'FORM_COMPLETED', 'issued', 'form_completed']
-    );
-
-    res.json({ 
-      success: true, 
-      slip: result.rows[0],
-      message: 'Form completed successfully'
+    return res.json({
+      db_connected: !!ping.rows,
+      students_count: studentsCount
     });
-
-  } catch (error) {
-    console.error('Complete form error:', error);
-    res.status(500).json({ 
-      error: 'Failed to complete form: ' + error.message 
-    });
-  }
-});
-
-// API route to approve admission slip
-app.put('/api/admission-slips/:id/approve', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    console.log('Approving slip:', id);
-
-    const query = `
-      UPDATE admission_slips 
-      SET status = 'approved',
-          approved_at = NOW(),
-          updated_at = NOW()
-      WHERE id = $1
-      RETURNING *
-    `;
-
-    const result = await pool.query(query, [id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Admission slip not found' });
-    }
-
-    // Log the action
-    await pool.query(
-      `INSERT INTO audit_logs (admission_slip_id, user_email, action, old_status, new_status) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [id, 'counselor@university.edu', 'SLIP_APPROVED', 'form_completed', 'approved']
-    );
-
-    res.json({ 
-      success: true, 
-      slip: result.rows[0],
-      message: 'Slip approved successfully'
-    });
-
-  } catch (error) {
-    console.error('Approve slip error:', error);
-    res.status(500).json({ 
-      error: 'Failed to approve slip: ' + error.message 
-    });
-  }
-});
-
-// noicenoicenoicenoice
-
-// API route to get all admission slips
-app.get('/api/admission-slips', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        asl.*,
-        s.full_name as student_name,
-        s.year,
-        s.section,
-        vt.code as violation_code,
-        vt.description as violation_description
-      FROM admission_slips asl
-      LEFT JOIN students s ON asl.student_id = s.id
-      LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
-      ORDER BY asl.created_at DESC
-    `);
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error('DB debug endpoint error:', err.message || err);
+    return res.status(500).json({ error: 'Database connection failed', details: err.message });
   }
 });
 
@@ -340,4 +268,73 @@ app.listen(PORT, () => {
   console.log(`📊 Database: ${DATABASE_URL ? 'Connected' : 'NOT CONFIGURED'}`);
   console.log(`🌐 CORS enabled for: ${CORS_ORIGIN}`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV}`);
+});
+
+// Forgot password - return the counselor's saved security question (no email required)
+app.get('/api/auth/forgot', async (req, res) => {
+  try {
+    const email = 'counselor@university.edu';
+    const userResult = await pool.query('SELECT security_question FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) return res.status(404).json({ success: false, error: 'User not found' });
+    return res.json({ success: true, securityQuestion: userResult.rows[0].security_question || null });
+  } catch (err) {
+    console.error('Forgot password (get) error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to retrieve security question' });
+  }
+});
+
+// Forgot password - verify provided answer against saved counselor answer and reset password
+app.post('/api/auth/forgot/reset', async (req, res) => {
+  const { answer, newPassword } = req.body || {};
+  if (!answer || !newPassword) return res.status(400).json({ success: false, error: 'Answer and newPassword are required' });
+
+  try {
+    const email = 'counselor@university.edu';
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'Invalid answer' });
+    }
+
+    const user = userResult.rows[0];
+
+    // In production, security answers should be hashed; this app stores plaintext for demo
+    if ((user.security_answer || '').toString().trim().toLowerCase() !== (answer || '').toString().trim().toLowerCase()) {
+      return res.status(400).json({ success: false, error: 'Invalid answer' });
+    }
+
+    const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
+    if (!requireLetterAndDigit.test(newPassword)) {
+      return res.status(400).json({ success: false, error: 'New password must include at least one letter and one number' });
+    }
+
+    await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [newPassword, email]);
+    return res.json({ success: true, message: 'Password reset successfully' });
+  } catch (err) {
+    console.error('Forgot password (reset) error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to reset password' });
+  }
+});
+
+// Forgot password - verify provided answer only (does not change password)
+app.post('/api/auth/forgot/verify', async (req, res) => {
+  const { answer } = req.body || {};
+  if (!answer) return res.status(400).json({ success: false, error: 'Answer is required' });
+
+  try {
+    const email = 'counselor@university.edu';
+    const userResult = await pool.query('SELECT security_answer FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'Invalid answer' });
+    }
+
+    const saved = (userResult.rows[0].security_answer || '').toString().trim().toLowerCase();
+    if (saved !== (answer || '').toString().trim().toLowerCase()) {
+      return res.status(400).json({ success: false, error: 'Invalid answer' });
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Forgot password (verify) error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to verify answer' });
+  }
 });

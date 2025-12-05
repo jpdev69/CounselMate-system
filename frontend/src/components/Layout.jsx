@@ -2,26 +2,36 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Home, FileText, Search, User, Key } from 'lucide-react';
+import { LogOut, Home, FileText, Search, User, Key, Menu, Printer } from 'lucide-react';
+import { useState } from 'react';
 import '../App.css';
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Print Admission Slip', href: '/print-slip', icon: FileText },
+    { name: 'Print Admission Slip', href: '/print-slip', icon: Printer },
     { name: 'Complete Form', href: '/complete-form', icon: FileText },
     { name: 'Search Records', href: '/search', icon: Search },
     { name: 'Change Password', href: '/change-password', icon: Key },
+    { name: 'Security Question', href: '/security-question', icon: User },
   ];
 
   return (
     <div className="layout">
       {/* Sidebar */}
-      <div className="sidebar">
+      <div className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
+          <button
+            className="sidebar-toggle"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label="Toggle sidebar"
+          >
+            <Menu />
+          </button>
           <h1 className="sidebar-title">CounselMate</h1>
         </div>
         
@@ -36,7 +46,7 @@ const Layout = ({ children }) => {
                 className={`nav-item ${isActive ? 'nav-item-active' : ''}`}
               >
                 <Icon className="nav-icon" />
-                {item.name}
+                <span className="nav-text">{item.name}</span>
               </Link>
             );
           })}
@@ -49,12 +59,11 @@ const Layout = ({ children }) => {
               <User className="user-icon" />
             </div>
             <div className="user-details">
-              <p className="user-name">{user?.name}</p>
-              <p className="user-role">{user?.role}</p>
+              <p className="user-name">University Counselor</p>
             </div>
             <button
               onClick={logout}
-              className="logout-btn"
+              className="btn btn-ghost logout-btn"
               title="Logout"
             >
               <LogOut className="logout-icon" />
