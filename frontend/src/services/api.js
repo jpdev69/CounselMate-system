@@ -99,4 +99,7 @@ export const getStudentAdmissionSlips = (studentId, page = 1, pageSize = 5, para
   return api.get(`/admission-slips/student/${encodeURIComponent(studentId)}/slips?${qs}`);
 };
 
+export const deleteAdmissionSlip = (slipId) =>
+  api.delete(`/admission-slips/${slipId}`);
+
 export default api;

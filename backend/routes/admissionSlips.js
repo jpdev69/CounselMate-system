@@ -450,4 +450,75 @@ router.put('/:id/approve', async (req, res) => {
   }
 });
 
+// Delete admission slip (only allowed for 'issued' and 'form_completed' statuses)
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate input
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({ error: 'Invalid admission slip id' });
+    }
+
+    // Find the slip first
+    const slipRes = await db.query(`SELECT id, status FROM admission_slips WHERE id = $1`, [id]);
+    if (slipRes.rows.length === 0) return res.status(404).json({ error: 'Admission slip not found' });
+
+    const slip = slipRes.rows[0];
+
+    // Only allow deletion of issued and form_completed slips
+    if (!['issued', 'form_completed'].includes(slip.status)) {
+      return res.status(403).json({ error: 'Cannot delete this admission slip. Only slips with status "issued" or "form_completed" can be deleted.' });
+    }
+
+    // Proceed to delete the slip. To avoid foreign key violations, delete
+    // any audit logs referencing it first. Wrap in a transaction for safety.
+    try {
+      // Use a dedicated client for transaction
+      let deletedSlip = null;
+      const client = await db.connect();
+      try {
+        await client.query('BEGIN');
+        // delete audit logs that reference this slip (best-effort). If audit_logs
+        // table doesn't exist, continue with delete of the slip.
+        try {
+          await client.query('DELETE FROM audit_logs WHERE admission_slip_id = $1', [id]);
+        } catch (audErr) {
+          console.warn('Could not delete audit_logs entries (continuing):', audErr.message || audErr);
+        }
+        const deleteRes = await client.query('DELETE FROM admission_slips WHERE id = $1 RETURNING *', [id]);
+        if (deleteRes.rows.length === 0) {
+          await client.query('ROLLBACK');
+          client.release();
+          return res.status(404).json({ error: 'Admission slip not found' });
+        }
+        deletedSlip = deleteRes.rows[0];
+        await client.query('COMMIT');
+        client.release();
+      } catch (clientErr) {
+        try { await client.query('ROLLBACK'); } catch (e) { /* ignore */ }
+        client.release();
+        throw clientErr;
+      }
+      // Return the deleted slip to caller
+      return res.json({ success: true, message: 'Admission slip deleted successfully', slip: deletedSlip });
+
+      // NOTE: We intentionally do not insert a new audit_log after deletion since the
+      // `admission_slip_id` foreign key would reference a deleted slip. If you prefer
+      // preserving deletion events, we can add a separate audit table or make the
+      // `admission_slip_id` nullable and set it to NULL on delete.
+    } catch (txErr) {
+      console.error('Delete slip transaction error:', txErr);
+      // Foreign key constraint violation from other tables
+      if (txErr.code === '23503') {
+        return res.status(409).json({ error: 'Cannot delete admission slip: referenced by other records', detail: txErr.detail });
+      }
+      return res.status(500).json({ error: 'Failed to delete admission slip' });
+    }
+  } catch (error) {
+    console.error('Delete slip error:', error);
+    res.status(500).json({ error: 'Failed to delete admission slip' });
+  }
+});
+
 module.exports = router;

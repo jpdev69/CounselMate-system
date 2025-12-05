@@ -47,8 +47,16 @@ export const SlipsProvider = ({ children }) => {
     return res;
   };
 
+  const deleteSlip = async (slipId) => {
+    const res = await api.deleteAdmissionSlip(slipId);
+    if (res?.data?.success) {
+      setSlips(prev => prev.filter(s => Number(s.id) !== Number(slipId)));
+    }
+    return res;
+  };
+
   return (
-    <SlipsContext.Provider value={{ slips, loading, loadSlips, updateSlipInState, completeSlip, approveSlip, issueSlip }}>
+    <SlipsContext.Provider value={{ slips, loading, loadSlips, updateSlipInState, completeSlip, approveSlip, issueSlip, deleteSlip }}>
       {children}
     </SlipsContext.Provider>
   );

@@ -3,10 +3,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getViolationTypes } from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
-import { FileText, CheckCircle, Search, Filter } from 'lucide-react';
+import { FileText, CheckCircle, Search, Filter, Trash2 } from 'lucide-react';
 
 const CompleteForm = () => {
-  const { slips, loadSlips, completeSlip, approveSlip: approveSlipApi, updateSlipInState } = useSlips();
+  const { slips, loadSlips, completeSlip, approveSlip: approveSlipApi, updateSlipInState, deleteSlip } = useSlips();
   const [violationTypes, setViolationTypes] = useState([]);
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -212,6 +212,31 @@ const CompleteForm = () => {
     }
   };
 
+  const handleDelete = async (slip) => {
+    if (!confirm('Are you sure you want to delete this admission slip? This action cannot be undone.')) return;
+
+    try {
+      console.log('🗑️ Attempting to delete slip:', slip.id);
+      await deleteSlip(slip.id);
+      setIsModalOpen(false);
+      setSelectedSlip(null);
+      alert('Slip deleted successfully.');
+    } catch (err) {
+      console.error('❌ Delete slip error:', err);
+      if (err.response?.status === 404) {
+        // Refresh list if server reports it's already gone
+        await loadSlips();
+        setIsModalOpen(false);
+        setSelectedSlip(null);
+        alert('Slip was already deleted. List refreshed.');
+      } else if (err.response?.data?.error) {
+        alert(`Delete failed: ${err.response.data.error}`);
+      } else {
+        alert('Failed to delete slip. See console for details.');
+      }
+    }
+  };
+
   const getStatusDisplay = (status) => {
     const statusMap = {
       'issued': 'ISSUED',
@@ -338,6 +363,17 @@ const CompleteForm = () => {
                                 </button>
                               </div>
                             )}
+                            {(slip.status === 'form_completed' || slip.status === 'issued') && (
+                              <div>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDelete(slip); }}
+                                  className="mt-2 w-full bg-red-600 text-white py-1 px-3 rounded text-sm hover:bg-red-700 transition-colors flex items-center justify-center"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-1" />
+                                  Delete
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -432,7 +468,14 @@ const CompleteForm = () => {
                       >
                         Approve Slip
                       </button>
-
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(selectedSlip); }}
+                        className="btn"
+                        style={{ padding: '6px 12px', background: '#ef4444', color: 'white', borderRadius: 6, border: 'none' }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </button>
                       <button
                         onClick={() => setIsModalOpen(false)}
                         className="btn"
@@ -513,6 +556,15 @@ const CompleteForm = () => {
                         style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}
                       >
                         Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(selectedSlip); }}
+                        className="btn"
+                        style={{ padding: '6px 12px', background: '#ef4444', color: 'white', borderRadius: 6, border: 'none' }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
                       </button>
                     </div>
                   </form>
