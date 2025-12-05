@@ -205,6 +205,10 @@ app.get('/api/violation-types', async (req, res) => {
 const admissionSlipsRouter = require('./routes/admissionSlips');
 app.use('/api/admission-slips', admissionSlipsRouter);
 
+// Mount router for visualizations and analytics
+const visualizationsRouter = require('./routes/visualizations');
+app.use('/api/visualizations', visualizationsRouter);
+
 // Get current user's saved security question (for counselor user)
 app.get('/api/auth/me/security-question', async (req, res) => {
   try {

@@ -2,7 +2,7 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Home, FileText, Search, User, Key, Menu, Printer } from 'lucide-react';
+import { LogOut, Home, FileText, Search, User, Key, Menu, Printer, BarChart3 } from 'lucide-react';
 import { useState } from 'react';
 import '../App.css';
 
@@ -16,6 +16,7 @@ const Layout = ({ children }) => {
     { name: 'Print Admission Slip', href: '/print-slip', icon: Printer },
     { name: 'Complete Form', href: '/complete-form', icon: FileText },
     { name: 'Search Records', href: '/search', icon: Search },
+    { name: 'Violation Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Change Password', href: '/change-password', icon: Key },
     { name: 'Security Question', href: '/security-question', icon: User },
   ];

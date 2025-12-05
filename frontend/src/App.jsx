@@ -11,6 +11,7 @@ import CompleteForm from './components/CompleteForm';
 import SearchRecords from './components/SearchRecords';
 import ChangePassword from './components/ChangePassword';
 import SecurityQuestion from './components/SecurityQuestion';
+import Analytics from './components/Analytics';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -65,6 +66,7 @@ function App() {
                       <Route path="/print-slip" element={<PrintAdmissionSlip />} />
                       <Route path="/complete-form" element={<CompleteForm />} />
                       <Route path="/search" element={<SearchRecords />} />
+                      <Route path="/analytics" element={<Analytics />} />
                       <Route path="/change-password" element={<ChangePassword />} />
                       <Route path="/security-question" element={<SecurityQuestion />} />
                       <Route path="*" element={<Navigate to="/" />} />
