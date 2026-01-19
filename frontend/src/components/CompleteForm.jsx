@@ -19,6 +19,8 @@ const CompleteForm = () => {
     course: ''
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [validationError, setValidationError] = useState(null);
+  const [proceedWithError, setProceedWithError] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -84,6 +86,9 @@ const CompleteForm = () => {
       remarks: slip.teacher_comments || slip.remarks || '',
       course: slip.course || ''
     });
+    // Reset validation error when opening a new slip
+    setValidationError(null);
+    setProceedWithError(false);
     // open modal immediately to avoid scrolling
     setIsModalOpen(true);
   };
@@ -121,26 +126,28 @@ const CompleteForm = () => {
 
       const validationResult = validationResponse.data?.validation;
       
-      if (!validationResult?.matches) {
-        // Violation doesn't match - suspend form completion
+      // If validation fails and user hasn't chosen to proceed anyway, show error
+      if (!validationResult?.matches && !proceedWithError) {
+        // Violation doesn't match - display error below the field
         setLoading(false);
-        const confirmProceed = window.confirm(
-          `⚠️ Validation Issue:\n\n${validationResult?.reason || 'The violation description does not match the selected violation type.'}\n\nDo you want to proceed anyway?`
-        );
-        
-        if (!confirmProceed) {
-          console.log('❌ Form completion suspended due to validation failure');
-          return;
-        }
-        // User confirmed to proceed despite mismatch
-        setLoading(true);
-      } else {
+        setValidationError(validationResult?.reason || 'The violation description does not match the selected violation type.');
+        setProceedWithError(false);
+        console.log('❌ Form completion suspended due to validation failure');
+        return;
+      }
+      
+      if (validationResult?.matches) {
         console.log('✅ Violation description validation passed');
+        setValidationError(null);
+        setProceedWithError(false);
+      } else if (proceedWithError) {
+        console.log('⚠️ Proceeding with validation warning');
       }
 
       // Confirm with a simple message
       if (!window.confirm('Proceed to complete this form?')) {
         setLoading(false);
+        setProceedWithError(false);
         return; // user cancelled
       }
 
@@ -545,14 +552,40 @@ const CompleteForm = () => {
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Description *</label>
                       <textarea
                         value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: (e.target.value || '').toString().slice(0, 500) })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, description: (e.target.value || '').toString().slice(0, 500) });
+                          // Clear validation error when user edits the field
+                          if (validationError) setValidationError(null);
+                        }}
                         maxLength={500}
                         rows="4"
                         className="form-input"
                         placeholder="Detailed description of the violation..."
                         required
-                        style={{ width: '100%', resize: 'vertical' }}
+                        style={{ width: '100%', resize: 'vertical', borderColor: validationError ? '#ef4444' : undefined }}
                       />
+                      {validationError && (
+                        <div style={{ marginTop: '8px', padding: '10px', backgroundColor: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem' }}>
+                          <strong>⚠️ Validation Issue:</strong> {validationError}
+                          <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProceedWithError(true);
+                                // Trigger form submission immediately after setting the flag
+                                setTimeout(() => {
+                                  const form = document.querySelector('form[data-validation-form]');
+                                  if (form) form.dispatchEvent(new Event('submit', { bubbles: true }));
+                                }, 0);
+                              }}
+                              className="btn"
+                              style={{ padding: '4px 12px', backgroundColor: '#fbbf24', color: '#111827', border: 'none', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer' }}
+                            >
+                              Proceed Anyway
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div>
