@@ -5,7 +5,7 @@ const API_BASE_URL = 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 60000, // 60 seconds for LLM validation
 });
 
 api.interceptors.request.use((config) => {
@@ -81,6 +81,9 @@ export const verifyStudent = (data) =>
 
 export const completeForm = (slipId, data) => 
   api.put(`/admission-slips/${slipId}/complete`, data);
+
+export const validateViolation = (data) =>
+  api.post('/admission-slips/validate-violation', data);
 
 export const approveSlip = (slipId) => 
   api.put(`/admission-slips/${slipId}/approve`);

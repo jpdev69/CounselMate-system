@@ -1,6 +1,53 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/database'); // Your database connection
+const { validateViolationMatch } = require('../utils/violationMatcher');
+
+// Validate violation description matches violation type
+router.post('/validate-violation', async (req, res) => {
+  try {
+    const { violation_type_id, description } = req.body;
+
+    if (!violation_type_id || !description) {
+      return res.status(400).json({
+        error: 'violation_type_id and description are required'
+      });
+    }
+
+    // Get the violation type details
+    const violationTypeResult = await db.query(
+      'SELECT code, description as type_description FROM violation_types WHERE id = $1',
+      [violation_type_id]
+    );
+
+    if (violationTypeResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Violation type not found'
+      });
+    }
+
+    const violationType = violationTypeResult.rows[0];
+    console.log(`🔍 Validating violation: ${violationType.code} vs "${description}"`);
+
+    // Use the LLM to validate the match
+    const validation = await validateViolationMatch(violationType.code, description);
+
+    res.json({
+      success: true,
+      validation: {
+        matches: validation.matches,
+        confidence: validation.confidence,
+        reason: validation.reason,
+        violation_type: violationType.code
+      }
+    });
+  } catch (error) {
+    console.error('Violation validation error:', error);
+    res.status(500).json({
+      error: 'Failed to validate violation'
+    });
+  }
+});
 
 // Issue admission slip
 router.post('/issue', async (req, res) => {
@@ -335,6 +382,22 @@ router.put('/:id/complete', async (req, res) => {
   try {
     const { id } = req.params;
     const { violation_type_id, description, teacher_comments, course } = req.body;
+
+    // Validate that violation description matches violation type
+    console.log(`📋 Completing form for slip ${id} with violation type ${violation_type_id}`);
+    
+    const validation = await validateViolationMatch(violation_type_id, description);
+    
+    if (!validation.matches) {
+      return res.status(400).json({
+        error: 'Violation description does not match the selected violation type',
+        validation: {
+          matches: false,
+          confidence: validation.confidence,
+          reason: validation.reason
+        }
+      });
+    }
 
     const query = `
       UPDATE admission_slips 

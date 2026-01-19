@@ -1,7 +1,7 @@
 // src/components/CompleteForm.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getViolationTypes } from '../services/api';
+import { getViolationTypes, validateViolation } from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
 import { FileText, CheckCircle, Search, Filter, Trash2 } from 'lucide-react';
 
@@ -109,15 +109,41 @@ const CompleteForm = () => {
       return;
     }
 
-    // Confirm with a simple message
-    if (!window.confirm('Proceed to complete this form?')) {
-      return; // user cancelled
-    }
-
     setLoading(true);
     try {
-      console.log('🚀 Attempting to complete form for slip:', selectedSlip.id);
+      console.log('🔍 Validating violation description matches violation type...');
       
+      // First, validate that the description matches the violation type
+      const validationResponse = await validateViolation({
+        violation_type_id: parseInt(formData.violationTypeId),
+        description: formData.description
+      });
+
+      const validationResult = validationResponse.data?.validation;
+      
+      if (!validationResult?.matches) {
+        // Violation doesn't match - suspend form completion
+        setLoading(false);
+        const confirmProceed = window.confirm(
+          `⚠️ Validation Issue:\n\n${validationResult?.reason || 'The violation description does not match the selected violation type.'}\n\nDo you want to proceed anyway?`
+        );
+        
+        if (!confirmProceed) {
+          console.log('❌ Form completion suspended due to validation failure');
+          return;
+        }
+        // User confirmed to proceed despite mismatch
+        setLoading(true);
+      } else {
+        console.log('✅ Violation description validation passed');
+      }
+
+      // Confirm with a simple message
+      if (!window.confirm('Proceed to complete this form?')) {
+        setLoading(false);
+        return; // user cancelled
+      }
+
       // Prepare data based on your API structure
       const submitData = {
         violation_type_id: parseInt(formData.violationTypeId),
@@ -144,7 +170,7 @@ const CompleteForm = () => {
         await handleSubmitFallback();
         setIsModalOpen(false);
       } else {
-        const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to complete form';
+        const errorMessage = error.response?.data?.error || error.response?.data?.validation?.reason || error.response?.data?.message || error.message || 'Failed to complete form';
         alert(`Error: ${errorMessage}`);
       }
     } finally {
@@ -178,6 +204,7 @@ const CompleteForm = () => {
     } catch (fallbackError) {
       console.error('❌ Fallback also failed:', fallbackError);
       alert('Failed to complete form. Please check backend configuration.');
+
     }
   };
 
@@ -518,8 +545,8 @@ const CompleteForm = () => {
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Description *</label>
                       <textarea
                         value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: (e.target.value || '').toString().slice(0, 128) })}
-                        maxLength={128}
+                        onChange={(e) => setFormData({ ...formData, description: (e.target.value || '').toString().slice(0, 500) })}
+                        maxLength={500}
                         rows="4"
                         className="form-input"
                         placeholder="Detailed description of the violation..."
@@ -532,8 +559,8 @@ const CompleteForm = () => {
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Counselor Remarks</label>
                       <textarea
                         value={formData.remarks}
-                        onChange={(e) => setFormData({ ...formData, remarks: (e.target.value || '').toString().slice(0, 128) })}
-                        maxLength={128}
+                        onChange={(e) => setFormData({ ...formData, remarks: (e.target.value || '').toString().slice(0, 500) })}
+                        maxLength={500}
                         rows="3"
                         className="form-input"
                         placeholder="Additional remarks or recommendations..."
