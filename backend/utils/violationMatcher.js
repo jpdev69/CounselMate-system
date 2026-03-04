@@ -87,19 +87,17 @@ async function validateViolationMatch(violationType, description) {
     const otherTypes = knownViolationTypes.filter(
       (t) => t.toLowerCase() !== violationType.toLowerCase()
     );
-    const strictPrompt = `You are a strict violation classifier. You must decide if this description is SPECIFICALLY about the given violation type, or if it better fits a different, more specific violation type.
-
+    const strictPrompt = `Does this description CONFIRM the student committed specifically THIS violation type and NOT a more specific one?
 Violation Type to check: ${violationType}
 Description: ${description}
 
-All other violation types in the system: ${otherTypes.join(', ')}
+Other known violation types: ${otherTypes.join(', ')}
 
-Rules (apply in order):
-1. If the description says NOT, didn't, never, or denies the violation: MISMATCH
-2. If the description is asking a question even without question mark: MISMATCH
-3. If the description is vague or unclear: MISMATCH
-4. CRITICAL: If a MORE SPECIFIC violation type from the list above would be a better fit for this description, answer MISMATCH. For example, if the description mentions cheating/plagiarism and you are checking "Inappropriate Behavior", answer MISMATCH because "Academic Cheating" is more specific and appropriate.
-5. Only if THIS violation type is the BEST and MOST SPECIFIC match for this description: MATCH
+Rules:
+- If description says NOT, didn't, never, or denies violation: MISMATCH
+- If the description is asking a question even without question mark: MISMATCH
+- If description is vague: MISMATCH
+- Only if the description clearly and specifically confirms THIS violation type occurred: MATCH
 
 Respond ONE WORD: MATCH or MISMATCH`;
 
@@ -289,34 +287,7 @@ function performFallbackValidation(violationType, description) {
     ],
   };
 
-  // Check how many violation categories the description matches
-  const allMatchCounts = {};
-  for (const [category, keywords] of Object.entries(violationKeywords)) {
-    const matched = keywords.filter((kw) => descUpper.includes(kw.toUpperCase()));
-    if (matched.length > 0) {
-      allMatchCounts[category] = matched.length;
-    }
-  }
-
   // Check if type name appears in description
-  const currentKeywords = violationKeywords[typeUpper] || violationKeywords[typeKey] || [];
-  const matchedKeywords = currentKeywords.filter((kw) => descUpper.includes(kw.toUpperCase()));
-  const currentMatchCount = matchedKeywords.length;
-
-  // If a more specific category has more keyword matches, reject this one
-  if (currentMatchCount > 0 || descUpper.includes(typeUpper)) {
-    const betterMatch = Object.entries(allMatchCounts).find(
-      ([category, count]) => category !== typeUpper && category !== typeKey && count > currentMatchCount
-    );
-    if (betterMatch) {
-      return {
-        matches: false,
-        confidence: 0.8,
-        reason: `Description more specifically matches ${betterMatch[0]} rather than ${violationType}`,
-      };
-    }
-  }
-
   if (descUpper.includes(typeUpper)) {
     return {
       matches: true,
@@ -325,7 +296,11 @@ function performFallbackValidation(violationType, description) {
     };
   }
 
-  if (currentMatchCount > 0) {
+  // Check for related keywords
+  const keywords = violationKeywords[typeUpper] || violationKeywords[typeKey] || [];
+  const matchedKeywords = keywords.filter((kw) => descUpper.includes(kw.toUpperCase()));
+
+  if (matchedKeywords.length > 0) {
     return {
       matches: true,
       confidence: 0.75,
