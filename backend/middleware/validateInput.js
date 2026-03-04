@@ -54,6 +54,13 @@ module.exports = (req, res, next) => {
       overrides.set('body.description', 500);
     }
 
+    // Allow longer messages for the chatbot endpoint
+    // Endpoint: POST /api/chatbot/ask
+    const chatbotMatch = req.path && req.path.match(/^\/api\/chatbot\/ask$/);
+    if (chatbotMatch && String(req.method).toUpperCase() === 'POST') {
+      overrides.set('body.message', 500);
+    }
+
     // Allow longer fields for forgot-password endpoints
     const forgotGetMatch = req.path && req.path.match(/^\/api\/auth\/forgot$/);
     const forgotResetMatch = req.path && req.path.match(/^\/api\/auth\/forgot\/reset$/);

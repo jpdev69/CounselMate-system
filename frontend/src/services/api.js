@@ -105,4 +105,8 @@ export const getStudentAdmissionSlips = (studentId, page = 1, pageSize = 5, para
 export const deleteAdmissionSlip = (slipId) =>
   api.delete(`/admission-slips/${slipId}`);
 
+// Chatbot API
+export const chatbotAsk = (message) =>
+  api.post('/chatbot/ask', { message });
+
 export default api;
