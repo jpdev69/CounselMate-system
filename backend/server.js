@@ -3,6 +3,8 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const { authenticate } = require('./middleware/auth');
 // shared DB pool is in ./config/database.js
 
 const app = express();
@@ -52,7 +54,7 @@ pool.connect((err, client, release) => {
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'CounselMate Backend Running',
+    message: 'GuidanceOS Backend Running',
     database: DATABASE_URL ? 'Configured' : 'Not configured',
     cors: CORS_ORIGIN
   });
@@ -113,8 +115,12 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
       role: user.role
     };
 
-    // Simple token (in production, use JWT)
-    const token = 'simple-token-' + Date.now();
+    // Sign a JWT with user info (expires in 30 minutes)
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '30m' }
+    );
 
     // Clear attempts on successful login
     try { clearAttempts(req, 'login'); } catch (e) { /* no-op */ }
@@ -134,7 +140,7 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
 });
 
 // Change password endpoint
-app.put('/api/auth/change-password', async (req, res) => {
+app.put('/api/auth/change-password', authenticate, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
   try {
@@ -202,9 +208,8 @@ app.put('/api/auth/change-password', async (req, res) => {
   }
 });
 
-// ... (keep all your other routes the same)
 // API route to get violation types
-app.get('/api/violation-types', async (req, res) => {
+app.get('/api/violation-types', authenticate, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM violation_types ORDER BY id');
     res.json(result.rows);
@@ -214,18 +219,18 @@ app.get('/api/violation-types', async (req, res) => {
 });
 // Mount router for admission slips (consolidated routes in router module)
 const admissionSlipsRouter = require('./routes/admissionSlips');
-app.use('/api/admission-slips', admissionSlipsRouter);
+app.use('/api/admission-slips', authenticate, admissionSlipsRouter);
 
 // Mount router for visualizations and analytics
 const visualizationsRouter = require('./routes/visualizations');
-app.use('/api/visualizations', visualizationsRouter);
+app.use('/api/visualizations', authenticate, visualizationsRouter);
 
 // Mount router for chatbot (Student Manual violation assistant)
 const chatbotRouter = require('./routes/chatbot');
-app.use('/api/chatbot', chatbotRouter);
+app.use('/api/chatbot', authenticate, chatbotRouter);
 
 // Get current user's saved security question (for counselor user)
-app.get('/api/auth/me/security-question', precheckRateLimit('me-security-question'), async (req, res) => {
+app.get('/api/auth/me/security-question', authenticate, precheckRateLimit('me-security-question'), async (req, res) => {
   try {
     await ensureSecurityColumns();
     const email = 'counselor@university.edu';
@@ -239,7 +244,7 @@ app.get('/api/auth/me/security-question', precheckRateLimit('me-security-questio
 });
 
 // Update current user's security question and answer (for counselor user)
-app.put('/api/auth/me/security-question', precheckRateLimit('me-security-question'), async (req, res) => {
+app.put('/api/auth/me/security-question', authenticate, precheckRateLimit('me-security-question'), async (req, res) => {
   try {
     const { security_question, security_answer } = req.body || {};
     if (!security_question || !security_answer) return res.status(400).json({ success: false, error: 'security_question and security_answer are required' });

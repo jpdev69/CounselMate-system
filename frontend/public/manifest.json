@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "GuidanceOS",
+  "name": "GuidanceOS - Guidance Monitoring and Record-Keeping System",
   "icons": [
     {
       "src": "favicon.ico",

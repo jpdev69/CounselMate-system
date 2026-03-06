@@ -1,5 +1,5 @@
 {
-  "name": "counselmate-frontend",
+  "name": "guidanceos-frontend",
   "type": "module",
   "scripts": {
     "dev": "vite",

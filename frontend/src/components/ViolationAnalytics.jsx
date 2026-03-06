@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './ViolationAnalytics.css';
+import api from '../services/api';
 
 /**
  * ViolationAnalytics Component
@@ -55,55 +56,21 @@ const ViolationAnalytics = () => {
       setLoading(true);
       setError(null);
 
-      const API_BASE_URL = 'http://localhost:5000/api';
-
-      // First test if the API is responding
-      const healthRes = await fetch(`${API_BASE_URL}/visualizations/health`);
-      if (!healthRes.ok) {
-        throw new Error('Analytics API health check failed. Backend may be down.');
-      }
+      // First test if the API is responding (uses the axios instance which includes auth header)
+      await api.get('/visualizations/health');
 
       // Fetch all data in parallel
       const [summaryRes, violationsRes, coursesRes, typesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/visualizations/violations/summary`),
-        fetch(`${API_BASE_URL}/visualizations/violations/by-student`),
-        fetch(`${API_BASE_URL}/visualizations/violations/by-course`),
-        fetch(`${API_BASE_URL}/visualizations/violations/by-type`)
+        api.get('/visualizations/violations/summary'),
+        api.get('/visualizations/violations/by-student'),
+        api.get('/visualizations/violations/by-course'),
+        api.get('/visualizations/violations/by-type')
       ]);
 
-      if (!summaryRes.ok) {
-        const errorText = await summaryRes.text();
-        console.error('Summary response status:', summaryRes.status, 'Body:', errorText.substring(0, 200));
-        throw new Error(`Summary fetch failed: ${summaryRes.status}`);
-      }
-      
-      if (!violationsRes.ok) {
-        throw new Error(`Violations fetch failed: ${violationsRes.status}`);
-      }
-      
-      if (!coursesRes.ok) {
-        throw new Error(`Courses fetch failed: ${coursesRes.status}`);
-      }
-
-      if (!typesRes.ok) {
-        throw new Error(`Violation types fetch failed: ${typesRes.status}`);
-      }
-
-      // Check content-type to ensure we're getting JSON
-      const contentType = summaryRes.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server returned non-JSON response. Backend error occurred.');
-      }
-
-      const summaryData = await summaryRes.json();
-      const violationsData = await violationsRes.json();
-      const coursesData = await coursesRes.json();
-      const typesData = await typesRes.json();
-
-      setSummary(summaryData.summary);
-      setViolations(violationsData.data);
-      setCourses(coursesData.data);
-      setViolationTypes(typesData.data);
+      setSummary(summaryRes.data.summary);
+      setViolations(violationsRes.data.data);
+      setCourses(coursesRes.data.data);
+      setViolationTypes(typesRes.data.data);
     } catch (err) {
       console.error('Error fetching analytics:', err);
       setError(err.message);

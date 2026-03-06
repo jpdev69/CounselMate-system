@@ -43,6 +43,10 @@ const SearchRecords = () => {
     let mounted = true;
     const fetchPage = async () => {
       if (!groupViewStudent) return;
+      // When all records are already loaded (client-side pagination active), skip the
+      // server fetch — it would overwrite the complete list with a single page's worth
+      // of data, making every page after the first appear empty.
+      if (groupFetchedAll) return;
       setGroupLoading(true);
       try {
         const params = { sort: groupSortOrder };
@@ -63,7 +67,7 @@ const SearchRecords = () => {
     };
     fetchPage();
     return () => { mounted = false; };
-  }, [groupViewStudent, groupPage, groupPageSize, groupSortOrder, groupStatusFilter]);
+  }, [groupViewStudent, groupPage, groupPageSize, groupSortOrder, groupStatusFilter, groupFetchedAll]);
 
   // If a client-side filter is applied and the student has more slips than the page size, fetch all slips so client-side filtering can operate across the whole set
   useEffect(() => {

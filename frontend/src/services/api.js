@@ -1,7 +1,7 @@
 // frontend/src/services/api.js
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -39,11 +39,10 @@ api.interceptors.response.use(
       sessionStorage.removeItem('userData');
       sessionStorage.removeItem('verifiedSecurityQuestion');
 
-      // If it's NOT a login request, perform the existing redirect to the login page.
-      // For the login request itself we avoid forcing a full-page navigation so the
-      // Login component can show the error and keep input values intact.
+      // Notify the AuthContext via a custom event so React Router handles
+      // the redirect (avoids a full page reload that would restart the loop).
       if (!isLoginRequest) {
-        window.location.href = '/login';
+        window.dispatchEvent(new CustomEvent('guidanceos:unauthenticated'));
       }
     }
     return Promise.reject(error);

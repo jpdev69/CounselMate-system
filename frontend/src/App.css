@@ -29,6 +29,10 @@
   display: none;
 }
 
+.sidebar.collapsed .sidebar-logo {
+  display: none;
+}
+
 /* Keep nav visible but show icons-only */
 .sidebar.collapsed .nav-text {
   display: none;
@@ -69,7 +73,12 @@
 }
 
 .sidebar-title {
-  margin-left: 8px;
+  margin-left: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .sidebar-header {
@@ -77,14 +86,9 @@
   background-color: var(--primary-600);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 0 16px;
-}
-
-.sidebar-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: white;
+  gap: 10px;
 }
 
 .sidebar-nav {

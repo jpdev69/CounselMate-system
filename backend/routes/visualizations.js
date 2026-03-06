@@ -267,7 +267,7 @@ router.get('/dashboard', async (req, res) => {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Violation Analytics Dashboard - CounselMate</title>
+        <title>Violation Analytics Dashboard - GuidanceOS</title>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <style>
           * {
@@ -471,7 +471,7 @@ router.get('/dashboard', async (req, res) => {
           </div>
 
           <div class="footer">
-            <p>CounselMate System © 2024 | Last updated: ${new Date().toLocaleString()}</p>
+            <p>GuidanceOS © 2024 | Last updated: ${new Date().toLocaleString()}</p>
           </div>
         </div>
 

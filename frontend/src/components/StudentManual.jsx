@@ -227,7 +227,7 @@ const ChatbotPanel = ({ open, onClose }) => {
   const [messages, setMessages] = useState([
     {
       role: 'bot',
-      text: "Hello! I'm the **CounselMate Violation Rules Assistant**. I can help you with questions about student violations, offenses, penalties, disciplinary procedures, and student conduct from the ISU Student Manual.\n\nTry asking me things like:\n• \"What are the minor offenses?\"\n• \"What is the penalty for bullying?\"\n• \"How does the investigation process work?\""
+      text: "Hello! I'm the **GuidanceOS Violation Rules Assistant**. I can help you with questions about student violations, offenses, penalties, disciplinary procedures, and student conduct from the ISU Student Manual.\n\nTry asking me things like:\n• \"What are the minor offenses?\"\n• \"What is the penalty for bullying?\"\n• \"How does the investigation process work?\""
     }
   ]);
   const [input, setInput] = useState('');

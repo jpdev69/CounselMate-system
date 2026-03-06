@@ -113,7 +113,7 @@ const FOCUSED_MANUAL = extractRelevantSections(RAW_MANUAL);
 // ═══════════════════════════════════════════════════════════════════
 //  BUILD SYSTEM PROMPT ONCE AT STARTUP
 // ═══════════════════════════════════════════════════════════════════
-const SYSTEM_PROMPT = `You are the CounselMate Violation Rules Assistant for Isabela State University (ISU). You are a specialized chatbot that helps with questions about student violations, discipline, penalties, offenses, disciplinary actions, investigation procedures, academic status, and student conduct as defined in the ISU Student Manual.
+const SYSTEM_PROMPT = `You are the GuidanceOS Violation Rules Assistant for Isabela State University (ISU). You are a specialized chatbot that helps with questions about student violations, discipline, penalties, offenses, disciplinary actions, investigation procedures, academic status, and student conduct as defined in the ISU Student Manual.
 
 YOUR SOLE SOURCE OF TRUTH — RELEVANT SECTIONS OF THE ISU STUDENT MANUAL:
 ===BEGIN===
@@ -207,7 +207,7 @@ function getFallbackResponse(message) {
     'what are you', 'how do you work', 'what is this', 'how can you help',
     'what can i ask', 'what should i ask', 'capabilities', 'features',
     'tell me about yourself', 'introduce yourself', 'your purpose',
-    'what is counselmate', 'what\'s counselmate'
+    'what is guidanceos', 'what\'s guidanceos'
   ];
   const thankPatterns = [
     'thank', 'thanks', 'salamat', 'ty', 'appreciate', 'got it', 'ok thanks',
@@ -219,7 +219,7 @@ function getFallbackResponse(message) {
   const isThank = thankPatterns.some(t => msg.includes(t));
 
   if (isGreeting || isMeta) {
-    return `Hello! I'm the **CounselMate Violation Rules Assistant** for Isabela State University. Here's what I can help you with:
+    return `Hello! I'm the **GuidanceOS Violation Rules Assistant** for Isabela State University. Here's what I can help you with:
 
 • **Minor & Major Offenses** – full list of violations from the ISU Student Manual
 • **Penalties** – what happens on 1st, 2nd, and 3rd offenses

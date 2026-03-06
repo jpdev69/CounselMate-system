@@ -20,15 +20,16 @@ export const AuthProvider = ({ children }) => {
     const token = sessionStorage.getItem('authToken');
     const userData = sessionStorage.getItem('userData');
 
-    const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
-
     const isTokenExpired = (t) => {
       if (!t) return true;
-      // token format used by backend: 'simple-token-<timestamp>'
-      const parts = t.split('-');
-      const ts = parseInt(parts[parts.length - 1], 10);
-      if (Number.isNaN(ts)) return true;
-      return (Date.now() - ts) > SESSION_TTL_MS;
+      try {
+        // Decode the JWT payload (base64) to read the exp claim
+        const payload = JSON.parse(atob(t.split('.')[1]));
+        // exp is in seconds; compare with current time
+        return Date.now() >= payload.exp * 1000;
+      } catch {
+        return true;
+      }
     };
 
     if (token && userData) {
@@ -53,8 +54,18 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
+    // Handle 401 responses from the API interceptor (fired instead of window.location.href
+    // to avoid full-page reloads that cause erratic reload loops)
+    const handleUnauthenticated = () => {
+      setUser(null);
+    };
+
     document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('guidanceos:unauthenticated', handleUnauthenticated);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('guidanceos:unauthenticated', handleUnauthenticated);
+    };
   }, []);
 
   const login = async (email, password) => {

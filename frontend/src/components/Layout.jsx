@@ -34,7 +34,8 @@ const Layout = ({ children }) => {
           >
             <Menu />
           </button>
-          <h1 className="sidebar-title">CounselMate</h1>
+          <img src="/GuidanceOS-system-logo.png" alt="GuidanceOS" className="sidebar-logo" style={{ height: '32px', objectFit: 'contain', flexShrink: 0 }} />
+          <span className="sidebar-title">GuidanceOS</span>
         </div>
         
         <nav className="sidebar-nav">

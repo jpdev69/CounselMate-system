@@ -21,6 +21,7 @@ const CompleteForm = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [validationError, setValidationError] = useState(null);
   const [proceedWithError, setProceedWithError] = useState(false);
+  const formRef = useRef(null);
 
   useEffect(() => {
     loadData();
@@ -157,7 +158,8 @@ const CompleteForm = () => {
         description: formData.description,
         teacher_comments: formData.remarks, // Match your API field name
         course: formData.course,
-        status: 'form_completed'
+        status: 'form_completed',
+        skip_validation: proceedWithError || false
       };
 
       console.log('📤 Sending data to API:', submitData);
@@ -520,7 +522,7 @@ const CompleteForm = () => {
                     </div>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '12px' }}>
+                  <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'grid', gap: '12px' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Course</label>
                       <input
@@ -572,10 +574,9 @@ const CompleteForm = () => {
                               type="button"
                               onClick={() => {
                                 setProceedWithError(true);
-                                // Trigger form submission immediately after setting the flag
+                                // Trigger form submission after state update is applied
                                 setTimeout(() => {
-                                  const form = document.querySelector('form[data-validation-form]');
-                                  if (form) form.dispatchEvent(new Event('submit', { bubbles: true }));
+                                  if (formRef.current) formRef.current.requestSubmit();
                                 }, 0);
                               }}
                               className="btn"

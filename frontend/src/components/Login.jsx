@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { School, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -91,11 +91,9 @@ const Login = () => {
       <div className="login-card card">
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
-            <div className="icon-container">
-              <School className="icon" />
-            </div>
+            <img src="/GuidanceOS-system-logo.png" alt="GuidanceOS" style={{ height: '72px', objectFit: 'contain' }} />
           </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>CounselMate</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>GuidanceOS</h1>
           <p className="text-muted">Guidance Counselor Portal</p>
         </div>
 

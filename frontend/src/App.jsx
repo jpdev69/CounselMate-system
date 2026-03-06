@@ -2,6 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SlipsProvider } from './contexts/SlipsContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
 import ForgotPassword from './components/ForgotPassword';
@@ -61,7 +62,8 @@ function App() {
               path="/*" 
               element={
                 <ProtectedRoute>
-                  <Layout>
+                  <SlipsProvider>
+                    <Layout>
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/print-slip" element={<PrintAdmissionSlip />} />
@@ -75,6 +77,7 @@ function App() {
                       
                     </Routes>
                   </Layout>
+                  </SlipsProvider>
                 </ProtectedRoute>
               } 
             />

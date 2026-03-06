@@ -188,19 +188,11 @@ const PrintAdmissionSlip = () => {
       }
       setResult(response.data);
 
-      // Open backend print endpoint in a new tab immediately using API base URL
+      // Open backend print endpoint in a new tab using authenticated request
       const slipId = response.data?.slip?.id;
       if (slipId) {
-        try {
-          const base = api.defaults?.baseURL || 'http://localhost:5000/api';
-          // base already contains '/api', so point to the print-slip path under admission-slips
-          const url = `${base.replace(/\/$/, '')}/admission-slips/print-slip?slip_id=${encodeURIComponent(slipId)}`;
-          window.open(url, '_blank');
-          // mark as printed so UI hides print/issue buttons
-          setPrintedSlipId(slipId);
-        } catch (openErr) {
-          console.warn('Failed to open print tab:', openErr);
-        }
+        await openPrintTab(slipId);
+        setPrintedSlipId(slipId);
       }
 
       // Reset form
@@ -217,13 +209,25 @@ const PrintAdmissionSlip = () => {
 
   // Manual verify removed — verification runs automatically via the debounced effect above.
 
+  // Opens the backend-generated print HTML in a new tab using the authenticated axios
+  // instance so the JWT token is sent — plain window.open() would be rejected (401).
+  const openPrintTab = async (slipId) => {
+    try {
+      const response = await api.get(`/admission-slips/print-slip?slip_id=${encodeURIComponent(slipId)}`, {
+        responseType: 'text',
+      });
+      const blob = new Blob([response.data], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+    } catch (err) {
+      console.error('Failed to open print tab:', err);
+    }
+  };
+
   const handlePrint = () => {
-    // Prefer opening the backend print endpoint if available
     const slipId = result?.slip?.id;
     if (slipId) {
-      const base = api.defaults?.baseURL || 'http://localhost:5000/api';
-      const url = `${base.replace(/\/$/, '')}/admission-slips/print-slip?slip_id=${encodeURIComponent(slipId)}`;
-      window.open(url, '_blank');
+      openPrintTab(slipId);
       setPrintedSlipId(slipId);
     }
   };
