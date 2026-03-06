@@ -39,11 +39,26 @@ module.exports = (req, res, next) => {
     // Endpoint: PUT /api/admission-slips/:id/complete
     const completeMatch = req.path && req.path.match(/^\/api\/admission-slips\/(\d+)\/complete$/);
     if (completeMatch && String(req.method).toUpperCase() === 'PUT') {
-      // body.description and body.teacher_comments may be up to 128 chars
-      overrides.set('body.description', 128);
-      overrides.set('body.teacher_comments', 128);
+      // body.description and body.teacher_comments may be up to 500 chars
+      overrides.set('body.description', 500);
+      overrides.set('body.teacher_comments', 500);
       // Also accept 'description' or 'remarks' if front-end uses that naming in some payloads
-      overrides.set('body.remarks', 128);
+      overrides.set('body.remarks', 500);
+    }
+
+    // Allow longer fields for violation validation
+    // Endpoint: POST /api/admission-slips/validate-violation
+    const validateMatch = req.path && req.path.match(/^\/api\/admission-slips\/validate-violation$/);
+    if (validateMatch && String(req.method).toUpperCase() === 'POST') {
+      // body.description can be up to 500 chars for validation
+      overrides.set('body.description', 500);
+    }
+
+    // Allow longer messages for the chatbot endpoint
+    // Endpoint: POST /api/chatbot/ask
+    const chatbotMatch = req.path && req.path.match(/^\/api\/chatbot\/ask$/);
+    if (chatbotMatch && String(req.method).toUpperCase() === 'POST') {
+      overrides.set('body.message', 500);
     }
 
     // Allow longer fields for forgot-password endpoints

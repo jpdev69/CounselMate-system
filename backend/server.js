@@ -220,6 +220,10 @@ app.use('/api/admission-slips', admissionSlipsRouter);
 const visualizationsRouter = require('./routes/visualizations');
 app.use('/api/visualizations', visualizationsRouter);
 
+// Mount router for chatbot (Student Manual violation assistant)
+const chatbotRouter = require('./routes/chatbot');
+app.use('/api/chatbot', chatbotRouter);
+
 // Get current user's saved security question (for counselor user)
 app.get('/api/auth/me/security-question', precheckRateLimit('me-security-question'), async (req, res) => {
   try {

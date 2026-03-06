@@ -1,7 +1,7 @@
 // src/components/CompleteForm.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getViolationTypes } from '../services/api';
+import { getViolationTypes, validateViolation } from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
 import { FileText, CheckCircle, Search, Filter, Trash2 } from 'lucide-react';
 
@@ -19,6 +19,8 @@ const CompleteForm = () => {
     course: ''
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [validationError, setValidationError] = useState(null);
+  const [proceedWithError, setProceedWithError] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -84,6 +86,9 @@ const CompleteForm = () => {
       remarks: slip.teacher_comments || slip.remarks || '',
       course: slip.course || ''
     });
+    // Reset validation error when opening a new slip
+    setValidationError(null);
+    setProceedWithError(false);
     // open modal immediately to avoid scrolling
     setIsModalOpen(true);
   };
@@ -109,15 +114,43 @@ const CompleteForm = () => {
       return;
     }
 
-    // Confirm with a simple message
-    if (!window.confirm('Proceed to complete this form?')) {
-      return; // user cancelled
-    }
-
     setLoading(true);
     try {
-      console.log('🚀 Attempting to complete form for slip:', selectedSlip.id);
+      console.log('🔍 Validating violation description matches violation type...');
       
+      // First, validate that the description matches the violation type
+      const validationResponse = await validateViolation({
+        violation_type_id: parseInt(formData.violationTypeId),
+        description: formData.description
+      });
+
+      const validationResult = validationResponse.data?.validation;
+      
+      // If validation fails and user hasn't chosen to proceed anyway, show error
+      if (!validationResult?.matches && !proceedWithError) {
+        // Violation doesn't match - display error below the field
+        setLoading(false);
+        setValidationError(validationResult?.reason || 'The violation description does not match the selected violation type.');
+        setProceedWithError(false);
+        console.log('❌ Form completion suspended due to validation failure');
+        return;
+      }
+      
+      if (validationResult?.matches) {
+        console.log('✅ Violation description validation passed');
+        setValidationError(null);
+        setProceedWithError(false);
+      } else if (proceedWithError) {
+        console.log('⚠️ Proceeding with validation warning');
+      }
+
+      // Confirm with a simple message
+      if (!window.confirm('Proceed to complete this form?')) {
+        setLoading(false);
+        setProceedWithError(false);
+        return; // user cancelled
+      }
+
       // Prepare data based on your API structure
       const submitData = {
         violation_type_id: parseInt(formData.violationTypeId),
@@ -144,7 +177,7 @@ const CompleteForm = () => {
         await handleSubmitFallback();
         setIsModalOpen(false);
       } else {
-        const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to complete form';
+        const errorMessage = error.response?.data?.error || error.response?.data?.validation?.reason || error.response?.data?.message || error.message || 'Failed to complete form';
         alert(`Error: ${errorMessage}`);
       }
     } finally {
@@ -178,6 +211,7 @@ const CompleteForm = () => {
     } catch (fallbackError) {
       console.error('❌ Fallback also failed:', fallbackError);
       alert('Failed to complete form. Please check backend configuration.');
+
     }
   };
 
@@ -518,22 +552,48 @@ const CompleteForm = () => {
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Description *</label>
                       <textarea
                         value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: (e.target.value || '').toString().slice(0, 128) })}
-                        maxLength={128}
+                        onChange={(e) => {
+                          setFormData({ ...formData, description: (e.target.value || '').toString().slice(0, 500) });
+                          // Clear validation error when user edits the field
+                          if (validationError) setValidationError(null);
+                        }}
+                        maxLength={500}
                         rows="4"
                         className="form-input"
                         placeholder="Detailed description of the violation..."
                         required
-                        style={{ width: '100%', resize: 'vertical' }}
+                        style={{ width: '100%', resize: 'vertical', borderColor: validationError ? '#ef4444' : undefined }}
                       />
+                      {validationError && (
+                        <div style={{ marginTop: '8px', padding: '10px', backgroundColor: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem' }}>
+                          <strong>⚠️ Validation Issue:</strong> {validationError}
+                          <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProceedWithError(true);
+                                // Trigger form submission immediately after setting the flag
+                                setTimeout(() => {
+                                  const form = document.querySelector('form[data-validation-form]');
+                                  if (form) form.dispatchEvent(new Event('submit', { bubbles: true }));
+                                }, 0);
+                              }}
+                              className="btn"
+                              style={{ padding: '4px 12px', backgroundColor: '#fbbf24', color: '#111827', border: 'none', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer' }}
+                            >
+                              Proceed Anyway
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div>
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Counselor Remarks</label>
                       <textarea
                         value={formData.remarks}
-                        onChange={(e) => setFormData({ ...formData, remarks: (e.target.value || '').toString().slice(0, 128) })}
-                        maxLength={128}
+                        onChange={(e) => setFormData({ ...formData, remarks: (e.target.value || '').toString().slice(0, 500) })}
+                        maxLength={500}
                         rows="3"
                         className="form-input"
                         placeholder="Additional remarks or recommendations..."
