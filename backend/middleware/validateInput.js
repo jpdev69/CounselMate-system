@@ -44,6 +44,8 @@ module.exports = (req, res, next) => {
       overrides.set('body.teacher_comments', 500);
       // Also accept 'description' or 'remarks' if front-end uses that naming in some payloads
       overrides.set('body.remarks', 500);
+      // course name can be up to 128 chars (same limit as admin panel)
+      overrides.set('body.course', 128);
     }
 
     // Allow longer fields for violation validation
@@ -75,6 +77,23 @@ module.exports = (req, res, next) => {
     if (issueSlipMatch && String(req.method).toUpperCase() === 'POST') {
       overrides.set('body.studentName', 128); // first + middle + last names combined
       overrides.set('body.course', 128);      // course full name, same limit as admin panel
+    }
+
+    // Allow longer fields for student report creation
+    // Endpoint: POST /api/reports
+    const createReportMatch = req.path && req.path.match(/^\/api\/reports$/);
+    if (createReportMatch && String(req.method).toUpperCase() === 'POST') {
+      overrides.set('body.studentName', 128);
+      overrides.set('body.course', 128);
+      overrides.set('body.description', 500);
+      overrides.set('body.remarks', 500);
+    }
+
+    // Allow longer remarks when resolving a student report
+    // Endpoint: PUT /api/reports/:id/resolve
+    const resolveReportMatch = req.path && req.path.match(/^\/api\/reports\/\d+\/resolve$/);
+    if (resolveReportMatch && String(req.method).toUpperCase() === 'PUT') {
+      overrides.set('body.remarks', 500);
     }
 
     // Allow longer fields for forgot-password endpoints

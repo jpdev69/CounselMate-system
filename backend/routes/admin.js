@@ -235,4 +235,39 @@ router.delete('/sections/:id', async (req, res) => {
   }
 });
 
+// GET /api/admin/violation-types
+router.get('/violation-types', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, code, description, category, section_ref, requires_admission_slip
+       FROM violation_types
+       WHERE section_ref IS NOT NULL
+       ORDER BY category DESC, section_ref, id`
+    );
+    res.json({ success: true, violationTypes: result.rows });
+  } catch (err) {
+    console.error('Get violation types error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/admin/violation-types/:id
+router.put('/violation-types/:id', async (req, res) => {
+  const { requires_admission_slip } = req.body;
+  if (typeof requires_admission_slip !== 'boolean') {
+    return res.status(400).json({ error: 'requires_admission_slip must be a boolean' });
+  }
+  try {
+    const result = await db.query(
+      `UPDATE violation_types SET requires_admission_slip = $1 WHERE id = $2 RETURNING *`,
+      [requires_admission_slip, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Violation type not found' });
+    res.json({ success: true, violationType: result.rows[0] });
+  } catch (err) {
+    console.error('Update violation type error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

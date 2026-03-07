@@ -104,6 +104,19 @@ export const getStudentAdmissionSlips = (studentId, page = 1, pageSize = 5, para
 export const deleteAdmissionSlip = (slipId) =>
   api.delete(`/admission-slips/${slipId}`);
 
+// Student Reports API (violations without admission slips)
+export const createStudentReport = (data) =>
+  api.post('/reports', data);
+
+export const getStudentReports = () =>
+  api.get('/reports');
+
+export const resolveStudentReport = (reportId, data) =>
+  api.put(`/reports/${reportId}/resolve`, data);
+
+export const deleteStudentReport = (reportId) =>
+  api.delete(`/reports/${reportId}`);
+
 // Chatbot API
 export const chatbotAsk = (message) =>
   api.post('/chatbot/ask', { message });
@@ -144,5 +157,12 @@ export const updateSection = (id, data) =>
 
 export const deleteSection = (id) =>
   api.delete(`/admin/sections/${encodeURIComponent(id)}`);
+
+// Admin API — violation types
+export const getAdminViolationTypes = () =>
+  api.get('/admin/violation-types');
+
+export const updateViolationTypeSlip = (id, data) =>
+  api.put(`/admin/violation-types/${encodeURIComponent(id)}`, data);
 
 export default api;

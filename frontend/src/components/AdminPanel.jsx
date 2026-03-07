@@ -5,6 +5,7 @@ import {
   getAdminCourses, createAdminCourse, updateAdminCourse, deleteAdminCourse,
   getCourseYearLevels, addCourseYearLevel, updateYearLevel, deleteYearLevel,
   getYearLevelSections, addYearLevelSection, updateSection, deleteSection,
+  getAdminViolationTypes, updateViolationTypeSlip,
 } from '../services/api';
 
 const AdminPanel = () => {
@@ -47,6 +48,13 @@ const AdminPanel = () => {
   const [editSectionError, setEditSectionError] = useState('');
   const [editSectionSaving, setEditSectionSaving] = useState(false);
 
+  // ── Violation Types ─────────────────────────────────────────────────────
+  const [violationTypes, setViolationTypes] = useState([]);
+  const [violationTypesLoading, setViolationTypesLoading] = useState(true);
+  const [vtTogglingId, setVtTogglingId] = useState(null);
+  const [vtPage, setVtPage] = useState(1);
+  const VT_PAGE_SIZE = 10;
+
   // ── Load courses on mount ──────────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
@@ -57,7 +65,15 @@ const AdminPanel = () => {
       .finally(() => { if (mounted) setCoursesLoading(false); });
     return () => { mounted = false; };
   }, []);
-
+  // ── Load violation types on mount ───────────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    getAdminViolationTypes()
+      .then(res => { if (mounted) setViolationTypes(res.data?.violationTypes || []); })
+      .catch(err => console.error('Failed to load violation types', err))
+      .finally(() => { if (mounted) setViolationTypesLoading(false); });
+    return () => { mounted = false; };
+  }, []);
   // ── Load year levels when course changes ───────────────────────────────────
   useEffect(() => {
     if (!selectedCourse) { setYearLevels([]); setSelectedYearLevel(null); return; }
@@ -232,6 +248,19 @@ const AdminPanel = () => {
       ));
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to delete section');
+    }
+  };
+
+  // ── Violation type handler ────────────────────────────────────────────
+  const handleToggleAdmissionSlip = async (vt) => {
+    setVtTogglingId(vt.id);
+    try {
+      const res = await updateViolationTypeSlip(vt.id, { requires_admission_slip: !vt.requires_admission_slip });
+      setViolationTypes(prev => prev.map(v => v.id === vt.id ? { ...v, ...res.data.violationType } : v));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to update violation type');
+    } finally {
+      setVtTogglingId(null);
     }
   };
 
@@ -549,6 +578,134 @@ const AdminPanel = () => {
           </div>
 
         </div>
+
+        {/* ── VIOLATION TYPES ────────────────────────────────────────── */}
+        <div style={{ marginTop: 28 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, color: '#374151' }}>Violation Types</div>
+          <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 14 }}>
+            Toggle each violation to decide where it appears. <strong>Requires Slip</strong> → selectable in Complete Form.
+            &nbsp;<strong>Report Only</strong> → selectable in Report Student.
+          </p>
+          {violationTypesLoading ? (
+            <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading…</div>
+          ) : (() => {
+            const sorted = [...violationTypes].sort((a, b) => {
+              const parse = s => (s || '').split('.').map(Number);
+              const ap = parse(a.section_ref);
+              const bp = parse(b.section_ref);
+              for (let i = 0; i < Math.max(ap.length, bp.length); i++) {
+                const diff = (ap[i] || 0) - (bp[i] || 0);
+                if (diff !== 0) return diff;
+              }
+              return 0;
+            });
+            const totalPages = Math.ceil(sorted.length / VT_PAGE_SIZE);
+            const page = Math.min(vtPage, totalPages);
+            const pageItems = sorted.slice((page - 1) * VT_PAGE_SIZE, page * VT_PAGE_SIZE);
+            return (
+              <>
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 60 }}>Ref</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 72 }}>Category</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Violation</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: '#374151', width: 180 }}>Form Requirement</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageItems.map((vt, i) => (
+                        <tr key={vt.id} style={{ borderBottom: i < pageItems.length - 1 ? '1px solid #f3f4f6' : 'none', background: '#fff' }}>
+                          <td style={{ padding: '8px 12px', color: '#9ca3af', fontFamily: 'monospace', fontSize: 11 }}>{vt.section_ref}</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              borderRadius: 12,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              background: vt.category === 'minor' ? '#fef9c3' : '#fee2e2',
+                              color: vt.category === 'minor' ? '#92400e' : '#991b1b',
+                            }}>
+                              {vt.category === 'minor' ? 'Minor' : 'Major'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '8px 12px', color: '#111827' }}>{vt.description}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              disabled={vtTogglingId === vt.id}
+                              onClick={() => handleToggleAdmissionSlip(vt)}
+                              style={{
+                                padding: '4px 14px',
+                                borderRadius: 20,
+                                border: 'none',
+                                cursor: vtTogglingId === vt.id ? 'not-allowed' : 'pointer',
+                                fontWeight: 600,
+                                fontSize: 12,
+                                background: vt.requires_admission_slip ? '#3b82f6' : '#e5e7eb',
+                                color: vt.requires_admission_slip ? '#fff' : '#6b7280',
+                                opacity: vtTogglingId === vt.id ? 0.6 : 1,
+                                transition: 'background 0.15s',
+                                minWidth: 140,
+                              }}
+                            >
+                              {vt.requires_admission_slip ? '✓ Requires Slip' : 'Report Only'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => setVtPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', color: '#374151', fontSize: 13, opacity: page === 1 ? 0.4 : 1 }}
+                    >
+                      ‹
+                    </button>
+                    {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(n => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setVtPage(n)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 6,
+                          border: '1px solid ' + (n === page ? 'var(--primary)' : '#e5e7eb'),
+                          background: n === page ? 'var(--primary)' : '#fff',
+                          color: n === page ? '#fff' : '#374151',
+                          fontWeight: n === page ? 700 : 400,
+                          cursor: 'pointer',
+                          fontSize: 13,
+                        }}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setVtPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer', color: '#374151', fontSize: 13, opacity: page === totalPages ? 0.4 : 1 }}
+                    >
+                      ›
+                    </button>
+                    <span style={{ fontSize: 12, color: '#9ca3af', marginLeft: 6 }}>
+                      {sorted.length} violations
+                    </span>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
+
       </div>
     </div>
   );

@@ -40,6 +40,128 @@ async function ensureSecurityColumns() {
   }
 }
 
+// Ensure student_reports table and Student Manual violation types exist
+async function ensureStudentReportsTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_reports (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER REFERENCES students(id),
+        violation_type_id INTEGER REFERENCES violation_types(id),
+        description TEXT,
+        remarks TEXT,
+        course VARCHAR(256),
+        status VARCHAR(32) DEFAULT 'reported',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✅ student_reports table ready');
+  } catch (err) {
+    console.warn('ensureStudentReportsTable warning:', err.message || err);
+  }
+}
+
+async function ensureViolationTypeCategory() {
+  try {
+    await pool.query("ALTER TABLE violation_types ADD COLUMN IF NOT EXISTS category VARCHAR(32);");
+    await pool.query("ALTER TABLE violation_types ADD COLUMN IF NOT EXISTS section_ref VARCHAR(16);");
+    await pool.query("ALTER TABLE violation_types ADD COLUMN IF NOT EXISTS requires_admission_slip BOOLEAN NOT NULL DEFAULT false;");
+    // Ensure unique constraint on code so ON CONFLICT (code) works in the upsert
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'violation_types_code_key'
+            AND conrelid = 'violation_types'::regclass
+        ) THEN
+          ALTER TABLE violation_types ADD CONSTRAINT violation_types_code_key UNIQUE (code);
+        END IF;
+      END $$;
+    `);
+  } catch (err) {
+    console.warn('ensureViolationTypeCategory warning:', err.message || err);
+  }
+}
+
+async function seedStudentManualViolationTypes() {
+  try {
+    await ensureViolationTypeCategory();
+    const manualTypes = [
+      // Minor Offenses (Section 2.1)
+      { code: 'IMPROPER_UNIFORM', description: 'Failure to wear proper/complete uniform', category: 'minor', section_ref: '2.1.1' },
+      { code: 'PORNOGRAPHIC_MATERIALS', description: 'Possession and passing of pornographic materials', category: 'minor', section_ref: '2.1.2' },
+      { code: 'LITTERING', description: 'Littering/unsanitary acts', category: 'minor', section_ref: '2.1.3' },
+      { code: 'LOITERING', description: 'Loitering', category: 'minor', section_ref: '2.1.4' },
+      { code: 'EATING_RESTRICTED_AREAS', description: 'Eating in restricted areas (library, laboratories)', category: 'minor', section_ref: '2.1.5' },
+      { code: 'UNAUTHORIZED_FACILITY_USE', description: 'Unauthorized use of school facilities', category: 'minor', section_ref: '2.1.6' },
+      { code: 'ID_LENDING_BORROWING', description: 'Lending/borrowing of Identification Card', category: 'minor', section_ref: '2.1.7' },
+      { code: 'TRAFFIC_VIOLATIONS', description: 'Driving without license/unregistered vehicle/traffic violations inside campus', category: 'minor', section_ref: '2.1.8' },
+      // Major Offenses (Section 2.2)
+      { code: 'DRUGS_ALCOHOL_WEAPONS', description: 'Possession/use of alcoholic drinks, prohibited drugs, weapons or explosives', category: 'major', section_ref: '2.2.1' },
+      { code: 'SMOKING', description: 'Smoking', category: 'major', section_ref: '2.2.2' },
+      { code: 'DISRESPECT', description: 'Disrespect', category: 'major', section_ref: '2.2.3' },
+      { code: 'VANDALISM', description: 'Vandalism in all areas/facility of the campus', category: 'major', section_ref: '2.2.4' },
+      { code: 'DISHONESTY_CHEATING_FORGERY', description: 'Dishonesty/cheating/forgery/falsification', category: 'major', section_ref: '2.2.5' },
+      { code: 'CREATING_BARRICADES', description: 'Creating barricades/obstructions', category: 'major', section_ref: '2.2.6' },
+      { code: 'ASSAULT_VERBAL_ABUSE', description: 'Assaults/physical injuries/verbal abuse (oral, social media, text)', category: 'major', section_ref: '2.2.7' },
+      { code: 'HAZING', description: 'Hazing', category: 'major', section_ref: '2.2.8' },
+      { code: 'HARASSMENT_SEXUAL_ABUSE', description: 'Harassment and sexual abuse/acts of lasciviousness', category: 'major', section_ref: '2.2.9' },
+      { code: 'UNAUTHORIZED_SOFTWARE_GADGETS', description: 'Use of unauthorized software and electronic gadgets', category: 'major', section_ref: '2.2.10' },
+      { code: 'UNRECOGNIZED_FRATERNITY_SORORITY', description: 'Involvement in unrecognized sorority/fraternity', category: 'major', section_ref: '2.2.11' },
+      { code: 'GAMBLING', description: 'Gambling', category: 'major', section_ref: '2.2.12' },
+      { code: 'PDA_IMMORAL_ACTS', description: 'Public display of affection/intimacy, indecent or immoral acts', category: 'major', section_ref: '2.2.13' },
+      { code: 'OFFENSIVE_SUBVERSIVE_MATERIALS', description: 'Possession and distribution of offensive/subversive materials', category: 'major', section_ref: '2.2.14' },
+      { code: 'GRAVE_THREATS', description: 'Grave threats', category: 'major', section_ref: '2.2.15' },
+      { code: 'INCITING_FIGHT_SEDITION', description: 'Inciting to fight/sedition', category: 'major', section_ref: '2.2.16' },
+      { code: 'UNAUTHORIZED_ACTIVITY', description: 'Conducting unauthorized activity/misrepresenting the University', category: 'major', section_ref: '2.2.17' },
+      { code: 'BULLYING', description: 'Bullying', category: 'major', section_ref: '2.2.18' },
+    ];
+
+    const canonicalCodes = manualTypes.map(vt => vt.code);
+
+    for (const vt of manualTypes) {
+      // Upsert: insert if missing, update description/category/section_ref if already present
+      await pool.query(
+        `INSERT INTO violation_types (code, description, category, section_ref)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (code) DO UPDATE
+           SET description  = EXCLUDED.description,
+               category     = EXCLUDED.category,
+               section_ref  = EXCLUDED.section_ref`,
+        [vt.code, vt.description, vt.category, vt.section_ref]
+      );
+    }
+
+    // Force-remove legacy violation types (not in Student Manual):
+    // 1. NULL out any FK references in admission_slips / student_reports first
+    // 2. Then delete the now-unreferenced legacy rows
+    await pool.query(
+      `UPDATE admission_slips SET violation_type_id = NULL
+       WHERE violation_type_id IN (
+         SELECT id FROM violation_types WHERE code != ALL($1::text[])
+       )`,
+      [canonicalCodes]
+    );
+    await pool.query(
+      `UPDATE student_reports SET violation_type_id = NULL
+       WHERE violation_type_id IN (
+         SELECT id FROM violation_types WHERE code != ALL($1::text[])
+       )`,
+      [canonicalCodes]
+    );
+    await pool.query(
+      `DELETE FROM violation_types WHERE code != ALL($1::text[])`,
+      [canonicalCodes]
+    );
+
+    console.log('✅ Student Manual violation types seeded and legacy types cleaned up');
+  } catch (err) {
+    console.warn('seedStudentManualViolationTypes warning:', err.message || err);
+  }
+}
+
 // Test database connection (best-effort)
 pool.connect((err, client, release) => {
   if (err) {
@@ -208,10 +330,18 @@ app.put('/api/auth/change-password', authenticate, async (req, res) => {
   }
 });
 
-// API route to get violation types
+// API route to get violation types (supports ?category=minor|major filter)
 app.get('/api/violation-types', authenticate, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM violation_types ORDER BY id');
+    const category = req.query.category;
+    let query = 'SELECT * FROM violation_types WHERE section_ref IS NOT NULL';
+    const params = [];
+    if (category && ['minor', 'major'].includes(category)) {
+      query += ' AND category = $1';
+      params.push(category);
+    }
+    query += ' ORDER BY section_ref, id';
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -220,6 +350,10 @@ app.get('/api/violation-types', authenticate, async (req, res) => {
 // Mount router for admission slips (consolidated routes in router module)
 const admissionSlipsRouter = require('./routes/admissionSlips');
 app.use('/api/admission-slips', authenticate, admissionSlipsRouter);
+
+// Mount router for student reports (violations without admission slips)
+const reportsRouter = require('./routes/reports');
+app.use('/api/reports', authenticate, reportsRouter);
 
 // Mount router for visualizations and analytics
 const visualizationsRouter = require('./routes/visualizations');
@@ -290,13 +424,21 @@ app.get('/api/debug/db', async (req, res) => {
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Database: ${DATABASE_URL ? 'Connected' : 'NOT CONFIGURED'}`);
-  console.log(`🌐 CORS enabled for: ${CORS_ORIGIN}`);
-  console.log(`🔧 Environment: ${process.env.NODE_ENV}`);
-});
+// Run DB migrations on startup, then start server
+(async () => {
+  try {
+    await ensureStudentReportsTable();
+    await seedStudentManualViolationTypes();
+  } catch (err) {
+    console.warn('Startup migration warning:', err.message || err);
+  }
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📊 Database: ${DATABASE_URL ? 'Connected' : 'NOT CONFIGURED'}`);
+    console.log(`🌐 CORS enabled for: ${CORS_ORIGIN}`);
+    console.log(`🔧 Environment: ${process.env.NODE_ENV}`);
+  });
+})();
 
 // Forgot password - return the counselor's saved security question (no email required)
 app.get('/api/auth/forgot', async (req, res) => {

@@ -518,7 +518,7 @@ const CompleteForm = () => {
                 ) : (
                   <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'grid', gap: '12px' }}>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type *</label>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type (per Student Manual) *</label>
                       <select
                         value={formData.violationTypeId}
                         onChange={(e) => setFormData({ ...formData, violationTypeId: e.target.value })}
@@ -527,9 +527,35 @@ const CompleteForm = () => {
                         style={{ width: '100%' }}
                       >
                         <option value="">Select violation type</option>
-                        {violationTypes.map((type) => (
-                          <option key={type.id} value={type.id}>{type.description}</option>
-                        ))}
+                        {(() => {
+                          const minor = violationTypes.filter(vt => vt.category === 'minor' && vt.requires_admission_slip);
+                          const major = violationTypes.filter(vt => vt.category === 'major' && vt.requires_admission_slip);
+                          if (minor.length === 0 && major.length === 0) {
+                            return <option disabled>No violations set to require a slip — configure in Admin Panel</option>;
+                          }
+                          return (
+                            <>
+                              {minor.length > 0 && (
+                                <optgroup label="Minor Offenses (Section 2.1)">
+                                  {minor.map(type => (
+                                    <option key={type.id} value={type.id}>
+                                      {type.description}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              {major.length > 0 && (
+                                <optgroup label="Major Offenses (Section 2.2)">
+                                  {major.map(type => (
+                                    <option key={type.id} value={type.id}>
+                                      {type.description}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              )}
+                            </>
+                          );
+                        })()}
                       </select>
                     </div>
 
