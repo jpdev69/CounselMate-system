@@ -27,6 +27,8 @@ const PrintAdmissionSlip = () => {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
   const verifyTimer = useRef(null);
+  const autofillInProgress = useRef(false);
+  const pendingSection = useRef('');
 
   const [courseId, setCourseId] = useState('');
   const [yearLevelId, setYearLevelId] = useState('');
@@ -72,6 +74,9 @@ const PrintAdmissionSlip = () => {
       return;
     }
 
+    // Suppress re-verification triggered by our own autofill writes
+    if (autofillInProgress.current) return;
+
     // debounce to avoid calling API on every keystroke
     setVerificationLoading(true);
     if (verifyTimer.current) clearTimeout(verifyTimer.current);
@@ -90,14 +95,27 @@ const PrintAdmissionSlip = () => {
             const first = parts[0] || '';
             const last = parts.length > 1 ? parts[parts.length - 1] : '';
             const middle = parts.length > 2 ? parts.slice(1, -1).join(' ') : '';
+            const matchedYl = s.year ? yearLevels.find(yl => yl.year_level === s.year) : null;
+            const targetSection = s.section || '';
+
+            autofillInProgress.current = true;
             setFormData(fd => ({
               ...fd,
               firstName: first,
               middleName: middle,
               lastName: last,
               year: s.year || fd.year,
-              section: s.section || fd.section
+              section: targetSection || fd.section
             }));
+
+            if (matchedYl && String(matchedYl.id) !== String(yearLevelId)) {
+              pendingSection.current = targetSection;
+              setYearLevelId(String(matchedYl.id));
+            } else if (matchedYl && String(matchedYl.id) === String(yearLevelId)) {
+              pendingSection.current = '';
+              setFormData(fd => ({ ...fd, section: targetSection }));
+            }
+            setTimeout(() => { autofillInProgress.current = false; }, 0);
           } catch (e) {
             // ignore autofill errors
           }
@@ -192,6 +210,16 @@ const PrintAdmissionSlip = () => {
       .finally(() => { if (mounted) setSectionsLoading(false); });
     return () => { mounted = false; };
   }, [yearLevelId]);
+
+  // When sections finish loading after an autofill-driven year level change,
+  // apply the pending section so the dropdown resolves correctly.
+  useEffect(() => {
+    if (pendingSection.current && sections.length > 0) {
+      const target = pendingSection.current;
+      pendingSection.current = '';
+      setFormData(fd => ({ ...fd, section: target }));
+    }
+  }, [sections]);
 
   const handleCourseChange = (e) => {
     const val = e.target.value;

@@ -1,7 +1,7 @@
 // src/components/ReportStudent.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { getViolationTypes, verifyStudent, createStudentReport, getStudentReports, resolveStudentReport, deleteStudentReport, getAdminCourses, getCourseYearLevels, getYearLevelSections, validateViolation } from '../services/api';
-import { ClipboardList, User, Book, Users, GraduationCap, Search, Filter, CheckCircle, Trash2 } from 'lucide-react';
+import { getViolationTypes, verifyStudent, createStudentReport, getAdminCourses, getCourseYearLevels, getYearLevelSections, validateViolation } from '../services/api';
+import { ClipboardList, User, Book, Users, GraduationCap } from 'lucide-react';
 
 const ReportStudent = () => {
   // Form state
@@ -41,17 +41,9 @@ const ReportStudent = () => {
   const [yearLevelsLoading, setYearLevelsLoading] = useState(false);
   const [sectionsLoading, setSectionsLoading] = useState(false);
 
-  // Reports list
-  const [reports, setReports] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState('newest');
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
   // Load data on mount
   useEffect(() => {
     loadViolationTypes();
-    loadReports();
     loadCourses();
   }, []);
 
@@ -61,15 +53,6 @@ const ReportStudent = () => {
       setViolationTypes(resp.data || []);
     } catch (err) {
       console.error('Failed to load violation types:', err);
-    }
-  };
-
-  const loadReports = async () => {
-    try {
-      const resp = await getStudentReports();
-      setReports(resp.data || []);
-    } catch (err) {
-      console.error('Failed to load reports:', err);
     }
   };
 
@@ -109,6 +92,19 @@ const ReportStudent = () => {
     return () => { mounted = false; };
   }, [yearLevelId]);
 
+  const autofillInProgress = useRef(false);
+  const pendingSection = useRef('');
+
+  // When sections finish loading after an autofill-driven year level change,
+  // apply the pending section so the dropdown resolves correctly.
+  useEffect(() => {
+    if (pendingSection.current && sections.length > 0) {
+      const target = pendingSection.current;
+      pendingSection.current = '';
+      setFormData(fd => ({ ...fd, section: target }));
+    }
+  }, [sections]);
+
   // Auto-verify student (debounced)
   useEffect(() => {
     const firstName = (formData.firstName || '').trim();
@@ -122,6 +118,9 @@ const ReportStudent = () => {
       setVerificationLoading(false);
       return;
     }
+
+    // Suppress re-verification triggered by our own autofill writes
+    if (autofillInProgress.current) return;
 
     setVerificationLoading(true);
     if (verifyTimer.current) clearTimeout(verifyTimer.current);
@@ -144,14 +143,34 @@ const ReportStudent = () => {
             const first = parts[0] || '';
             const last = parts.length > 1 ? parts[parts.length - 1] : '';
             const middle = parts.length > 2 ? parts.slice(1, -1).join(' ') : '';
+            // Find the year level ID that matches the student's stored year text
+            const matchedYl = s.year ? yearLevels.find(yl => yl.year_level === s.year) : null;
+            const targetSection = s.section || '';
+
+            // Block the verify useEffect from re-triggering while we write year/section
+            autofillInProgress.current = true;
             setFormData(fd => ({
               ...fd,
               firstName: first,
               middleName: middle,
               lastName: last,
               year: s.year || fd.year,
-              section: s.section || fd.section
+              // Set section immediately; pendingSection will re-apply it after sections load
+              section: targetSection || fd.section
             }));
+
+            if (matchedYl && String(matchedYl.id) !== String(yearLevelId)) {
+              // Year level is different — changing yearLevelId triggers the sections useEffect.
+              // Store the section so it's applied once the new sections list arrives.
+              pendingSection.current = targetSection;
+              setYearLevelId(String(matchedYl.id));
+            } else if (matchedYl && String(matchedYl.id) === String(yearLevelId)) {
+              // Year level is already correct — sections are already loaded, just set section.
+              pendingSection.current = '';
+              setFormData(fd => ({ ...fd, section: targetSection }));
+            }
+            // Allow verify to run again after React has flushed all state updates
+            setTimeout(() => { autofillInProgress.current = false; }, 0);
           } catch (e) { /* ignore autofill errors */ }
           setVerificationMessage(resp.data.message || 'A matching student was found');
         } else {
@@ -296,7 +315,6 @@ const ReportStudent = () => {
       setMatchedStudent(null);
 
       alert('Violation report submitted successfully!');
-      await loadReports();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to submit report');
     } finally {
@@ -304,55 +322,9 @@ const ReportStudent = () => {
     }
   };
 
-  const handleResolve = async (reportId) => {
-    if (!confirm('Mark this report as resolved?')) return;
-    try {
-      await resolveStudentReport(reportId, {});
-      alert('Report resolved successfully.');
-      setIsModalOpen(false);
-      setSelectedReport(null);
-      await loadReports();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to resolve report');
-    }
-  };
-
-  const handleDelete = async (reportId) => {
-    if (!confirm('Are you sure you want to delete this report? This cannot be undone.')) return;
-    try {
-      await deleteStudentReport(reportId);
-      alert('Report deleted successfully.');
-      setIsModalOpen(false);
-      setSelectedReport(null);
-      await loadReports();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to delete report');
-    }
-  };
-
   // Group violation types by category — only those NOT requiring an admission slip
   const minorOffenses = violationTypes.filter(vt => vt.category === 'minor' && !vt.requires_admission_slip);
   const majorOffenses = violationTypes.filter(vt => vt.category === 'major' && !vt.requires_admission_slip);
-
-  // Filter & sort reports
-  const filteredReports = reports
-    .filter(r =>
-      r.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.violation_description?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      const tA = new Date(a.created_at).getTime() || 0;
-      const tB = new Date(b.created_at).getTime() || 0;
-      return sortOrder === 'newest' ? tB - tA : tA - tB;
-    });
-
-  const getStatusBadgeClass = (status) => {
-    switch (status) {
-      case 'reported': return 'bg-yellow-100 text-yellow-800';
-      case 'resolved': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   const submitDisabled = loading || verificationLoading || verified === null;
   const submitLabel = loading
@@ -375,11 +347,7 @@ const ReportStudent = () => {
           Report a student violation based on the ISU Student Manual. This does not require an admission slip.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-          {/* Left: Report Form */}
-          <div>
-            <h2 className="text-lg font-semibold mb-4">New Violation Report</h2>
-            <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
+        <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
               {/* Student Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Student Name</label>
@@ -536,189 +504,7 @@ const ReportStudent = () => {
                 {submitLabel}
               </button>
             </form>
-          </div>
-
-          {/* Right: Reports List */}
-          <div>
-            <h2 className="text-lg font-semibold mb-4">Violation Reports</h2>
-            <div style={{ marginBottom: '12px', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
-              <div className="input-with-icon">
-                <Search className="icon" />
-                <input
-                  type="text"
-                  placeholder="Search by student or violation..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm((e.target.value || '').slice(0, 32))}
-                  maxLength={32}
-                  className="form-input"
-                />
-              </div>
-              <div className="input-with-icon">
-                <Filter className="icon" />
-                <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className="form-input">
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="records-table-container" style={{ overflowX: 'auto' }}>
-              <div className="records-table-scroll">
-                <table className="records-table">
-                  <thead>
-                    <tr>
-                      <th>Student</th>
-                      <th>Violation</th>
-                      <th>Category</th>
-                      <th>Status</th>
-                      <th>Date</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredReports.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="text-center py-8 text-gray-500">
-                          <ClipboardList className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                          <p>No violation reports found</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredReports.map(report => (
-                        <tr
-                          key={report.id}
-                          onClick={() => { setSelectedReport(report); setIsModalOpen(true); }}
-                          className="hover:bg-gray-50 cursor-pointer"
-                        >
-                          <td>
-                            <h3 className="font-medium text-gray-900">{report.student_name}</h3>
-                            <p className="text-xs text-gray-500">{report.course || '-'}</p>
-                          </td>
-                          <td className="text-xs text-gray-600">{report.violation_description || '-'}</td>
-                          <td>
-                            <span className={`px-2 py-1 text-xs rounded-full ${report.violation_category === 'major' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'}`}>
-                              {(report.violation_category || 'N/A').toUpperCase()}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(report.status)}`}>
-                              {(report.status || 'unknown').toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="text-xs text-gray-600">{report.created_at ? new Date(report.created_at).toLocaleString() : '-'}</td>
-                          <td>
-                            {report.status === 'reported' && (
-                              <div style={{ display: 'flex', gap: 4 }}>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleResolve(report.id); }}
-                                  className="mt-1 bg-green-600 text-white py-1 px-2 rounded text-xs hover:bg-green-700 flex items-center"
-                                >
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Resolve
-                                </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleDelete(report.id); }}
-                                  className="mt-1 bg-red-600 text-white py-1 px-2 rounded text-xs hover:bg-red-700 flex items-center"
-                                >
-                                  <Trash2 className="w-3 h-3 mr-1" />
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="mt-4 text-sm text-gray-600" style={{ paddingLeft: '4px' }}>
-              <p>Showing {filteredReports.length} of {reports.length} total reports</p>
-            </div>
-          </div>
-        </div>
       </div>
-
-      {/* Detail Modal */}
-      {isModalOpen && selectedReport && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
-          <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedReport.student_name}</h3>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(selectedReport.status)}`}>
-                  {(selectedReport.status || '').toUpperCase()}
-                </span>
-                <span className={`px-2 py-1 text-xs rounded-full ${selectedReport.violation_category === 'major' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'}`}>
-                  {(selectedReport.violation_category || '').toUpperCase()}
-                </span>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="btn"
-                  style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-              <div>
-                <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Course</div>
-                <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{selectedReport.course || '-'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Year & Section</div>
-                <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{[selectedReport.year, selectedReport.section].filter(Boolean).join(' - ') || '-'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date</div>
-                <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{selectedReport.created_at ? new Date(selectedReport.created_at).toLocaleString() : '-'}</div>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Violation Type</div>
-              <div style={{ fontSize: '0.95rem', color: '#111827' }}>{selectedReport.violation_description || '-'}</div>
-            </div>
-
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Description</div>
-              <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedReport.description || '-'}</div>
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Counselor Remarks</div>
-              <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedReport.remarks || '-'}</div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {selectedReport.status === 'reported' && (
-                <>
-                  <button onClick={() => handleResolve(selectedReport.id)} className="btn btn-primary">
-                    <CheckCircle className="w-4 h-4 mr-1" /> Resolve
-                  </button>
-                  <button
-                    onClick={() => handleDelete(selectedReport.id)}
-                    className="btn"
-                    style={{ padding: '6px 12px', background: '#ef4444', color: 'white', borderRadius: 6, border: 'none' }}
-                  >
-                    <Trash2 className="w-4 h-4 mr-1" /> Delete
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="btn"
-                style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useSlips } from '../contexts/SlipsContext';
-import { getStudentAdmissionSlips } from '../services/api';
+import { getStudentAdmissionSlips, getStudentReports, resolveStudentReport, deleteStudentReport } from '../services/api';
 import api from '../services/api';
 import * as XLSX from 'xlsx';
-import { Search, FileText, User, Calendar, CheckCircle } from 'lucide-react';
+import { Search, FileText, User, Calendar, CheckCircle, Trash2 } from 'lucide-react';
 
 const SearchRecords = () => {
   const { slips, loadSlips, approveSlip: approveSlipApi, updateSlipInState } = useSlips();
@@ -28,6 +28,22 @@ const SearchRecords = () => {
   const [groupStatusFilter, setGroupStatusFilter] = useState('all');
   const [groupDateFilter, setGroupDateFilter] = useState('');
   const [groupSortOrder, setGroupSortOrder] = useState('newest');
+
+  // Student reports (violation reports, no admission slip)
+  const [allReports, setAllReports] = useState([]);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await getStudentReports();
+        setAllReports(resp.data || []);
+      } catch (e) {
+        console.error('Failed to load student reports:', e);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     // initial load is done by SlipsProvider; ensure we have data
@@ -244,6 +260,30 @@ const SearchRecords = () => {
     setIsModalOpen(true);
   };
 
+  const handleResolveReport = async (reportId) => {
+    if (!confirm('Mark this report as resolved?')) return;
+    try {
+      await resolveStudentReport(reportId, {});
+      setAllReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'resolved' } : r));
+      setIsReportModalOpen(false);
+      setSelectedReport(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to resolve report');
+    }
+  };
+
+  const handleDeleteReport = async (reportId) => {
+    if (!confirm('Are you sure you want to delete this report? This cannot be undone.')) return;
+    try {
+      await deleteStudentReport(reportId);
+      setAllReports(prev => prev.filter(r => r.id !== reportId));
+      setIsReportModalOpen(false);
+      setSelectedReport(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete report');
+    }
+  };
+
   // Count of approved slips in current filtered results
   const approvedCount = filteredSlips.filter(s => s.status === 'approved').length;
 
@@ -276,6 +316,52 @@ const SearchRecords = () => {
   };
 
   const location = useLocation();
+
+  // Merge student reports into the student groupings so both admission slips
+  // and violation reports appear together in Search Records.
+  const reportSearchFiltered = allReports.filter(r =>
+    !searchTerm || (r.student_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const reportGrouped = reportSearchFiltered.reduce((acc, r) => {
+    const key = r.student_id ? `id:${r.student_id}` : `name:${(r.student_name || '').toLowerCase()}`;
+    if (!acc[key]) acc[key] = { key, student_id: r.student_id, student_name: r.student_name, reports: [] };
+    acc[key].reports.push(r);
+    return acc;
+  }, {});
+
+  // Build merged list: slip groups enriched with their reports, plus report-only students
+  const mergedGroupsMap = {};
+  groupedList.forEach(g => {
+    mergedGroupsMap[g.key] = { ...g, reports: reportGrouped[g.key]?.reports || [] };
+  });
+  Object.values(reportGrouped).forEach(rg => {
+    if (!mergedGroupsMap[rg.key]) {
+      mergedGroupsMap[rg.key] = {
+        key: rg.key, student_id: rg.student_id, student_name: rg.student_name,
+        count: 0, latest: null, slips: [], reports: rg.reports
+      };
+    }
+  });
+  const mergedGroupedList = Object.values(mergedGroupsMap);
+  if (numberSort === 'highest') {
+    mergedGroupedList.sort((a, b) => (b.count + b.reports.length) - (a.count + a.reports.length));
+  } else if (numberSort === 'lowest') {
+    mergedGroupedList.sort((a, b) => (a.count + a.reports.length) - (b.count + b.reports.length));
+  } else {
+    mergedGroupedList.sort((a, b) => {
+      const la = a.latest || (a.reports[0] ? { created_at: a.reports[0].created_at } : null);
+      const lb = b.latest || (b.reports[0] ? { created_at: b.reports[0].created_at } : null);
+      return lb && la ? new Date(lb.created_at).getTime() - new Date(la.created_at).getTime() : 0;
+    });
+  }
+
+  // Reports belonging to the currently open group modal student
+  const groupViewReports = groupViewStudent
+    ? allReports.filter(r => {
+        if (groupViewStudent.id && r.student_id) return String(r.student_id) === String(groupViewStudent.id);
+        return (r.student_name || '').toLowerCase() === (groupViewStudent.name || '').toLowerCase();
+      })
+    : [];
 
   // If a slipId is provided in the URL, open that slip's details/modal
   useEffect(() => {
@@ -326,14 +412,14 @@ const SearchRecords = () => {
               </thead>
 
               <tbody>
-                {groupedList.length === 0 ? (
+                {mergedGroupedList.length === 0 ? (
                   <tr>
                     <td colSpan={2} style={{ textAlign: 'center', padding: 20 }}>
                       <span className="text-gray-600">No records found</span>
                     </td>
                   </tr>
                 ) : (
-                  groupedList.map(group => (
+                  mergedGroupedList.map(group => (
                     <tr
                       key={group.key}
                       onClick={() => {
@@ -376,7 +462,17 @@ const SearchRecords = () => {
                           </div>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className="text-gray-700 font-medium">{group.count}</span>
+                        <span className="text-gray-700 font-medium">{group.count + group.reports.length}</span>
+                        {group.reports.length > 0 && group.count > 0 && (
+                          <span style={{ fontSize: 11, color: '#6b7280', display: 'block' }}>
+                            {group.count} slip{group.count !== 1 ? 's' : ''}, {group.reports.length} report{group.reports.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {group.reports.length > 0 && group.count === 0 && (
+                          <span style={{ fontSize: 11, color: '#6b7280', display: 'block' }}>
+                            {group.reports.length} report{group.reports.length !== 1 ? 's' : ''} only
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -593,11 +689,37 @@ const SearchRecords = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Violation Reports for this student */}
+                {groupViewReports.length > 0 && (
+                  <div style={{ marginTop: 20, borderTop: '1px solid #e6edf3', paddingTop: 14 }}>
+                    <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: '#374151' }}>
+                      Violation Reports ({groupViewReports.length})
+                    </h4>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                      {groupViewReports.map(r => (
+                        <li key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                          <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{r.violation_description || 'No violation type'}</div>
+                            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{r.description || '-'}</div>
+                            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                            <span className={`px-2 py-1 text-xs rounded-full ${r.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              {(r.status || '').toUpperCase()}
+                            </span>
+                            <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => { setSelectedReport(r); setIsReportModalOpen(true); }}>View</button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {filteredSlips.length === 0 && (
+          {mergedGroupedList.length === 0 && (
             <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
               <FileText style={{ width: 48, height: 48, margin: '0 auto 12px', color: 'rgba(15,23,42,0.25)' }} />
               <p>No records found matching your search criteria</p>
@@ -607,7 +729,7 @@ const SearchRecords = () => {
 
         <div className="mt-4 text-sm text-gray-600">
           <p>
-            Showing {groupedList.length} existing student{groupedList.length !== 1 ? 's' : ''} of {slips.length} total records
+            Showing {mergedGroupedList.length} student{mergedGroupedList.length !== 1 ? 's' : ''} &mdash; {slips.length} admission slip{slips.length !== 1 ? 's' : ''}, {allReports.length} violation report{allReports.length !== 1 ? 's' : ''}
           </p>
         </div>
         {/* Floating Export button (bottom-right) */}
@@ -626,6 +748,68 @@ const SearchRecords = () => {
           </button>
         </div>
       </div>
+
+      {/* Violation Report Detail Modal */}
+      {isReportModalOpen && selectedReport && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedReport.student_name}</h3>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span className={`px-2 py-1 text-xs rounded-full ${selectedReport.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                  {(selectedReport.status || '').toUpperCase()}
+                </span>
+                <span className={`px-2 py-1 text-xs rounded-full ${selectedReport.violation_category === 'major' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'}`}>
+                  {(selectedReport.violation_category || '').toUpperCase()}
+                </span>
+                <button onClick={() => { setIsReportModalOpen(false); setSelectedReport(null); }} className="btn" style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}>
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8, alignItems: 'start', marginBottom: 12 }}>
+              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Course</div>
+              <div style={{ fontSize: '0.95rem', color: '#111827' }}>{selectedReport.course || '-'}</div>
+
+              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Year &amp; Section</div>
+              <div style={{ fontSize: '0.95rem', color: '#111827' }}>{[selectedReport.year, selectedReport.section].filter(Boolean).join(' - ') || '-'}</div>
+
+              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date Reported</div>
+              <div style={{ fontSize: '0.95rem', color: '#111827' }}>{selectedReport.created_at ? new Date(selectedReport.created_at).toLocaleString() : '-'}</div>
+
+              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Violation Type</div>
+              <div style={{ fontSize: '0.95rem', color: '#111827' }}>{selectedReport.violation_description || '-'}</div>
+
+              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Description</div>
+              <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedReport.description || '-'}</div>
+
+              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Counselor Remarks</div>
+              <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedReport.remarks || '-'}</div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {selectedReport.status !== 'resolved' && (
+                <>
+                  <button onClick={() => handleResolveReport(selectedReport.id)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <CheckCircle style={{ width: 14, height: 14 }} /> Resolve
+                  </button>
+                  <button
+                    onClick={() => handleDeleteReport(selectedReport.id)}
+                    className="btn"
+                    style={{ padding: '6px 12px', background: '#ef4444', color: 'white', borderRadius: 6, border: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <Trash2 style={{ width: 14, height: 14 }} /> Delete
+                  </button>
+                </>
+              )}
+              <button onClick={() => { setIsReportModalOpen(false); setSelectedReport(null); }} className="btn" style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
