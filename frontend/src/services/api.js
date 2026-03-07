@@ -108,4 +108,41 @@ export const deleteAdmissionSlip = (slipId) =>
 export const chatbotAsk = (message) =>
   api.post('/chatbot/ask', { message });
 
+// Admin API — courses, year levels, sections
+export const getAdminCourses = () =>
+  api.get('/admin/courses');
+
+export const createAdminCourse = (data) =>
+  api.post('/admin/courses', data);
+
+export const updateAdminCourse = (id, data) =>
+  api.put(`/admin/courses/${encodeURIComponent(id)}`, data);
+
+export const deleteAdminCourse = (id) =>
+  api.delete(`/admin/courses/${encodeURIComponent(id)}`);
+
+export const getCourseYearLevels = (courseId) =>
+  api.get(`/admin/courses/${encodeURIComponent(courseId)}/year-levels`);
+
+export const addCourseYearLevel = (courseId, data) =>
+  api.post(`/admin/courses/${encodeURIComponent(courseId)}/year-levels`, data);
+
+export const updateYearLevel = (id, data) =>
+  api.put(`/admin/year-levels/${encodeURIComponent(id)}`, data);
+
+export const deleteYearLevel = (id) =>
+  api.delete(`/admin/year-levels/${encodeURIComponent(id)}`);
+
+export const getYearLevelSections = (yearLevelId) =>
+  api.get(`/admin/year-levels/${encodeURIComponent(yearLevelId)}/sections`);
+
+export const addYearLevelSection = (yearLevelId, data) =>
+  api.post(`/admin/year-levels/${encodeURIComponent(yearLevelId)}/sections`, data);
+
+export const updateSection = (id, data) =>
+  api.put(`/admin/sections/${encodeURIComponent(id)}`, data);
+
+export const deleteSection = (id) =>
+  api.delete(`/admin/sections/${encodeURIComponent(id)}`);
+
 export default api;

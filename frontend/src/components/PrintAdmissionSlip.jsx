@@ -1,9 +1,9 @@
 // src/components/PrintAdmissionSlip.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { issueAdmissionSlip, verifyStudent, getStudentAdmissionSlips } from '../services/api';
+import { issueAdmissionSlip, verifyStudent, getStudentAdmissionSlips, getAdminCourses, getCourseYearLevels, getYearLevelSections } from '../services/api';
 import api from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
-import { Printer, User, Book, Users } from 'lucide-react';
+import { Printer, User, Book, Users, GraduationCap } from 'lucide-react';
 
 const PrintAdmissionSlip = () => {
   const [formData, setFormData] = useState({
@@ -27,6 +27,15 @@ const PrintAdmissionSlip = () => {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
   const verifyTimer = useRef(null);
+
+  const [courseId, setCourseId] = useState('');
+  const [yearLevelId, setYearLevelId] = useState('');
+  const [courses, setCourses] = useState([]);
+  const [yearLevels, setYearLevels] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  const [yearLevelsLoading, setYearLevelsLoading] = useState(false);
+  const [sectionsLoading, setSectionsLoading] = useState(false);
 
   const handleChange = (e) => {
     const val = (e.target.value || '').toString().slice(0, 32);
@@ -149,6 +158,69 @@ const PrintAdmissionSlip = () => {
     return () => { cancelled = true; };
   }, [matchedStudent, slipsPage, slipsPageSize]);
 
+  // Fetch courses on mount
+  useEffect(() => {
+    let mounted = true;
+    setCoursesLoading(true);
+    getAdminCourses()
+      .then(res => { if (mounted) setCourses(res.data?.courses || []); })
+      .catch(err => console.error('Failed to load courses', err))
+      .finally(() => { if (mounted) setCoursesLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  // Fetch year levels when courseId changes
+  useEffect(() => {
+    if (!courseId) { setYearLevels([]); setYearLevelId(''); return; }
+    let mounted = true;
+    setYearLevelsLoading(true);
+    getCourseYearLevels(courseId)
+      .then(res => { if (mounted) setYearLevels(res.data?.yearLevels || []); })
+      .catch(err => console.error('Failed to load year levels', err))
+      .finally(() => { if (mounted) setYearLevelsLoading(false); });
+    return () => { mounted = false; };
+  }, [courseId]);
+
+  // Fetch sections when yearLevelId changes
+  useEffect(() => {
+    if (!yearLevelId) { setSections([]); return; }
+    let mounted = true;
+    setSectionsLoading(true);
+    getYearLevelSections(yearLevelId)
+      .then(res => { if (mounted) setSections(res.data?.sections || []); })
+      .catch(err => console.error('Failed to load sections', err))
+      .finally(() => { if (mounted) setSectionsLoading(false); });
+    return () => { mounted = false; };
+  }, [yearLevelId]);
+
+  const handleCourseChange = (e) => {
+    const val = e.target.value;
+    setCourseId(val);
+    setYearLevelId('');
+    setSections([]);
+    setFormData(fd => ({ ...fd, year: '', section: '' }));
+    setVerified(null);
+    setVerificationMessage('');
+    setError('');
+    setMatchedStudent(null);
+    setResult(null);
+    setPrintedSlipId(null);
+  };
+
+  const handleYearLevelChange = (e) => {
+    const val = e.target.value;
+    setYearLevelId(val);
+    const yl = yearLevels.find(y => String(y.id) === val);
+    setSections([]);
+    setFormData(fd => ({ ...fd, year: yl ? yl.year_level : '', section: '' }));
+    setVerified(null);
+    setVerificationMessage('');
+    setError('');
+    setMatchedStudent(null);
+    setResult(null);
+    setPrintedSlipId(null);
+  };
+
   const { issueSlip } = useSlips();
 
   const handleSubmit = async (e) => {
@@ -170,15 +242,17 @@ const PrintAdmissionSlip = () => {
         .map(s => (s || '').toString().trim())
         .filter(Boolean)
         .join(' ');
-      if (!studentName || !formData.section || !formData.section.toString().trim()) {
-        setError('Student name and section are required');
+      if (!studentName || !courseId || !formData.year || !formData.section || !formData.section.toString().trim()) {
+        setError('Student name, course, year level, and section are required');
         setLoading(false);
         return;
       }
 
       // Prefer to use context helper so state is updated centrally
       // If we matched an existing student, include its DB id so backend will attach the slip
-      const payload = { ...formData, studentName };
+      const selectedCourseObj = courses.find(c => String(c.id) === String(courseId));
+      const courseName = selectedCourseObj ? selectedCourseObj.name : '';
+      const payload = { ...formData, studentName, course: courseName };
       if (matchedStudent && matchedStudent.id) payload.student_id = matchedStudent.id;
       let response;
       if (issueSlip) {
@@ -197,6 +271,9 @@ const PrintAdmissionSlip = () => {
 
       // Reset form
       setFormData({ firstName: '', middleName: '', lastName: '', year: '', section: '' });
+      setCourseId('');
+      setYearLevelId('');
+      setSections([]);
       setVerified(null);
       setVerificationMessage('');
       setMatchedStudent(null);
@@ -301,23 +378,56 @@ const PrintAdmissionSlip = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              Course
+            </label>
+            <div className="input-with-icon">
+              <GraduationCap className="icon" />
+              <select
+                value={courseId}
+                onChange={handleCourseChange}
+                className="form-input"
+                required
+                disabled={coursesLoading}
+              >
+                <option value="">
+                  {coursesLoading
+                    ? 'Loading courses…'
+                    : courses.length === 0
+                      ? 'No courses — configure in Admin Panel'
+                      : 'Select course'}
+                </option>
+                {courses.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Year Level
             </label>
             <div className="input-with-icon">
               <Book className="icon" />
               <select
-                name="year"
-                value={formData.year}
-                onChange={handleChange}
+                value={yearLevelId}
+                onChange={handleYearLevelChange}
                 className="form-input"
                 required
+                disabled={!courseId || yearLevelsLoading}
               >
-                <option value="">Select year level</option>
-                <option value="1st Year">1st Year</option>
-                <option value="2nd Year">2nd Year</option>
-                <option value="3rd Year">3rd Year</option>
-                <option value="4th Year">4th Year</option>
-                <option value="5th Year">5th Year</option>
+                <option value="">
+                  {!courseId
+                    ? 'Select a course first'
+                    : yearLevelsLoading
+                      ? 'Loading…'
+                      : yearLevels.length === 0
+                        ? 'No year levels configured'
+                        : 'Select year level'}
+                </option>
+                {yearLevels.map(yl => (
+                  <option key={yl.id} value={yl.id}>{yl.year_level}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -334,11 +444,20 @@ const PrintAdmissionSlip = () => {
                 onChange={handleChange}
                 className="form-input"
                 required
+                disabled={!yearLevelId || sectionsLoading}
               >
-                <option value="">Select section</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
+                <option value="">
+                  {!yearLevelId
+                    ? 'Select a year level first'
+                    : sectionsLoading
+                      ? 'Loading…'
+                      : sections.length === 0
+                        ? 'No sections configured'
+                        : 'Select section'}
+                </option>
+                {sections.map(s => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
+                ))}
               </select>
             </div>
           </div>

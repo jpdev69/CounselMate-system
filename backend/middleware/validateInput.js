@@ -61,6 +61,22 @@ module.exports = (req, res, next) => {
       overrides.set('body.message', 500);
     }
 
+    // Allow longer course names for admin course create/update
+    // Endpoint: POST/PUT /api/admin/courses or /api/admin/courses/:id
+    const adminCourseWriteMatch = req.path && req.path.match(/^\/api\/admin\/courses(\/\d+)?$/) &&
+      ['POST', 'PUT'].includes(String(req.method).toUpperCase());
+    if (adminCourseWriteMatch) {
+      overrides.set('body.name', 128);
+    }
+
+    // Allow longer studentName and course fields when issuing an admission slip
+    // Endpoint: POST /api/admission-slips/issue
+    const issueSlipMatch = req.path && req.path.match(/^\/api\/admission-slips\/issue$/);
+    if (issueSlipMatch && String(req.method).toUpperCase() === 'POST') {
+      overrides.set('body.studentName', 128); // first + middle + last names combined
+      overrides.set('body.course', 128);      // course full name, same limit as admin panel
+    }
+
     // Allow longer fields for forgot-password endpoints
     const forgotGetMatch = req.path && req.path.match(/^\/api\/auth\/forgot$/);
     const forgotResetMatch = req.path && req.path.match(/^\/api\/auth\/forgot\/reset$/);

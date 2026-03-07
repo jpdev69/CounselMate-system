@@ -109,12 +109,6 @@ const CompleteForm = () => {
       alert('Please provide a violation description.');
       return;
     }
-    // Require course when completing an ISSUED slip
-    if ((selectedSlip.status === 'issued' || !selectedSlip.status) && !formData.course?.toString().trim()) {
-      alert('Please enter the student\'s Course before completing the form.');
-      return;
-    }
-
     setLoading(true);
     try {
       console.log('🔍 Validating violation description matches violation type...');
@@ -524,17 +518,6 @@ const CompleteForm = () => {
                 ) : (
                   <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'grid', gap: '12px' }}>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Course</label>
-                      <input
-                        value={formData.course}
-                        onChange={(e) => setFormData({ ...formData, course: (e.target.value || '').toString().slice(0, 32) })}
-                        maxLength={32}
-                        className="form-input"
-                        placeholder="Student's course (e.g., BS Computer Science)"
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                    <div>
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type *</label>
                       <select
                         value={formData.violationTypeId}
@@ -605,7 +588,7 @@ const CompleteForm = () => {
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                       <button
                         type="submit"
-                        disabled={loading || ((selectedSlip.status === 'issued' || !selectedSlip.status) && !formData.course?.toString().trim())}
+                        disabled={loading}
                         className="btn btn-primary"
                       >
                         {loading ? 'Submitting...' : `Complete Form for ${selectedSlip.student_name}`}

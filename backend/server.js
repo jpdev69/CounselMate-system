@@ -229,6 +229,10 @@ app.use('/api/visualizations', authenticate, visualizationsRouter);
 const chatbotRouter = require('./routes/chatbot');
 app.use('/api/chatbot', authenticate, chatbotRouter);
 
+// Mount admin router (courses, year levels, sections management)
+const adminRouter = require('./routes/admin');
+app.use('/api/admin', authenticate, adminRouter);
+
 // Get current user's saved security question (for counselor user)
 app.get('/api/auth/me/security-question', authenticate, precheckRateLimit('me-security-question'), async (req, res) => {
   try {

@@ -2,7 +2,7 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Home, FileText, Search, User, Key, Menu, Printer, BarChart3, BookOpen } from 'lucide-react';
+import { LogOut, Home, FileText, Search, User, Key, Menu, Printer, BarChart3, BookOpen, Settings } from 'lucide-react';
 import { useState } from 'react';
 import '../App.css';
 
@@ -18,6 +18,7 @@ const Layout = ({ children }) => {
     { name: 'Search Records', href: '/search', icon: Search },
     { name: 'Violation Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Student Manual', href: '/student-manual', icon: BookOpen },
+    { name: 'Admin Panel', href: '/admin', icon: Settings },
     { name: 'Change Password', href: '/change-password', icon: Key },
     { name: 'Security Question', href: '/security-question', icon: User },
   ];

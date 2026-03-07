@@ -246,6 +246,7 @@ router.get('/print-slip', async (req, res) => {
             <div class="meta">
               <div class="meta-col meta-left">
                 <div class="meta-row"><span class="label">Student Name:</span><span class="value">${slip.student_name}</span></div>
+                <div class="meta-row"><span class="label">Course:</span><span class="value">${slip.course || '—'}</span></div>
                 <div class="meta-row"><span class="label">Year & Section:</span><span class="value">${slip.year} - ${slip.section}</span></div>
               </div>
               <div class="meta-col meta-right" style="text-align: right;">

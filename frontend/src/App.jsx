@@ -14,6 +14,7 @@ import ChangePassword from './components/ChangePassword';
 import SecurityQuestion from './components/SecurityQuestion';
 import Analytics from './components/Analytics';
 import StudentManual from './components/StudentManual';
+import AdminPanel from './components/AdminPanel';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -71,6 +72,7 @@ function App() {
                       <Route path="/search" element={<SearchRecords />} />
                       <Route path="/analytics" element={<Analytics />} />
                       <Route path="/student-manual" element={<StudentManual />} />
+                      <Route path="/admin" element={<AdminPanel />} />
                       <Route path="/change-password" element={<ChangePassword />} />
                       <Route path="/security-question" element={<SecurityQuestion />} />
                       <Route path="*" element={<Navigate to="/" />} />
