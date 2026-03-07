@@ -1,6 +1,35 @@
-const express = require('express');
-const router = express.Router();
-const db = require('../config/database');
+const express    = require('express');
+const multer     = require('multer');
+const fs         = require('fs');
+const path       = require('path');
+const router     = express.Router();
+const db         = require('../config/database');
+const manualStore = require('../utils/manualStore');
+
+// ── multer setup for Student Manual upload ────────────────────────────────
+const uploadStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (!fs.existsSync(manualStore.UPLOAD_DIR)) {
+      fs.mkdirSync(manualStore.UPLOAD_DIR, { recursive: true });
+    }
+    cb(null, manualStore.UPLOAD_DIR);
+  },
+  filename: (req, file, cb) => {
+    cb(null, 'student-manual.txt'); // always overwrite the same file
+  },
+});
+
+const manualUpload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext !== '.txt' || !file.mimetype.startsWith('text/')) {
+      return cb(new Error('Only plain-text (.txt) files are accepted'));
+    }
+    cb(null, true);
+  },
+});
 
 // Ensure admin tables exist on startup (CREATE IF NOT EXISTS — safe to call repeatedly)
 async function ensureAdminTables() {
@@ -268,6 +297,37 @@ router.put('/violation-types/:id', async (req, res) => {
     console.error('Update violation type error:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── STUDENT MANUAL ───────────────────────────────────────────────────────────
+
+// GET /api/admin/student-manual/info
+router.get('/student-manual/info', (req, res) => {
+  res.json({ success: true, info: manualStore.getManualInfo() });
+});
+
+// POST /api/admin/student-manual  — upload a new .txt manual
+router.post('/student-manual', (req, res) => {
+  manualUpload.single('manual')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ error: `Upload error: ${err.message}` });
+    }
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    // Persist the original filename so the UI can display it
+    const metaPath = path.join(manualStore.UPLOAD_DIR, 'student-manual.meta.json');
+    fs.writeFileSync(metaPath, JSON.stringify({ originalname: req.file.originalname }));
+
+    // Reload the in-memory manual so the chatbot picks it up immediately
+    manualStore.reloadManual();
+
+    res.json({ success: true, info: manualStore.getManualInfo() });
+  });
 });
 
 module.exports = router;

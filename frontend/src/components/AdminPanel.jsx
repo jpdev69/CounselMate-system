@@ -1,11 +1,12 @@
 // src/components/AdminPanel.jsx
-import React, { useState, useEffect } from 'react';
-import { Settings, Plus, Trash2, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Settings, Plus, Trash2, ChevronRight, Upload, BookOpen } from 'lucide-react';
 import {
   getAdminCourses, createAdminCourse, updateAdminCourse, deleteAdminCourse,
   getCourseYearLevels, addCourseYearLevel, updateYearLevel, deleteYearLevel,
   getYearLevelSections, addYearLevelSection, updateSection, deleteSection,
   getAdminViolationTypes, updateViolationTypeSlip,
+  getStudentManualInfo, uploadStudentManual,
 } from '../services/api';
 
 const AdminPanel = () => {
@@ -55,6 +56,14 @@ const AdminPanel = () => {
   const [vtPage, setVtPage] = useState(1);
   const VT_PAGE_SIZE = 10;
 
+  // ── Student Manual ──────────────────────────────────────────────────────
+  const [manualInfo, setManualInfo] = useState(null);
+  const [manualFile, setManualFile] = useState(null);
+  const [manualUploading, setManualUploading] = useState(false);
+  const [manualUploadSuccess, setManualUploadSuccess] = useState(false);
+  const [manualUploadError, setManualUploadError] = useState('');
+  const manualFileInputRef = useRef(null);
+
   // ── Load courses on mount ──────────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
@@ -72,6 +81,15 @@ const AdminPanel = () => {
       .then(res => { if (mounted) setViolationTypes(res.data?.violationTypes || []); })
       .catch(err => console.error('Failed to load violation types', err))
       .finally(() => { if (mounted) setViolationTypesLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  // ── Load manual info on mount ────────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    getStudentManualInfo()
+      .then(res => { if (mounted) setManualInfo(res.data?.info || null); })
+      .catch(() => {});
     return () => { mounted = false; };
   }, []);
   // ── Load year levels when course changes ───────────────────────────────────
@@ -250,7 +268,27 @@ const AdminPanel = () => {
       alert(err.response?.data?.error || 'Failed to delete section');
     }
   };
-
+  // ── Student Manual handler ────────────────────────────────────────────
+  const handleUploadManual = async () => {
+    if (!manualFile) return;
+    setManualUploading(true);
+    setManualUploadSuccess(false);
+    setManualUploadError('');
+    const formData = new FormData();
+    formData.append('manual', manualFile);
+    try {
+      const res = await uploadStudentManual(formData);
+      setManualInfo(res.data?.info || null);
+      setManualUploadSuccess(true);
+      setManualFile(null);
+      if (manualFileInputRef.current) manualFileInputRef.current.value = '';
+      setTimeout(() => setManualUploadSuccess(false), 4000);
+    } catch (err) {
+      setManualUploadError(err.response?.data?.error || 'Upload failed');
+    } finally {
+      setManualUploading(false);
+    }
+  };
   // ── Violation type handler ────────────────────────────────────────────
   const handleToggleAdmissionSlip = async (vt) => {
     setVtTogglingId(vt.id);
@@ -704,6 +742,85 @@ const AdminPanel = () => {
               </>
             );
           })()}
+        </div>
+
+        {/* ── STUDENT MANUAL ─────────────────────────────────────────── */}
+        <div style={{ marginTop: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <BookOpen size={18} color="var(--primary)" />
+            <span style={{ fontWeight: 700, fontSize: 15, color: '#374151' }}>Student Manual</span>
+          </div>
+          <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 14 }}>
+            Upload a plain-text (.txt) Student Manual to replace the one used by the Chatbot and the Student Manual page.
+            The new file is applied immediately — no server restart needed.
+          </p>
+
+          {/* Current manual info */}
+          {manualInfo && (
+            <div style={{
+              marginBottom: 14,
+              fontSize: 13,
+              color: '#374151',
+              background: '#f3f4f6',
+              borderRadius: 8,
+              padding: '10px 14px',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '6px 20px',
+              alignItems: 'center',
+            }}>
+              <span>
+                <strong>Active file:</strong>&nbsp;{manualInfo.filename || 'none'}
+              </span>
+              {manualInfo.uploadedAt && (
+                <span>Uploaded: {new Date(manualInfo.uploadedAt).toLocaleString()}</span>
+              )}
+              <span>{(manualInfo.chars || 0).toLocaleString()} chars</span>
+              <span>{(manualInfo.lines || 0).toLocaleString()} lines</span>
+              {manualInfo.source === 'upload' && (
+                <span style={{ color: '#10b981', fontWeight: 600, fontSize: 11, background: '#d1fae5', borderRadius: 4, padding: '2px 7px' }}>
+                  CUSTOM
+                </span>
+              )}
+              {manualInfo.source === 'default' && (
+                <span style={{ color: '#6b7280', fontSize: 11, background: '#e5e7eb', borderRadius: 4, padding: '2px 7px' }}>
+                  DEFAULT
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Upload form */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              ref={manualFileInputRef}
+              type="file"
+              accept=".txt,text/plain"
+              onChange={e => {
+                setManualFile(e.target.files?.[0] || null);
+                setManualUploadError('');
+                setManualUploadSuccess(false);
+              }}
+              style={{ fontSize: 13 }}
+            />
+            <button
+              className="btn btn-primary"
+              onClick={handleUploadManual}
+              disabled={!manualFile || manualUploading}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13 }}
+            >
+              <Upload size={14} />
+              {manualUploading ? 'Uploading…' : 'Upload Manual'}
+            </button>
+            {manualUploadSuccess && (
+              <span style={{ color: '#10b981', fontSize: 13, fontWeight: 600 }}>
+                ✓ Manual updated — chatbot is now using the new file
+              </span>
+            )}
+            {manualUploadError && (
+              <span style={{ color: '#ef4444', fontSize: 13 }}>{manualUploadError}</span>
+            )}
+          </div>
         </div>
 
       </div>

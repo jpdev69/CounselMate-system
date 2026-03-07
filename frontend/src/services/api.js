@@ -165,4 +165,17 @@ export const getAdminViolationTypes = () =>
 export const updateViolationTypeSlip = (id, data) =>
   api.put(`/admin/violation-types/${encodeURIComponent(id)}`, data);
 
+// Admin API — Student Manual
+export const getStudentManualInfo = () =>
+  api.get('/admin/student-manual/info');
+
+export const uploadStudentManual = (formData) =>
+  api.post('/admin/student-manual', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+// Chatbot API — fetch raw manual text
+export const getStudentManual = () =>
+  api.get('/chatbot/manual');
+
 export default api;

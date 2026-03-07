@@ -11,6 +11,11 @@
 /* ── Header ── */
 .student-manual-header {
   margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .student-manual-title {
@@ -183,6 +188,114 @@
 .chatbot-fab-label {
   white-space: nowrap;
 }
+
+/* ── Manual Viewer (dynamic text) ── */
+.manual-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manual-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.manual-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 200px;
+}
+
+.manual-search-icon {
+  position: absolute;
+  left: 10px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.manual-search-input {
+  width: 100%;
+  padding: 8px 32px 8px 34px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.manual-search-input:focus {
+  border-color: var(--primary, #4f46e5);
+  box-shadow: 0 0 0 2px rgba(79,70,229,0.12);
+}
+
+.manual-search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+.manual-search-clear:hover { color: #374151; }
+
+.manual-search-count {
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.manual-text-body {
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+  max-height: 640px;
+  font-family: 'Consolas', 'Menlo', monospace;
+  color: #1f2937;
+}
+
+mark.manual-highlight {
+  background: #fef08a;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.manual-viewer-loading,
+.manual-viewer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 60px 20px;
+  color: #9ca3af;
+  font-size: 14px;
+  text-align: center;
+}
+
+.manual-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top-color: var(--primary, #4f46e5);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Chatbot Panel ── */
 .chatbot-panel {
