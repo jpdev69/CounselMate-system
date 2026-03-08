@@ -56,7 +56,6 @@ async function ensureStudentReportsTable() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log('✅ student_reports table ready');
   } catch (err) {
     console.warn('ensureStudentReportsTable warning:', err.message || err);
   }
@@ -119,8 +118,6 @@ async function seedStudentManualViolationTypes() {
       { code: 'BULLYING', description: 'Bullying', category: 'major', section_ref: '2.2.18' },
     ];
 
-    const canonicalCodes = manualTypes.map(vt => vt.code);
-
     for (const vt of manualTypes) {
       // Upsert: insert if missing, update description/category/section_ref if already present
       await pool.query(
@@ -133,30 +130,6 @@ async function seedStudentManualViolationTypes() {
         [vt.code, vt.description, vt.category, vt.section_ref]
       );
     }
-
-    // Force-remove legacy violation types (not in Student Manual):
-    // 1. NULL out any FK references in admission_slips / student_reports first
-    // 2. Then delete the now-unreferenced legacy rows
-    await pool.query(
-      `UPDATE admission_slips SET violation_type_id = NULL
-       WHERE violation_type_id IN (
-         SELECT id FROM violation_types WHERE code != ALL($1::text[])
-       )`,
-      [canonicalCodes]
-    );
-    await pool.query(
-      `UPDATE student_reports SET violation_type_id = NULL
-       WHERE violation_type_id IN (
-         SELECT id FROM violation_types WHERE code != ALL($1::text[])
-       )`,
-      [canonicalCodes]
-    );
-    await pool.query(
-      `DELETE FROM violation_types WHERE code != ALL($1::text[])`,
-      [canonicalCodes]
-    );
-
-    console.log('✅ Student Manual violation types seeded and legacy types cleaned up');
   } catch (err) {
     console.warn('seedStudentManualViolationTypes warning:', err.message || err);
   }

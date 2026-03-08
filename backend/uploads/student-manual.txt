@@ -1,504 +1,145 @@
-User: Can you provide all the necessary info to help the AI create a technical framework for the system? Make sure it's very detailed.
+Adaptive SSH Honeypot Flow
+Attacker connects (SSH)
+↓
+Cowrie / custom honeypot captures interaction
+↓
+Feature extraction
+   - Command sequence
+   - Timing
+   - Entropy
+   - Credential patterns
+↓
+ML Model
+   - Classifies attacker type
+   - Chooses engagement policy
+↓
+Response
+   - Fake success
+   - Fake errors
+   - Deeper filesystem exposure
+   - Session termination
+↓
+Log + retrain
 
-GitHub Copilot: Created 7 todos
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/package.json#1-1), lines 1 to 50
+This is exactly what reinforcement-learning honeypots do.
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/server.js#1-1), lines 1 to 150
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/config/database.js)
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/package.json)
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/vite.config.js)
+ML Models That Work Well Here
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/server.js#150-150), lines 150 to 364
+Based on your earlier work, these fit perfectly:
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/middleware/auth.js)
+Reinforcement Learning
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/middleware/rateLimiter.js)
+Engagement depth optimization
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/middleware/validateInput.js)
+Attacker retention
 
-Starting: *Explore backend routes & middleware* (2/7)
+Clustering
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/routes/admissionSlips.js#1-1), lines 1 to 300
+Attacker behavior grouping
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/routes/visualizations.js#1-1), lines 1 to 300
+Sequence models (LSTM / Transformer)
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/utils/visualizationUtils.js#1-1), lines 1 to 200
+Command prediction
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/routes/admissionSlips.js#300-300), lines 300 to 588
+GANs
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/routes/visualizations.js#300-300), lines 300 to 630
+Generate realistic fake responses / datasets
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/utils/visualizationUtils.js#200-200), lines 200 to 307
+Your earlier GAN idea actually fits very well here.
 
-Starting: *Explore frontend config & entry* (4/7)
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/App.jsx)
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/main.jsx)
+“A honeypot detects attacks that target the services it intentionally exposes, and may adapt or rotate its infrastructure to increase coverage and realism.”
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/services/api.js)
+“A multi‑service honeypot exposes multiple decoy services, such as SSH, HTTP, and FTP, on a single system to simultaneously detect diverse application‑level attack behaviors.”
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/contexts/AuthContext.jsx)
+“A honeypot is a network-accessible decoy system that exposes services to capture attacker behavior. While it exists on the network, it is designed to detect interactions with these services (application-level and behavioral attacks) and does not inherently detect attacks targeting the network or protocol itself.”
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/contexts/SlipsContext.jsx)
+“A honeypot is network-accessible to allow attackers to reach it, but it is designed to detect attacks that interact with the exposed services (application and behavioral level) rather than attacks that operate purely at the network/protocol level.”
 
-Starting: *Explore frontend components* (5/7)
+OUR PROPOSAL SYSTEM LIMITATION
+“Our honeypot system is designed to detect attacks that interact with exposed services, primarily at the application and behavioral levels. Pure network-level attacks, such as SYN floods, UDP amplification, or ICMP floods, do not involve meaningful interaction with services and therefore cannot be detected effectively by a traditional honeypot.”
 
-Now let me explore all the frontend components: 
+EXPLANATION
+Network-level attacks are volume or protocol based, not behavior-based.
+Honeypots rely on interaction and engagement to reveal attacker intent.
+Detecting network floods requires traffic analysis, rate-limiting, or anomaly detection, not deception.
 
-Analyze all frontend components
+ACCOUNT
+“To account for network-level attacks, our system could be integrated with network-based monitoring tools such as IDS/IPS, NetFlow analysis, or darknets, which can capture anomalous traffic patterns, volumetric attacks, and protocol-level abuses. This complements the honeypot’s application-level and behavioral coverage.”
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/Analytics.jsx)
+OUR SCOPE
+“While our adaptive honeypot focuses on application-layer and behavioral threats, pure network-based attacks are out of its direct detection scope. They can be monitored using complementary network security tools, such as IDS/IPS or traffic anomaly detection systems, allowing a combined proactive defense strategy.”
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/ChangePassword.jsx)
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/CompleteForm.jsx#1-1), lines 1 to 500
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/Dashboard.jsx)
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/ForgotPassword.jsx)
+Visual analogy
+Concept	Example
+Network-accessible		A shop(honeypot) on the street (IP reachable)
+Application-level detection	Someone enters the shop and tries to steal items (SSH brute-force, SQL injection)
+Network-level attack		Someone throws rocks at the shop from the street (SYN flood, ICMP flood) — the shop is there, but it doesn’t “see” it
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/Layout.jsx)
+✅ The shop(honeypot) exists on the street (network-accessible), but it only observes interactions inside the shop (service-level).
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/Login.jsx)
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/Modal.jsx)
+Basically,
+Both — honeypots can exist at the network level and the application level.
+It depends on what you want to observe or lure.
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/PrintAdmissionSlip.jsx)
+🌐 Network‑level honeypots
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/SearchRecords.jsx#1-1), lines 1 to 500
+Designed to look like vulnerable hosts or network services.
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/SecurityQuestion.jsx)
+What they imitate:
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/ViolationAnalytics.jsx)
+Open ports (SSH, FTP, Telnet, SMB)
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/CompleteForm.jsx#500-500), lines 500 to 642
+Weak network services
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/src/components/SearchRecords.jsx#500-500), lines 500 to 629
+Entire fake machines
 
-Read [](file:///c%3A/Users/jpdev/AppData/Roaming/Code/User/workspaceStorage/29eb95c082bdd1c68c983aab49f6518e/GitHub.copilot-chat/chat-session-resources/ae8052a5-a919-4128-a172-41370df16515/toolu_01J7m7h9jweF84dZegqAnAgh__vscode-1772450932560/content.txt)
+Examples:
 
-Starting: *Compile technical framework document* (7/7)
+Cowrie (SSH/Telnet)
 
-Now let me also check for any environment config and CSS files to get the full picture:     
+Dionaea (malware collection)
 
-Searched for files matching `**/.env*`, no matches
+Honeyd
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/public/manifest.json)
+OSI layers: mostly L2–L4
+Purpose: detect scans, worms, brute-force attacks
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/public/robots.txt)
+🧠 Application‑level honeypots
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/frontend/index.html)
+Designed to look like real applications.
 
-Read [](file:///c%3A/Users/jpdev/Desktop/CounselMate-system/backend/package.json#48-48), lines 48 to 228
+What they imitate:
 
-Now I have all the information I need. Let me compile the comprehensive technical framework document. 
+Web apps
 
-Updated todo list
-
-Here is the comprehensive technical framework for the **CounselMate** system:
-
----
-
-## CounselMate — Technical Framework
-
-### 1. System Overview
-
-**CounselMate** is a **Web-based Guidance Monitoring and Record-Keeping System** designed for university guidance counselors. It manages student policy violation records through admission slips — from issuance, through form completion with AI-validated violation descriptions, to approval — with analytics dashboards and exportable reports.
-
-**Full title (from HTML meta):** *"CounselMate - Web-based Guidance Monitoring and Record-Keeping System"*
-**Subtitle:** *"University Policy Violation Management System for Guidance Counselors"*
-
----
-
-### 2. Architecture
-
-| Layer | Technology | Port |
-|-------|-----------|------|
-| **Frontend** | React 18 SPA (Vite) | `3000` |
-| **Backend** | Express 5 REST API (Node.js) | `5000` (from env) |
-| **Database** | PostgreSQL (via `pg` pool) | configured via `DATABASE_URL` |
-| **AI/LLM** | Ollama (local) — model `dolphin3` | `11434` (default) |
-| **Styling** | Tailwind CSS 3 + custom CSS | — |
-
-Communication: **Frontend** (axios) → **Backend** (Express REST) → **PostgreSQL** / **Ollama**
-
----
-
-### 3. Project Structure
-
-```
-CounselMate-system/
-├── backend/
-│   ├── server.js                         # Express app entry point, all auth routes, health/debug endpoints
-│   ├── package.json                      # CommonJS module, deps: express 5, pg, cors, dotenv, bcryptjs, jsonwebtoken, firebase-admin, openai, nodemon (dev)
-│   ├── config/
-│   │   └── database.js                   # PostgreSQL connection pool (pg.Pool with DATABASE_URL)
-│   ├── middleware/
-│   │   ├── auth.js                       # JWT authentication + role-based authorization middleware
-│   │   ├── rateLimiter.js                # In-memory rate limiter with escalating lockout
-│   │   └── validateInput.js              # Global string length validator (32-char default, per-route overrides)
-│   ├── routes/
-│   │   ├── admissionSlips.js             # CRUD + workflow for admission slips (issue, verify, complete, approve, delete, print)
-│   │   └── visualizations.js             # Analytics API endpoints + server-rendered HTML dashboard
-│   └── utils/
-│       ├── violationMatcher.js           # AI-powered violation description validation (Ollama LLM + keyword fallback)
-│       └── visualizationUtils.js         # Reusable DB query helpers for analytics aggregation
-│
-├── frontend/
-│   ├── index.html                        # HTML entry point (loads Inter/Lora/Playfair Display fonts)
-│   ├── vite.config.js                    # Vite config (React plugin, port 3000, auto-open)
-│   ├── package.json                      # ES module, deps: react 18, react-router-dom 6, axios, lucide-react, xlsx
-│   ├── public/
-│   │   ├── manifest.json                 # PWA manifest
-│   │   └── robots.txt
-│   └── src/
-│       ├── main.jsx                      # React root — wraps App in AuthProvider + SlipsProvider
-│       ├── App.jsx                       # Router: public routes (Login, ForgotPassword) + protected routes (all others)
-│       ├── App.css / index.css / App-table-update.css
-│       ├── components/
-│       │   ├── Layout.jsx                # App shell: collapsible sidebar + main content area
-│       │   ├── Login.jsx                 # Email/password login with rate-limit countdown
-│       │   ├── ForgotPassword.jsx        # 2-step password reset via security question
-│       │   ├── Dashboard.jsx             # Landing page: stat cards + recent slips + quick actions
-│       │   ├── PrintAdmissionSlip.jsx    # Issue new slips with student auto-verification + print
-│       │   ├── CompleteForm.jsx          # Fill violation details on issued slips + AI validation + approve/delete
-│       │   ├── SearchRecords.jsx         # Search, filter, group-by-student view + XLSX export
-│       │   ├── Analytics.jsx             # Wrapper for ViolationAnalytics
-│       │   ├── ViolationAnalytics.jsx    # SVG chart dashboard (bar, donut, horizontal bars) + ViolationAnalytics.css
-│       │   ├── ChangePassword.jsx        # Change password with strength meter
-│       │   ├── SecurityQuestion.jsx      # Set/update security Q&A (password-verified)
-│       │   └── Modal.jsx                 # Generic reusable modal component
-│       ├── contexts/
-│       │   ├── AuthContext.jsx            # Auth state: login, logout, session management, inactivity auto-logout
-│       │   └── SlipsContext.jsx           # Centralized admission slips state: CRUD operations
-│       ├── services/
-│       │   └── api.js                    # Axios instance (base: localhost:5000/api), request/response interceptors, all API functions
-│       └── styles/
-│           └── design.css                # Global design tokens
-```
-
----
-
-### 4. Database Schema (inferred from SQL queries)
-
-#### Table: `users`
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | SERIAL PK | |
-| `email` | VARCHAR | Unique; currently only `counselor@university.edu` |
-| `password_hash` | VARCHAR | Plain-text (demo); production should use bcrypt |
-| `full_name` | VARCHAR | |
-| `role` | VARCHAR | e.g., `'counselor'` |
-| `security_question` | VARCHAR(256) | Added dynamically via `ALTER TABLE IF NOT EXISTS` |
-| `security_answer` | VARCHAR(256) | Added dynamically |
-| `updated_at` | TIMESTAMP | Auto-updated on changes |
-
-#### Table: `students`
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | SERIAL PK | Internal auto-increment |
-| `student_id` | VARCHAR | Generated: `STU-<timestamp>` |
-| `full_name` | VARCHAR | Composite first/middle/last |
-| `year` | VARCHAR | e.g., `'1st Year'` through `'5th Year'` |
-| `section` | VARCHAR | e.g., `'1'`, `'2'`, `'3'` |
-
-#### Table: `admission_slips`
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | SERIAL PK | |
-| `slip_number` | VARCHAR | Generated: `SLIP-<timestamp>` |
-| `student_id` | INTEGER FK | → `students.id` |
-| `violation_type_id` | INTEGER FK | → `violation_types.id` |
-| `description` | TEXT | Violation description (max 500 chars via middleware) |
-| `teacher_comments` | TEXT | Counselor remarks (max 500 chars) |
-| `course` | VARCHAR | Student's course/program |
-| `issued_by` | VARCHAR | `'system'` |
-| `status` | VARCHAR | Lifecycle: `'issued'` → `'form_completed'` → `'approved'` |
-| `form_completed_at` | TIMESTAMP | |
-| `approved_at` | TIMESTAMP | |
-| `created_at` | TIMESTAMP | |
-| `updated_at` | TIMESTAMP | |
-
-#### Table: `violation_types`
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | SERIAL PK | |
-| `code` | VARCHAR | e.g., `'TARDINESS'`, `'BULLYING'`, `'DRESSCODE'` |
-| `description` | VARCHAR | Human-readable description |
-
-#### Table: `audit_logs`
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | SERIAL PK | |
-| `admission_slip_id` | INTEGER FK | → `admission_slips.id` |
-| `user_email` | VARCHAR | Who performed the action |
-| `action` | VARCHAR | `'SLIP_ISSUED'`, `'FORM_COMPLETED'`, `'SLIP_APPROVED'` |
-| `old_status` | VARCHAR | |
-| `new_status` | VARCHAR | |
-
----
-
-### 5. Backend API Endpoints
-
-#### 5.1 Authentication (defined in server.js)
-
-| Method | Endpoint | Description | Rate Limited |
-|--------|----------|-------------|:------------:|
-| `POST` | `/api/auth/login` | Login with email + password | Yes (`login`) |
-| `PUT` | `/api/auth/change-password` | Change password (requires current + new) | No |
-| `GET` | `/api/auth/forgot` | Get counselor's security question | No |
-| `POST` | `/api/auth/forgot/verify` | Verify security answer only | Yes (`forgot-verify`) |
-| `POST` | `/api/auth/forgot/reset` | Verify answer + reset password | Yes (`forgot-reset`) |
-| `GET` | `/api/auth/me/security-question` | Get own saved question | Yes (`me-security-question`) |
-| `PUT` | `/api/auth/me/security-question` | Update own Q&A | Yes (`me-security-question`) |
-
-#### 5.2 Admission Slips (mounted at `/api/admission-slips`, defined in admissionSlips.js)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | List all slips (joined with student + violation type) |
-| `POST` | `/issue` | Issue a new slip (creates student if needed) |
-| `POST` | `/verify` | Check if student already exists (regex whole-word name matching) |
-| `POST` | `/validate-violation` | AI-validate description vs. violation type |
-| `PUT` | `/:id/complete` | Complete form (sets violation type, description, status → `form_completed`; AI-validates first) |
-| `PUT` | `/:id/approve` | Approve slip (status → `approved`) |
-| `DELETE` | `/:id` | Delete slip (only `issued` or `form_completed` status; transactional with audit cleanup) |
-| `GET` | `/student/:studentId/slips` | Paginated slips for a student (supports `page`, `pageSize`, `sort`, `status` query params) |
-| `GET` | `/print-slip?slip_id=` | Server-rendered printable HTML admission slip page |
-
-#### 5.3 Visualizations (mounted at `/api/visualizations`, defined in visualizations.js)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | API health check |
-| `GET` | `/violations/by-student` | Aggregated violations by student |
-| `GET` | `/violations/by-course` | Aggregated violations by course |
-| `GET` | `/violations/by-type` | Aggregated violations by violation type |
-| `GET` | `/violations/by-year-section` | Aggregated violations by year & section |
-| `GET` | `/violations/summary` | Summary stats (totals, top violator, most common type, most violated course) |
-| `GET` | `/dashboard` | Server-rendered HTML dashboard with Chart.js visualizations |
-
-#### 5.4 Other
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Server health check |
-| `GET` | `/api/violation-types` | List all violation types |
-| `GET` | `/api/debug/db` | Debug: DB connectivity + students count |
-
----
-
-### 6. Middleware Stack
-
-1. **CORS** — Origins restricted to `CORS_ORIGIN` env var, credentials enabled
-2. **`express.json()`** — Body parser
-3. **`validateInput`** (validateInput.js) — Global input length validation:
-   - Default max: **32 characters** for all string fields
-   - Route-specific overrides:
-     - `PUT /admission-slips/:id/complete` → `description`, `teacher_comments`, `remarks`: 500 chars
-     - `POST /admission-slips/validate-violation` → `description`: 500 chars
-     - Auth endpoints → capped at 32 chars
-   - Recursively checks `req.body`, `req.query`, `req.params`
-4. **Rate Limiter** (rateLimiter.js):
-   - In-memory `Map`-based store (keyed by IP + label + email)
-   - Max attempts: **3** (configurable via `MAX_ATTEMPTS`)
-   - Escalating lockout durations: **3, 5, 7, 9, 12, 15 minutes** (configurable per-endpoint via env vars)
-   - Window: **15 minutes** (configurable via `RATE_LIMIT_WINDOW_MINUTES`)
-   - Returns `429 Too Many Requests` with `Retry-After` header and `retryAfterMs` in body
-5. **Auth Middleware** (auth.js) — JWT Bearer token verification + role-based authorization (defined but not currently applied to routes in the demo)
-
----
-
-### 7. AI/LLM Integration — Violation Matcher
-
-Defined in violationMatcher.js:
-
-- **Primary:** Ollama local LLM (model: `dolphin3`, configurable via `OLLAMA_MODEL`)
-  - Endpoint: `POST /api/generate` on `http://localhost:11434`
-  - Prompt strategy: Strict yes/no classification — asks LLM if description **confirms** the student committed the violation
-  - Handles negation, questions, and vague descriptions as MISMATCH
-  - Temperature: `0.1`, max tokens: `3` (forces single-word response)
-  - Available check: `GET /api/tags` to verify Ollama is running
-
-- **Fallback** (when Ollama is unavailable): Keyword-based matching
-  - Predefined keyword dictionaries for 8 violation types: `TARDINESS`, `TRUANCY`, `DISRESPECT`, `BULLYING`, `CHEATING`, `FIGHTING`, `VANDALISM`, `DRESSCODE`
-  - Checks exact type name in description, then related keywords
-  - Returns lower confidence scores (0.75–0.85) compared to LLM (0.9–0.95)
-
-**Integration points:**
-- `POST /api/admission-slips/validate-violation` — standalone validation endpoint
-- `PUT /api/admission-slips/:id/complete` — validates before saving the form
-
----
-
-### 8. Frontend Architecture
-
-#### 8.1 Framework & Build
-- **React 18.2** with **Vite 4.4** (HMR, ES modules)
-- **React Router DOM 6.15** — client-side routing
-- **Tailwind CSS 3.4** + custom CSS files
-- **Fonts:** Inter, Lora, Playfair Display (Google Fonts)
-
-#### 8.2 State Management (React Context API)
-
-**AuthContext** (AuthContext.jsx):
-- Manages: `user`, `loading`, `login()`, `logout()`, `changePassword()`
-- Session storage: `authToken`, `userData` in `sessionStorage` (not `localStorage` — no persistence across browser restarts)
-- Token format: `simple-token-<timestamp>` with 30-minute TTL
-- Auto-logout on 15 minutes of inactivity (mousemove/keydown/click events)
-- Visibility change listener: re-checks token freshness when tab becomes visible
-
-**SlipsContext** (SlipsContext.jsx):
-- Manages: `slips[]`, `loading`
-- Operations: `loadSlips()`, `issueSlip()`, `completeSlip()`, `approveSlip()`, `deleteSlip()`, `updateSlipInState()`
-- Auto-loads all slips on mount
-
-#### 8.3 API Service Layer (api.js)
-- Axios instance with base URL `http://localhost:5000/api`
-- Timeout: **60 seconds** (to accommodate LLM validation)
-- Request interceptor: attaches Bearer token from `sessionStorage`
-- Response interceptor: on `401`, clears session and redirects to `/login` (except for login requests themselves)
-- Exports named functions for every API endpoint
-
-#### 8.4 Routing
-
-| Path | Component | Access |
-|------|-----------|--------|
-| `/login` | `Login` | Public only |
-| `/forgot-password` | `ForgotPassword` | Public only |
-| `/` | `Dashboard` | Protected |
-| `/print-slip` | `PrintAdmissionSlip` | Protected |
-| `/complete-form` | `CompleteForm` | Protected |
-| `/search` | `SearchRecords` | Protected |
-| `/analytics` | `Analytics` → `ViolationAnalytics` | Protected |
-| `/change-password` | `ChangePassword` | Protected |
-| `/security-question` | `SecurityQuestion` | Protected |
-| `*` | Redirects to `/` | — |
-
-#### 8.5 Component Hierarchy
-```
-main.jsx
-└── AuthProvider
-    └── SlipsProvider
-        └── App
-            ├── [Public] Login
-            ├── [Public] ForgotPassword
-            └── [Protected] Layout (sidebar + content)
-                ├── Dashboard
-                ├── PrintAdmissionSlip
-                ├── CompleteForm ──→ Modal
-                ├── SearchRecords ──→ Modal (group view, slip detail)
-                ├── Analytics ──→ ViolationAnalytics
-                ├── ChangePassword
-                └── SecurityQuestion
-```
-
-#### 8.6 Key UI Features
-
-- **Sidebar navigation** with collapsible toggle, active page highlighting, icons from `lucide-react`
-- **Admission slip workflow:** Issue → Complete Form (AI validation) → Approve
-- **Student auto-verification:** Debounced (600ms) real-time check as user types name — whole-word regex matching in PostgreSQL
-- **Print slip:** Opens a server-rendered HTML page in a new tab with `@page` print CSS and auto-triggers `window.print()`
-- **Analytics charts:** Pure SVG visualizations (no external charting library on frontend) — bar chart, donut chart, horizontal bar distribution — with hover tooltips and interactive legends
-- **XLSX export:** Uses the `xlsx` library to export approved records as a downloadable spreadsheet
-- **Password strength meter:** Real-time feedback evaluating length, letters, numbers, uppercase, special characters with a 0–5 score
-- **Rate-limit countdown:** Visual countdown timer on login and security question pages when locked out
-
----
-
-### 9. Security Features
-
-| Feature | Implementation |
-|---------|---------------|
-| **Session management** | `sessionStorage` (tab-scoped); 30-min token TTL |
-| **Inactivity auto-logout** | 15-minute timeout on user activity events |
-| **Rate limiting** | In-memory, per-IP+label, escalating lockout (3→15 min) |
-| **Input validation** | Global middleware: 32-char default, 500-char for descriptions |
-| **CORS** | Restricted to configured origin |
-| **Password policy** | Min 1 letter + 1 digit required; max 32 chars |
-| **Security Q&A** | Password-verified setup; case-insensitive answer matching |
-| **Single-user auth** | Only `counselor@university.edu` allowed |
-| **Audit logging** | `audit_logs` table tracks slip lifecycle events |
-| **JWT middleware** | Defined in auth.js (available but not enforced on current routes) |
-
----
-
-### 10. Environment Variables
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `PORT` | — | Backend server port |
-| `CORS_ORIGIN` | — | Allowed frontend origin |
-| `DATABASE_URL` | — | PostgreSQL connection string |
-| `NODE_ENV` | — | Environment indicator |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama LLM server URL |
-| `OLLAMA_MODEL` | `dolphin3` | LLM model name |
-| `MAX_ATTEMPTS` | `3` | Rate limit max failed attempts |
-| `RATE_LIMIT_WINDOW_MINUTES` | `15` | Rate limit window |
-| `ESCALATION_MINUTES_LIST` | `3,5,7,9,12,15` | Global lockout escalation steps |
-| `ESCALATION_<LABEL>` | per-endpoint override | e.g., `ESCALATION_LOGIN` |
-| `JWT_SECRET` | `fallback-secret` | JWT signing key (auth middleware) |
-
----
-
-### 11. Admission Slip Lifecycle (State Machine)
-
-```
-             Issue slip
-                 │
-                 ▼
-            ┌─────────┐
-            │  issued  │──── Delete
-            └────┬────┘
-                 │  Complete form (AI validation)
-                 ▼
-         ┌──────────────┐
-         │form_completed │──── Delete
-         └──────┬───────┘
-                │  Approve
-                ▼
-           ┌──────────┐
-           │ approved  │  (final — no delete)
-           └──────────┘
-```
-
-Only `issued` and `form_completed` slips can be deleted. `approved` slips are permanent and are the only ones counted in analytics.
-
----
-
-### 12. Key Dependencies
-
-**Backend:**
-- `express` ^5.1.0, `pg` ^8.16.3, `cors` ^2.8.5, `dotenv` ^17.2.3
-- `jsonwebtoken` ^9.0.2, `bcryptjs` ^3.0.2
-- `firebase-admin` ^13.5.0, `openai` ^6.16.0 (installed but not actively used in current code)
-- `nodemon` ^3.1.10 (dev)
-
-**Frontend:**
-- `react` ^18.2.0, `react-dom` ^18.2.0, `react-router-dom` ^6.15.0
-- `axios` ^1.5.0, `lucide-react` ^0.294.0, `xlsx` ^0.18.5
-- `@vitejs/plugin-react` ^4.0.3, `tailwindcss` ^3.4.18, `vite` ^4.4.5 (dev)
-
----
-
-### 13. Notable Technical Patterns
-
-1. **Context-driven state:** Centralized slip state (`SlipsContext`) ensures all components reflect real-time changes without prop drilling
-2. **Debounced auto-verification:** Student name verification fires with a 600ms debounce as user types, using PostgreSQL `~*` regex with `\m...\M` word boundary matching
-3. **AI-first with fallback:** Violation validation tries LLM first, falls back to keyword matching if Ollama is unavailable — ensures the system works offline
-4. **Escalating rate limiting:** Progressive lockout durations (3→5→7→9→12→15 min) discourage brute force without permanently locking out legitimate users
-5. **Server-rendered print page:** Print admission slip is a full HTML page rendered server-side with print-optimized CSS, auto-triggering `window.print()` on load
-6. **Pure SVG charts:** Analytics visualizations built with raw SVG elements and CSS transitions — no charting library dependency on the frontend
-7. **Transactional deletes:** Slip deletion uses PostgreSQL transactions (`BEGIN`/`COMMIT`/`ROLLBACK`) to clean up audit logs before removing the slip
-8. **Tab-scoped sessions:** Using `sessionStorage` instead of `localStorage` ensures sessions don't persist across browser restarts or new tabs
-
---- 
-
-Completed: *Compile technical framework document* (7/7)
-
-This covers the full system — architecture, database schema, every API endpoint, middleware pipeline, AI integration, frontend component tree, state management, routing, security mechanisms, environment configuration, the slip lifecycle state machine, and key technical patterns. You can feed all of the above directly to an AI for framework generation.
+APIs
+
+Login pages
+
+Admin panels
+
+Examples:
+
+Glastopf (web app attacks)
+
+WordPress honeypots
+
+Fake REST APIs
+
+OSI layers: L7 (Application)
+Purpose: capture SQLi, XSS, CSRF, auth abuse
+
+🧩 Quick summary
+Honeypot type	Lives at	Catches
+Network honeypot	Network / transport	Scans, brute force, malware
+Application honeypot	Application	Web & API attacks

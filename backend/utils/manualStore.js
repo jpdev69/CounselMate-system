@@ -1,5 +1,5 @@
 // backend/utils/manualStore.js
-// Singleton that owns the Student Manual in memory.
+// Singleton that owns the uploaded document in memory.
 // chatbot.js and admin.js both import from here so a fresh upload is
 // immediately visible to the chatbot without a server restart.
 
@@ -9,52 +9,20 @@ const path = require('path');
 const UPLOAD_DIR  = path.resolve(__dirname, '../uploads');
 const UPLOAD_PATH = path.join(UPLOAD_DIR, 'student-manual.txt');
 const META_PATH   = path.join(UPLOAD_DIR, 'student-manual.meta.json');
-const DEFAULT_PATH = path.resolve(__dirname, '../../Isabela State University - Student Manual.txt');
 
 // ── mutable state ─────────────────────────────────────────────────
-let _rawManual     = '';
-let _focusedManual = '';
-let _systemPrompt  = '';
-let _manualInfo    = null;
+let _rawManual    = '';
+let _systemPrompt = '';
+let _manualInfo   = null;
 
 // ── helpers ───────────────────────────────────────────────────────
-function extractRelevantSections(fullText) {
-  if (!fullText) return 'Student manual content unavailable.';
-
-  const lines = fullText.split('\n');
-  const regions = [
-    { start: 'B. RETENTION POLICIES',      stop: '2. ADVANCED CREDITS' },
-    { start: '8. ACADEMIC STATUS',          stop: '9. ACADEMIC LOAD' },
-    { start: '15. CLASS ATTENDANCE',        stop: '16. CLASS SIZE' },
-    { start: '24. HONORABLE DISMISSAL',     stop: '25. MODES OF PAYMENT' },
-    { start: '28. SCHOOL UNIFORM',          stop: '31. PROVISION' },
-    { start: 'RIGHTS OF THE STUDENTS',      stop: 'RULE II' },
-    { start: 'PROCEDURES FOR THE SETTLEMENT', stop: 'POSTERS, BANNERS' },
-    { start: 'REPUBLIC ACT 9165',           stop: 'REPUBLIC ACT 7079' },
-  ];
-
-  const extracted = [];
-  for (const region of regions) {
-    let capturing = false;
-    for (let i = 0; i < lines.length; i++) {
-      const upper = lines[i].toUpperCase().trim();
-      if (!capturing && upper.includes(region.start)) { capturing = true; }
-      if (capturing && region.stop && upper.includes(region.stop)) { break; }
-      if (capturing) extracted.push(lines[i]);
-    }
-  }
-
-  const result = extracted.join('\n').trim();
-  return result || fullText;
-}
-
-function buildSystemPrompt(focusedManual, manualName) {
+function buildSystemPrompt(manual, manualName) {
   const displayName = manualName || 'the uploaded manual';
   return `You are the GuidanceOS Assistant, a helpful chatbot for **${displayName}**. You help users look up information from this document.
 
 YOUR SOLE SOURCE OF TRUTH — ${displayName.toUpperCase()}:
 ===BEGIN===
-${focusedManual}
+${manual}
 ===END===
 
 RULES:
@@ -71,22 +39,21 @@ RULES:
 
 // ── core loader ───────────────────────────────────────────────────
 function loadManual() {
-  // Prefer uploaded file when present
-  let filePath = DEFAULT_PATH;
-  let source   = 'default';
-
-  if (fs.existsSync(UPLOAD_PATH)) {
-    filePath = UPLOAD_PATH;
-    source   = 'upload';
+  if (!fs.existsSync(UPLOAD_PATH)) {
+    _rawManual    = '';
+    _systemPrompt = buildSystemPrompt('');
+    _manualInfo   = { filename: null, source: 'none', size: 0, chars: 0, lines: 0, uploadedAt: null };
+    console.log('⚠️  No manual uploaded yet.');
+    return;
   }
 
   try {
-    const text = fs.readFileSync(filePath, 'utf-8');
-    const stat = fs.statSync(filePath);
+    const text = fs.readFileSync(UPLOAD_PATH, 'utf-8');
+    const stat = fs.statSync(UPLOAD_PATH);
 
-    // Read the original upload filename from sidecar meta file (if any)
-    let displayName = path.basename(filePath);
-    if (source === 'upload' && fs.existsSync(META_PATH)) {
+    // Read the original upload filename from sidecar meta file
+    let displayName = 'student-manual.txt';
+    if (fs.existsSync(META_PATH)) {
       try {
         const meta = JSON.parse(fs.readFileSync(META_PATH, 'utf-8'));
         if (meta.originalname) displayName = meta.originalname;
@@ -95,25 +62,23 @@ function loadManual() {
 
     const manualTitle = displayName.replace(/\.[^.]+$/, '');
 
-    _rawManual     = text;
-    _focusedManual = extractRelevantSections(text);
-    _systemPrompt  = buildSystemPrompt(_focusedManual, manualTitle);
-    _manualInfo = {
+    _rawManual    = text;
+    _systemPrompt = buildSystemPrompt(text, manualTitle);
+    _manualInfo   = {
       filename:   displayName,
-      source,
+      source:     'upload',
       size:       stat.size,
       chars:      text.length,
       lines:      text.split('\n').length,
-      uploadedAt: source === 'upload' ? stat.mtime.toISOString() : null,
+      uploadedAt: stat.mtime.toISOString(),
     };
 
-    console.log(`✅ Manual loaded from ${source} (${filePath}): ${text.length} chars`);
+    console.log(`✅ Manual loaded from upload (${displayName}): ${text.length} chars`);
   } catch (err) {
     console.error('❌ Failed to load Student Manual:', err.message);
-    _rawManual     = '';
-    _focusedManual = 'Student manual content unavailable.';
-    _systemPrompt  = buildSystemPrompt(_focusedManual);
-    _manualInfo    = { filename: null, source: 'none', size: 0, chars: 0, lines: 0, uploadedAt: null };
+    _rawManual    = '';
+    _systemPrompt = buildSystemPrompt('');
+    _manualInfo   = { filename: null, source: 'none', size: 0, chars: 0, lines: 0, uploadedAt: null };
   }
 }
 
@@ -122,11 +87,10 @@ loadManual();
 
 // ── public API ────────────────────────────────────────────────────
 module.exports = {
-  getRawManual:     () => _rawManual,
-  getFocusedManual: () => _focusedManual,
-  getSystemPrompt:  () => _systemPrompt,
-  getManualInfo:    () => _manualInfo,
-  reloadManual:     loadManual,
+  getRawManual:  () => _rawManual,
+  getSystemPrompt: () => _systemPrompt,
+  getManualInfo: () => _manualInfo,
+  reloadManual:  loadManual,
   UPLOAD_DIR,
   UPLOAD_PATH,
 };
