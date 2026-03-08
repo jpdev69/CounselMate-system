@@ -352,6 +352,50 @@ const violationsUpload = multer({
 });
 
 // POST /api/admin/violations/extract — LLM extraction only, does NOT save to DB
+
+/**
+ * Extracts only discipline/violation-related paragraphs from a document.
+ * Reduces input tokens so the LLM has enough output budget for the full JSON array.
+ */
+function extractDisciplineSections(text) {
+  const DISCIPLINE_KEYWORDS = [
+    'violation', 'offense', 'offense', 'infraction', 'misconduct', 'prohibited',
+    'discipline', 'penalty', 'sanction', 'punishable', 'forbidden',
+    'shall not', 'must not', 'not allowed', 'not permitted',
+    'suspension', 'expulsion', 'dismissal', 'warning', 'reprimand',
+    'minor offense', 'major offense', 'light offense', 'grave offense',
+  ];
+
+  // Split into paragraphs on blank lines; fall back to line-by-line if no blank lines
+  let blocks = text.split(/\r?\n\s*\r?\n/).map(b => b.trim()).filter(Boolean);
+  if (blocks.length < 5) {
+    blocks = text.split(/\r?\n/).map(b => b.trim()).filter(Boolean);
+  }
+
+  const lowerBlocks = blocks.map(b => b.toLowerCase());
+
+  // Collect block indices that contain at least one keyword
+  const matchedIndices = new Set();
+  lowerBlocks.forEach((b, i) => {
+    if (DISCIPLINE_KEYWORDS.some(kw => b.includes(kw))) {
+      // Include the matched block plus one block of context on each side
+      if (i > 0) matchedIndices.add(i - 1);
+      matchedIndices.add(i);
+      if (i < blocks.length - 1) matchedIndices.add(i + 1);
+    }
+  });
+
+  // If nothing matched, fall back to sending the full text (capped)
+  if (matchedIndices.size === 0) {
+    return text.slice(0, 24000);
+  }
+
+  const relevant = [...matchedIndices].sort((a, b) => a - b).map(i => blocks[i]).join('\n\n');
+
+  // Cap at ~24000 chars (~6000 tokens) to leave ~10000 tokens free for LLM output
+  return relevant.length > 24000 ? relevant.slice(0, 24000) : relevant;
+}
+
 router.post('/violations/extract', (req, res) => {
   violationsUpload.single('violations')(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
@@ -368,6 +412,10 @@ router.post('/violations/extract', (req, res) => {
     if (!docText) {
       return res.status(400).json({ error: 'Uploaded file is empty' });
     }
+
+    // Preprocess: extract only paragraphs/lines related to discipline/violations
+    // to reduce input tokens and leave more context budget for LLM output.
+    const relevantText = extractDisciplineSections(docText);
 
     // Check Ollama
     const ollamaUp = await isOllamaAvailableAdmin();
@@ -400,13 +448,13 @@ Rules:
         model: OLLAMA_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Extract all violations from this document:\n\n${docText}` },
+          { role: 'user', content: `Extract all violations from this document:\n\n${relevantText}` },
         ],
         stream: false,
         options: {
           temperature: 0,
-          num_predict: 4096,
-          num_ctx: 8192,
+          num_predict: 8192,
+          num_ctx: 16384,
         },
       });
     } catch (llmErr) {
