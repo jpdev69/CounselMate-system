@@ -711,13 +711,6 @@ const AdminPanel = () => {
 
           {/* ── PREVIEW TABLE (shown after extraction, before saving) ── */}
           {vtPreview && (() => {
-            const normalize = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-            const existingDescs = vtExisting.map(v => normalize(v.description));
-            const isLikelyUpdate = desc => {
-              const nd = normalize(desc);
-              if (!nd) return false;
-              return existingDescs.some(ed => ed === nd || ed.includes(nd) || nd.includes(ed));
-            };
             return (
             <div style={{ marginBottom: 18 }}>
               {/* Existing violations reference */}
@@ -762,10 +755,7 @@ const AdminPanel = () => {
                     <span style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>
                       🔍 Review extracted violations ({vtPreview.length})
                     </span>
-                    <span style={{ fontSize: 11, color: '#6b7280' }}>
-                      <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '1px 6px', fontWeight: 600, marginRight: 6 }}>NEW</span>will be added
-                      &nbsp;&nbsp;<span style={{ background: '#fef9c3', color: '#92400e', borderRadius: 4, padding: '1px 6px', fontWeight: 600, marginRight: 6 }}>UPDATE</span>code already exists
-                    </span>
+
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     {vtPreviewError && <span style={{ color: '#ef4444', fontSize: 12 }}>{vtPreviewError}</span>}
@@ -792,7 +782,6 @@ const AdminPanel = () => {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 50 }}>Status</th>
                         <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 60 }}>Ref</th>
                         <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 80 }}>Category</th>
                         <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Description</th>
@@ -802,14 +791,8 @@ const AdminPanel = () => {
                     </thead>
                     <tbody>
                       {vtPreview.map((vt, i) => {
-                        const isUpdate = isLikelyUpdate(vt.description);
                         return (
-                        <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: isUpdate ? '#fffbeb' : '#fff' }}>
-                          <td style={{ padding: '4px 6px', textAlign: 'center' }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: isUpdate ? '#fef9c3' : '#dcfce7', color: isUpdate ? '#92400e' : '#166534' }}>
-                              {isUpdate ? 'UPDATE' : 'NEW'}
-                            </span>
-                          </td>
+                        <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: '#fff' }}>
                           <td style={{ padding: '4px 6px' }}>
                             <input
                               value={vt.section_ref || ''}

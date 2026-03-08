@@ -89,6 +89,9 @@ async function ensureViolationTypeCategory() {
 async function seedStudentManualViolationTypes() {
   try {
     await ensureViolationTypeCategory();
+    // Only seed if the table is completely empty — skip if admin has already managed violations
+    const existing = await pool.query('SELECT 1 FROM violation_types LIMIT 1');
+    if (existing.rows.length > 0) return;
     const manualTypes = [
       // Minor Offenses (Section 2.1)
       { code: 'IMPROPER_UNIFORM', description: 'Failure to wear proper/complete uniform', category: 'minor', section_ref: '2.1.1' },
