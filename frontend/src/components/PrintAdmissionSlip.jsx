@@ -29,6 +29,7 @@ const PrintAdmissionSlip = () => {
   const verifyTimer = useRef(null);
   const autofillInProgress = useRef(false);
   const pendingSection = useRef('');
+  const pendingYearLevel = useRef('');
 
   const [courseId, setCourseId] = useState('');
   const [yearLevelId, setYearLevelId] = useState('');
@@ -95,8 +96,8 @@ const PrintAdmissionSlip = () => {
             const first = parts[0] || '';
             const last = parts.length > 1 ? parts[parts.length - 1] : '';
             const middle = parts.length > 2 ? parts.slice(1, -1).join(' ') : '';
-            const matchedYl = s.year ? yearLevels.find(yl => yl.year_level === s.year) : null;
             const targetSection = s.section || '';
+            const targetYear = s.year || '';
 
             autofillInProgress.current = true;
             setFormData(fd => ({
@@ -104,17 +105,33 @@ const PrintAdmissionSlip = () => {
               firstName: first,
               middleName: middle,
               lastName: last,
-              year: s.year || fd.year,
+              year: targetYear || fd.year,
               section: targetSection || fd.section
             }));
 
-            if (matchedYl && String(matchedYl.id) !== String(yearLevelId)) {
+            // Try to auto-fill course → year level → section as a chain.
+            const matchedCourse = s.course
+              ? courses.find(c => c.name === s.course || c.code === s.course)
+              : null;
+
+            if (matchedCourse && String(matchedCourse.id) !== String(courseId)) {
+              // Course is different — setting courseId triggers yearLevels to reload.
+              // Store year and section so they're applied once those loads settle.
+              pendingYearLevel.current = targetYear;
               pendingSection.current = targetSection;
-              setYearLevelId(String(matchedYl.id));
-            } else if (matchedYl && String(matchedYl.id) === String(yearLevelId)) {
-              pendingSection.current = '';
-              setFormData(fd => ({ ...fd, section: targetSection }));
+              setCourseId(String(matchedCourse.id));
+            } else {
+              // Course already selected (or not available) — work with already-loaded yearLevels.
+              const matchedYl = targetYear ? yearLevels.find(yl => yl.year_level === targetYear) : null;
+              if (matchedYl && String(matchedYl.id) !== String(yearLevelId)) {
+                pendingSection.current = targetSection;
+                setYearLevelId(String(matchedYl.id));
+              } else if (matchedYl) {
+                pendingSection.current = '';
+                setFormData(fd => ({ ...fd, section: targetSection }));
+              }
             }
+
             setTimeout(() => { autofillInProgress.current = false; }, 0);
           } catch (e) {
             // ignore autofill errors
@@ -210,6 +227,17 @@ const PrintAdmissionSlip = () => {
       .finally(() => { if (mounted) setSectionsLoading(false); });
     return () => { mounted = false; };
   }, [yearLevelId]);
+
+  // When year levels finish loading after an autofill-driven course change,
+  // find and apply the pending year level so the dropdown resolves correctly.
+  useEffect(() => {
+    if (pendingYearLevel.current && yearLevels.length > 0) {
+      const target = pendingYearLevel.current;
+      pendingYearLevel.current = '';
+      const matchedYl = yearLevels.find(yl => yl.year_level === target);
+      if (matchedYl) setYearLevelId(String(matchedYl.id));
+    }
+  }, [yearLevels]);
 
   // When sections finish loading after an autofill-driven year level change,
   // apply the pending section so the dropdown resolves correctly.

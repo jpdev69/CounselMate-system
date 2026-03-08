@@ -381,10 +381,10 @@ const SearchRecords = () => {
       <div className="card" style={{ padding: 20 }}>
         
 
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <Search style={{ width: 26, height: 26, color: 'var(--primary)', marginRight: 10 }} />
-            <h1 style={{ fontSize: 20, fontWeight: 700 }}>Search Records</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 700 }}>Search Violation Records</h1>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -395,6 +395,20 @@ const SearchRecords = () => {
               <option value="most_recent">Most recent</option>
             </select>
           </div>
+        </div>
+
+        {/* Search bar */}
+        <div style={{ position: 'relative', marginBottom: 14 }}>
+          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: '#9ca3af', pointerEvents: 'none' }} />
+          <input
+            type="text"
+            placeholder="Search by student name…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm((e.target.value || '').toString().slice(0, 32))}
+            maxLength={32}
+            className="form-input"
+            style={{ paddingLeft: 34, width: '100%', boxSizing: 'border-box' }}
+          />
         </div>
 
         
@@ -549,172 +563,211 @@ const SearchRecords = () => {
 
           {/* Group view modal */}
           {groupViewStudent && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
-              <div className="card" style={{ width: '100%', maxWidth: '820px', maxHeight: '80vh', overflowY: 'auto', padding: '18px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <div>
-                    <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{groupViewStudent.name}</h3>
-                    <div style={{ fontSize: 13, color: '#6b7280' }}>{groupTotal} record{groupTotal>1?'s':''}</div>
-                  </div>
-                  <div>
-                    <button onClick={() => setGroupViewStudent(null)} className="btn btn-ghost">Close</button>
-                  </div>
-                </div>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1.5rem 1rem' }}>
+              {/* Modal card: flex column, hard max height, nothing overflows */}
+              <div className="card" style={{ width: '100%', maxWidth: '820px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
 
-                {groupLoading ? (
-                  <div style={{ fontSize: 13, color: '#6b7280' }}>Loading slips…</div>
-                ) : groupSlips.length === 0 ? (
-                  <div style={{ fontSize: 13, color: '#6b7280' }}>No slips found for this student.</div>
-                ) : (
-                  <div>
-                    {/* Group filters (client-side) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '12px', marginBottom: 12 }}>
-                      <div>
-                          <input
-                            type="text"
-                            placeholder="Search within student slips..."
-                            value={groupSearchTerm}
-                            onChange={(e) => setGroupSearchTerm((e.target.value || '').toString().slice(0, 32))}
-                            maxLength={32}
-                            className="form-input"
-                          />
-                      </div>
-
-                      <div>
-                        <select value={groupStatusFilter} onChange={(e) => setGroupStatusFilter(e.target.value)} className="form-input">
-                          <option value="all">All Status</option>
-                          <option value="issued">Issued</option>
-                          <option value="form_completed">Form Completed</option>
-                          <option value="approved">Approved</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <input type="date" value={groupDateFilter} onChange={(e) => setGroupDateFilter(e.target.value)} className="form-input" />
-                      </div>
-
-                      <div>
-                        <select value={groupSortOrder} onChange={(e) => setGroupSortOrder(e.target.value)} className="form-input">
-                          <option value="newest">Most Recently Updated</option>
-                          <option value="oldest">Oldest Issued</option>
-                        </select>
+                {/* ── Fixed header ── */}
+                <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <div>
+                      <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#0f172a' }}>{groupViewStudent.name}</h3>
+                      <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                        {groupViewStudent.toggle === 'reports' ? groupViewReports.length : groupTotal} record{((groupViewStudent.toggle === 'reports' ? groupViewReports.length : groupTotal) !== 1) ? 's' : ''}
                       </div>
                     </div>
+                    <button onClick={() => setGroupViewStudent(null)} className="btn btn-ghost">Close</button>
+                  </div>
 
-                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                      {(() => {
-                        // Apply client-side filtering and sorting to groupSlips
+                  {/* ── Segmented toggle ── */}
+                  <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3, gap: 3, marginBottom: 14 }}>
+                    {[['slips', 'Admission Slips'], ['reports', 'Violation Reports']].map(([key, label]) => {
+                      const active = key === 'reports' ? groupViewStudent.toggle === 'reports' : (groupViewStudent.toggle !== 'reports');
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => setGroupViewStudent(v => ({ ...v, toggle: key }))}
+                          style={{
+                            flex: 1, padding: '7px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                            background: active ? 'white' : 'transparent',
+                            color: active ? 'var(--primary)' : '#6b7280',
+                            boxShadow: active ? '0 1px 4px rgba(15,23,42,0.10)' : 'none',
+                            transition: 'all 0.18s',
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* ── Filters row (shared layout for both tabs) ── */}
+                  {(groupViewStudent.toggle !== 'reports') && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <input type="text" placeholder="Search slips…" value={groupSearchTerm} onChange={e => setGroupSearchTerm((e.target.value || '').slice(0, 32))} maxLength={32} className="form-input" style={{ fontSize: 13 }} />
+                      <select value={groupStatusFilter} onChange={e => setGroupStatusFilter(e.target.value)} className="form-input" style={{ fontSize: 13 }}>
+                        <option value="all">All Status</option>
+                        <option value="issued">Issued</option>
+                        <option value="form_completed">Form Completed</option>
+                        <option value="approved">Approved</option>
+                      </select>
+                      <input type="date" value={groupDateFilter} onChange={e => setGroupDateFilter(e.target.value)} className="form-input" style={{ fontSize: 13 }} />
+                      <select value={groupSortOrder} onChange={e => setGroupSortOrder(e.target.value)} className="form-input" style={{ fontSize: 13 }}>
+                        <option value="newest">Recently Updated</option>
+                        <option value="oldest">Oldest Issued</option>
+                      </select>
+                    </div>
+                  )}
+                  {groupViewStudent.toggle === 'reports' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <input type="text" placeholder="Search reports…" value={groupViewStudent.reportSearchTerm || ''} onChange={e => setGroupViewStudent(v => ({ ...v, reportSearchTerm: (e.target.value || '').slice(0, 32), reportPage: 1 }))} maxLength={32} className="form-input" style={{ fontSize: 13 }} />
+                      <select value={groupViewStudent.reportStatusFilter || 'all'} onChange={e => setGroupViewStudent(v => ({ ...v, reportStatusFilter: e.target.value, reportPage: 1 }))} className="form-input" style={{ fontSize: 13 }}>
+                        <option value="all">All Status</option>
+                        <option value="reported">Reported</option>
+                        <option value="resolved">Resolved</option>
+                      </select>
+                      <input type="date" value={groupViewStudent.reportDateFilter || ''} onChange={e => setGroupViewStudent(v => ({ ...v, reportDateFilter: e.target.value, reportPage: 1 }))} className="form-input" style={{ fontSize: 13 }} />
+                      <select value={groupViewStudent.reportSortOrder || 'newest'} onChange={e => setGroupViewStudent(v => ({ ...v, reportSortOrder: e.target.value, reportPage: 1 }))} className="form-input" style={{ fontSize: 13 }}>
+                        <option value="newest">Recently Reported</option>
+                        <option value="oldest">Oldest Reported</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* thin divider before list */}
+                  <div style={{ borderTop: '1px solid #e6edf3', marginLeft: -20, marginRight: -20 }} />
+                </div>
+
+                {/* ── Scrollable list body ── */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px' }}>
+
+                  {/* Slips list */}
+                  {(groupViewStudent.toggle !== 'reports') && (
+                    <>
+                      {groupLoading ? (
+                        <div style={{ fontSize: 13, color: '#6b7280', padding: '16px 0' }}>Loading slips…</div>
+                      ) : (() => {
                         let list = (groupSlips || []).slice();
-
-                        // If we've fetched all slips for this student, apply pagination client-side
                         const applyClientPagination = groupFetchedAll;
-
                         if (groupSearchTerm) {
                           const q = groupSearchTerm.toLowerCase();
                           list = list.filter(s => (s.slip_number || '').toLowerCase().includes(q) || (s.violation_description || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q));
                         }
-
-                        if (groupStatusFilter !== 'all') {
-                          list = list.filter(s => s.status === groupStatusFilter);
-                        }
-
-                          if (groupDateFilter) {
-                            list = list.filter(s => {
-                              const slipDate = new Date(s.created_at).toISOString().split('T')[0];
-                              return slipDate === groupDateFilter;
-                            });
-                          }
-
+                        if (groupStatusFilter !== 'all') list = list.filter(s => s.status === groupStatusFilter);
+                        if (groupDateFilter) list = list.filter(s => new Date(s.created_at).toISOString().split('T')[0] === groupDateFilter);
                         list = list.sort((a, b) => {
                           const tA = new Date(groupSortOrder === 'newest' ? (a.updated_at || a.created_at) : a.created_at).getTime() || 0;
                           const tB = new Date(groupSortOrder === 'newest' ? (b.updated_at || b.created_at) : b.created_at).getTime() || 0;
                           return groupSortOrder === 'newest' ? tB - tA : tA - tB;
                         });
+                        if (applyClientPagination) list = list.slice((groupPage - 1) * groupPageSize, groupPage * groupPageSize);
+                        if (list.length === 0) return <div style={{ fontSize: 13, color: '#6b7280', padding: '16px 0', textAlign: 'center' }}>No slips found.</div>;
+                        return (
+                          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                            {list.map(s => (
+                              <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: '1px solid #f1f5f9' }}>
+                                <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                                  <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.slip_number}</div>
+                                  <div style={{ fontSize: 13, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.violation_description || 'No violation specified'}</div>
+                                  <div style={{ fontSize: 12, color: '#9ca3af' }}>{s.created_at ? new Date(s.created_at).toLocaleString() : '-'}</div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(s.status)}`}>{getStatusDisplay(s.status)}</span>
+                                  <button className="btn btn-primary" style={{ padding: '5px 14px', fontSize: 13 }} onClick={() => handleSelectSlip(s)}>View</button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        );
+                      })()}
+                    </>
+                  )}
 
-                        // If client-side pagination is active, slice the list for the current page
-                        if (applyClientPagination) {
-                          const start = (groupPage - 1) * groupPageSize;
-                          list = list.slice(start, start + groupPageSize);
-                        }
-
-                        return list.map(s => (
-                          <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e6edf3' }}>
-                            <div>
-                              <div style={{ fontWeight: 600 }}>{s.slip_number}</div>
-                              <div style={{ fontSize: 13, color: '#6b7280' }}>{s.violation_description || 'No violation specified'}</div>
-                              <div style={{ fontSize: 12, color: '#6b7280' }}>{s.created_at ? new Date(s.created_at).toLocaleString() : '-'}</div>
+                  {/* Reports list */}
+                  {groupViewStudent.toggle === 'reports' && (() => {
+                    let list = groupViewReports.slice();
+                    if (groupViewStudent.reportSearchTerm) {
+                      const q = groupViewStudent.reportSearchTerm.toLowerCase();
+                      list = list.filter(r => (r.violation_description || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q));
+                    }
+                    if (groupViewStudent.reportStatusFilter && groupViewStudent.reportStatusFilter !== 'all') {
+                      list = list.filter(r => (r.status || '').toLowerCase() === groupViewStudent.reportStatusFilter);
+                    }
+                    if (groupViewStudent.reportDateFilter) {
+                      list = list.filter(r => new Date(r.created_at).toISOString().split('T')[0] === groupViewStudent.reportDateFilter);
+                    }
+                    list = list.sort((a, b) => {
+                      const tA = new Date(a.created_at).getTime() || 0;
+                      const tB = new Date(b.created_at).getTime() || 0;
+                      return (groupViewStudent.reportSortOrder || 'newest') === 'newest' ? tB - tA : tA - tB;
+                    });
+                    const pageSize = groupPageSize;
+                    const page = groupViewStudent.reportPage || 1;
+                    const pagedList = list.slice((page - 1) * pageSize, page * pageSize);
+                    if (pagedList.length === 0) return <div style={{ fontSize: 13, color: '#6b7280', padding: '16px 0', textAlign: 'center' }}>No violation reports found.</div>;
+                    return (
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                        {pagedList.map(r => (
+                          <li key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: '1px solid #f1f5f9' }}>
+                            <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                              <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.violation_description || 'No violation type'}</div>
+                              <div style={{ fontSize: 13, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description || '-'}</div>
+                              <div style={{ fontSize: 12, color: '#9ca3af' }}>{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                              {/* Slip status badge displayed beside the View button */}
-                              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(s.status)}`} title={`Status: ${getStatusDisplay(s.status)}`}>
-                                  {getStatusDisplay(s.status)}
-                                </span>
-                              </span>
-                              <button className="btn btn-primary" onClick={() => { handleSelectSlip(s); }}>View</button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                              <span className={`px-2 py-1 text-xs rounded-full ${r.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{(r.status || '').toUpperCase()}</span>
+                              <button className="btn btn-primary" style={{ padding: '5px 14px', fontSize: 13 }} onClick={() => { setSelectedReport(r); setIsReportModalOpen(true); }}>View</button>
                             </div>
                           </li>
-                        ));
-                      })()}
-                    </ul>
+                        ))}
+                      </ul>
+                    );
+                  })()}
 
-                    <div style={{ marginTop: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {(() => {
-                        const totalPages = Math.max(1, Math.ceil((groupTotal || 0) / groupPageSize));
-                        const pages = [];
-                        for (let i = 1; i <= totalPages; i++) pages.push(i);
-                        return pages.map(p => (
-                          <button key={p} onClick={async () => {
-                            if (p === groupPage) return;
-                            setGroupPage(p);
-                            // If we've already fetched all slips, perform client-side pagination only
-                            if (groupFetchedAll) return;
-                            setGroupLoading(true);
-                            try {
-                              const params = { sort: groupSortOrder };
-                              if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
-                              const resp = await getStudentAdmissionSlips(groupViewStudent.id, p, groupPageSize, params);
-                              if (resp.data?.success) {
-                                setGroupSlips(resp.data.slips || []);
-                                setGroupTotal(resp.data.total || 0);
-                              }
-                            } catch (e) {
-                              console.error('Failed to load page:', e);
-                            } finally {
-                              setGroupLoading(false);
-                            }
-                          }} className={`btn ${p === groupPage ? 'btn-primary' : 'btn-outline'}`} style={{ padding: '6px 10px' }}>{p}</button>
-                        ));
-                      })()}
-                    </div>
-                  </div>
-                )}
+                </div>
 
-                {/* Violation Reports for this student */}
-                {groupViewReports.length > 0 && (
-                  <div style={{ marginTop: 20, borderTop: '1px solid #e6edf3', paddingTop: 14 }}>
-                    <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: '#374151' }}>
-                      Violation Reports ({groupViewReports.length})
-                    </h4>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                      {groupViewReports.map(r => (
-                        <li key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                          <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-                            <div style={{ fontWeight: 600, fontSize: 13 }}>{r.violation_description || 'No violation type'}</div>
-                            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{r.description || '-'}</div>
-                            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</div>
-                          </div>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                            <span className={`px-2 py-1 text-xs rounded-full ${r.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                              {(r.status || '').toUpperCase()}
-                            </span>
-                            <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => { setSelectedReport(r); setIsReportModalOpen(true); }}>View</button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {/* ── Fixed pagination footer ── */}
+                <div style={{ padding: '10px 20px', borderTop: '1px solid #e6edf3', flexShrink: 0, display: 'flex', gap: 6, flexWrap: 'wrap', minHeight: 52, alignItems: 'center' }}>
+                  {/* Slips pagination */}
+                  {(groupViewStudent.toggle !== 'reports') && (() => {
+                    const totalPages = Math.max(1, Math.ceil((groupTotal || 0) / groupPageSize));
+                    if (totalPages <= 1) return <span style={{ fontSize: 12, color: '#9ca3af' }}>Page 1 of 1</span>;
+                    const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+                    return pages.map(p => (
+                      <button key={p} onClick={async () => {
+                        if (p === groupPage) return;
+                        setGroupPage(p);
+                        if (groupFetchedAll) return;
+                        setGroupLoading(true);
+                        try {
+                          const params = { sort: groupSortOrder };
+                          if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
+                          const resp = await getStudentAdmissionSlips(groupViewStudent.id, p, groupPageSize, params);
+                          if (resp.data?.success) { setGroupSlips(resp.data.slips || []); setGroupTotal(resp.data.total || 0); }
+                        } catch (e) { console.error('Failed to load page:', e); } finally { setGroupLoading(false); }
+                      }} className={`btn ${p === groupPage ? 'btn-primary' : 'btn-outline'}`} style={{ padding: '5px 10px', fontSize: 13 }}>{p}</button>
+                    ));
+                  })()}
+                  {/* Reports pagination */}
+                  {groupViewStudent.toggle === 'reports' && (() => {
+                    let list = groupViewReports.slice();
+                    if (groupViewStudent.reportSearchTerm) {
+                      const q = groupViewStudent.reportSearchTerm.toLowerCase();
+                      list = list.filter(r => (r.violation_description || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q));
+                    }
+                    if (groupViewStudent.reportStatusFilter && groupViewStudent.reportStatusFilter !== 'all') list = list.filter(r => (r.status || '').toLowerCase() === groupViewStudent.reportStatusFilter);
+                    if (groupViewStudent.reportDateFilter) list = list.filter(r => new Date(r.created_at).toISOString().split('T')[0] === groupViewStudent.reportDateFilter);
+                    const totalPages = Math.max(1, Math.ceil(list.length / groupPageSize));
+                    if (totalPages <= 1) return <span style={{ fontSize: 12, color: '#9ca3af' }}>Page 1 of 1</span>;
+                    const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+                    const currentPage = groupViewStudent.reportPage || 1;
+                    return pages.map(p => (
+                      <button key={p} onClick={() => setGroupViewStudent(v => ({ ...v, reportPage: p }))}
+                        className={`btn ${p === currentPage ? 'btn-primary' : 'btn-outline'}`} style={{ padding: '5px 10px', fontSize: 13 }}>{p}</button>
+                    ));
+                  })()}
+                </div>
+
               </div>
             </div>
           )}

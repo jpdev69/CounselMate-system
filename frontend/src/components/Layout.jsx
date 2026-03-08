@@ -16,7 +16,7 @@ const Layout = ({ children }) => {
     { name: 'Print Admission Slip', href: '/print-slip', icon: Printer },
     { name: 'Complete Form', href: '/complete-form', icon: FileText },
     { name: 'Report Student', href: '/report-student', icon: ClipboardList },
-    { name: 'Search Records', href: '/search', icon: Search },
+    { name: 'Search Violation Records', href: '/search', icon: Search },
     { name: 'Violation Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Student Manual', href: '/student-manual', icon: BookOpen },
     { name: 'Admin Panel', href: '/admin', icon: Settings },

@@ -94,6 +94,18 @@ const ReportStudent = () => {
 
   const autofillInProgress = useRef(false);
   const pendingSection = useRef('');
+  const pendingYearLevel = useRef('');
+
+  // When year levels finish loading after an autofill-driven course change,
+  // find and apply the pending year level so the dropdown resolves correctly.
+  useEffect(() => {
+    if (pendingYearLevel.current && yearLevels.length > 0) {
+      const target = pendingYearLevel.current;
+      pendingYearLevel.current = '';
+      const matchedYl = yearLevels.find(yl => yl.year_level === target);
+      if (matchedYl) setYearLevelId(String(matchedYl.id));
+    }
+  }, [yearLevels]);
 
   // When sections finish loading after an autofill-driven year level change,
   // apply the pending section so the dropdown resolves correctly.
@@ -143,32 +155,44 @@ const ReportStudent = () => {
             const first = parts[0] || '';
             const last = parts.length > 1 ? parts[parts.length - 1] : '';
             const middle = parts.length > 2 ? parts.slice(1, -1).join(' ') : '';
-            // Find the year level ID that matches the student's stored year text
-            const matchedYl = s.year ? yearLevels.find(yl => yl.year_level === s.year) : null;
             const targetSection = s.section || '';
+            const targetYear = s.year || '';
 
-            // Block the verify useEffect from re-triggering while we write year/section
+            // Block the verify useEffect from re-triggering while we write state
             autofillInProgress.current = true;
             setFormData(fd => ({
               ...fd,
               firstName: first,
               middleName: middle,
               lastName: last,
-              year: s.year || fd.year,
-              // Set section immediately; pendingSection will re-apply it after sections load
+              year: targetYear || fd.year,
               section: targetSection || fd.section
             }));
 
-            if (matchedYl && String(matchedYl.id) !== String(yearLevelId)) {
-              // Year level is different — changing yearLevelId triggers the sections useEffect.
-              // Store the section so it's applied once the new sections list arrives.
+            // Try to auto-fill course → year level → section as a chain.
+            // The backend returns the most recent course name from reports/slips.
+            const matchedCourse = s.course
+              ? courses.find(c => c.name === s.course || c.code === s.course)
+              : null;
+
+            if (matchedCourse && String(matchedCourse.id) !== String(courseId)) {
+              // Course is different — setting courseId triggers yearLevels to reload.
+              // Store year and section so they're applied once those loads settle.
+              pendingYearLevel.current = targetYear;
               pendingSection.current = targetSection;
-              setYearLevelId(String(matchedYl.id));
-            } else if (matchedYl && String(matchedYl.id) === String(yearLevelId)) {
-              // Year level is already correct — sections are already loaded, just set section.
-              pendingSection.current = '';
-              setFormData(fd => ({ ...fd, section: targetSection }));
+              setCourseId(String(matchedCourse.id));
+            } else {
+              // Course already selected (or not available) — work with already-loaded yearLevels.
+              const matchedYl = targetYear ? yearLevels.find(yl => yl.year_level === targetYear) : null;
+              if (matchedYl && String(matchedYl.id) !== String(yearLevelId)) {
+                pendingSection.current = targetSection;
+                setYearLevelId(String(matchedYl.id));
+              } else if (matchedYl) {
+                pendingSection.current = '';
+                setFormData(fd => ({ ...fd, section: targetSection }));
+              }
             }
+
             // Allow verify to run again after React has flushed all state updates
             setTimeout(() => { autofillInProgress.current = false; }, 0);
           } catch (e) { /* ignore autofill errors */ }
@@ -420,7 +444,7 @@ const ReportStudent = () => {
 
               {/* Violation Type */}
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type (per Student Manual) *</label>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type</label>
                 <select
                   value={violationTypeId}
                   onChange={(e) => setViolationTypeId(e.target.value)}

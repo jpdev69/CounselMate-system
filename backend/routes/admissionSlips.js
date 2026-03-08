@@ -141,11 +141,21 @@ router.post('/verify', async (req, res) => {
     // `students` table regardless of year or section. If it does, treat it as a duplicate.
     // Use regex whole-word matching to avoid substring collisions (e.g., Romualdo vs Romualdez).
     // PostgreSQL supports \m and \M for start/end of word in its regex flavor. Use case-insensitive match (~*).
+    // Also pull the most recent course from student_reports or admission_slips so the frontend
+    // can auto-fill the Course dropdown.
     const queryNameOnly = `
-      SELECT id, student_id, full_name, year, section
-      FROM students
-      WHERE full_name ~* $1
-        AND full_name ~* $2
+      SELECT s.id, s.student_id, s.full_name, s.year, s.section,
+        COALESCE(
+          (SELECT sr.course FROM student_reports sr
+            WHERE sr.student_id = s.id AND sr.course IS NOT NULL
+            ORDER BY sr.created_at DESC LIMIT 1),
+          (SELECT asl.course FROM admission_slips asl
+            WHERE asl.student_id = s.id AND asl.course IS NOT NULL
+            ORDER BY asl.created_at DESC LIMIT 1)
+        ) AS course
+      FROM students s
+      WHERE s.full_name ~* $1
+        AND s.full_name ~* $2
       LIMIT 1
     `;
     // Build regex patterns that match whole words: \mWORD\M

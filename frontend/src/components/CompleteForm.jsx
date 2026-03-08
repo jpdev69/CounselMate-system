@@ -518,7 +518,7 @@ const CompleteForm = () => {
                 ) : (
                   <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'grid', gap: '12px' }}>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type (per Student Manual) *</label>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type</label>
                       <select
                         value={formData.violationTypeId}
                         onChange={(e) => setFormData({ ...formData, violationTypeId: e.target.value })}
