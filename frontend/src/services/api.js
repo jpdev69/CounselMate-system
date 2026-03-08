@@ -165,6 +165,15 @@ export const getAdminViolationTypes = () =>
 export const updateViolationTypeSlip = (id, data) =>
   api.put(`/admin/violation-types/${encodeURIComponent(id)}`, data);
 
+export const extractViolationTypes = (formData) =>
+  api.post('/admin/violations/extract', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
+  });
+
+export const saveViolationTypes = (data) =>
+  api.post('/admin/violations/save', data);
+
 // Admin API — Student Manual
 export const getStudentManualInfo = () =>
   api.get('/admin/student-manual/info');

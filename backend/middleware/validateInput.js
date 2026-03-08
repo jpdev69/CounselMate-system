@@ -117,6 +117,20 @@ module.exports = (req, res, next) => {
       }
     }
 
+    // Allow longer fields when saving extracted violations
+    // Endpoint: POST /api/admin/violations/save
+    const violationsSaveMatch = req.path && req.path.match(/^\/api\/admin\/violations\/save$/);
+    if (violationsSaveMatch && String(req.method).toUpperCase() === 'POST') {
+      overrides.set('body.violations', 99999); // outer array — individual field limits set below
+      // Each item in violations[*]
+      for (let i = 0; i < 500; i++) {
+        overrides.set(`body.violations[${i}].code`, 128);
+        overrides.set(`body.violations[${i}].description`, 256);
+        overrides.set(`body.violations[${i}].category`, 32);
+        overrides.set(`body.violations[${i}].section_ref`, 16);
+      }
+    }
+
     const getMaxForPath = (path) => {
       if (overrides.has(path)) return overrides.get(path);
       return DEFAULT_MAX_LENGTH;

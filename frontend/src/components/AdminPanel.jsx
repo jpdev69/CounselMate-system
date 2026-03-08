@@ -5,7 +5,7 @@ import {
   getAdminCourses, createAdminCourse, updateAdminCourse, deleteAdminCourse,
   getCourseYearLevels, addCourseYearLevel, updateYearLevel, deleteYearLevel,
   getYearLevelSections, addYearLevelSection, updateSection, deleteSection,
-  getAdminViolationTypes, updateViolationTypeSlip,
+  getAdminViolationTypes, updateViolationTypeSlip, extractViolationTypes, saveViolationTypes,
   getStudentManualInfo, uploadStudentManual,
 } from '../services/api';
 
@@ -63,6 +63,18 @@ const AdminPanel = () => {
   const [manualUploadSuccess, setManualUploadSuccess] = useState(false);
   const [manualUploadError, setManualUploadError] = useState('');
   const manualFileInputRef = useRef(null);
+
+  // ── Violations Upload ──────────────────────────────────────────────────────
+  const [violationsFile, setViolationsFile] = useState(null);
+  const [violationsUploading, setViolationsUploading] = useState(false);
+  const [violationsUploadSuccess, setViolationsUploadSuccess] = useState(false);
+  const [violationsUploadError, setViolationsUploadError] = useState('');
+  const violationsFileInputRef = useRef(null);
+  const [vtPreview, setVtPreview] = useState(null); // null | array — extracted violations awaiting review
+  const [vtExisting, setVtExisting] = useState([]); // current DB violations shown for reference
+  const [vtPreviewSaving, setVtPreviewSaving] = useState(false);
+  const [vtPreviewSaveSuccess, setVtPreviewSaveSuccess] = useState(false);
+  const [vtPreviewError, setVtPreviewError] = useState('');
 
   // ── Load courses on mount ──────────────────────────────────────────────────
   useEffect(() => {
@@ -289,6 +301,47 @@ const AdminPanel = () => {
       setManualUploading(false);
     }
   };
+  // ── Violations upload handler ──────────────────────────────────────────
+  const handleUploadViolations = async () => {
+    if (!violationsFile) return;
+    setViolationsUploading(true);
+    setViolationsUploadSuccess(false);
+    setViolationsUploadError('');
+    setVtPreview(null);
+    setVtPreviewError('');
+    const formData = new FormData();
+    formData.append('violations', violationsFile);
+    try {
+      const res = await extractViolationTypes(formData);
+      setVtExisting(res.data?.existing || []);
+      setVtPreview(res.data?.violations || []);
+      setViolationsFile(null);
+      if (violationsFileInputRef.current) violationsFileInputRef.current.value = '';
+    } catch (err) {
+      setViolationsUploadError(err.response?.data?.error || 'Extraction failed');
+    } finally {
+      setViolationsUploading(false);
+    }
+  };
+
+  const handleSaveViolations = async () => {
+    setVtPreviewSaving(true);
+    setVtPreviewError('');
+    try {
+      const res = await saveViolationTypes({ violations: vtPreview });
+      setViolationTypes(res.data?.violationTypes || []);
+      setVtPage(1);
+      setVtPreview(null);
+      setVtExisting([]);
+      setVtPreviewSaveSuccess(true);
+      setTimeout(() => setVtPreviewSaveSuccess(false), 4000);
+    } catch (err) {
+      setVtPreviewError(err.response?.data?.error || 'Failed to save violations');
+    } finally {
+      setVtPreviewSaving(false);
+    }
+  };
+
   // ── Violation type handler ────────────────────────────────────────────
   const handleToggleAdmissionSlip = async (vt) => {
     setVtTogglingId(vt.id);
@@ -620,10 +673,209 @@ const AdminPanel = () => {
         {/* ── VIOLATION TYPES ────────────────────────────────────────── */}
         <div style={{ marginTop: 28 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, color: '#374151' }}>Violation Types</div>
-          <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 14 }}>
-            Toggle each violation to decide where it appears. <strong>Requires Slip</strong> → selectable in Complete Form.
-            &nbsp;<strong>Report Only</strong> → selectable in Report Student.
+          <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 10 }}>
+            Upload a plain-text (.txt) discipline document to automatically extract and import violation types via AI.
+            Non-discipline documents will be rejected. Toggle each violation to decide where it appears.
           </p>
+
+          {/* Upload violations txt */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14, padding: '10px 14px', background: '#f3f4f6', borderRadius: 8 }}>
+            <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>Extract violations from document (.txt):</span>
+            <input
+              ref={violationsFileInputRef}
+              type="file"
+              accept=".txt,text/plain"
+              onChange={e => {
+                setViolationsFile(e.target.files?.[0] || null);
+                setViolationsUploadError('');
+                setViolationsUploadSuccess(false);
+              }}
+              style={{ fontSize: 13 }}
+            />
+            <button
+              className="btn btn-primary"
+              onClick={handleUploadViolations}
+              disabled={!violationsFile || violationsUploading}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13 }}
+            >
+              <Upload size={14} />
+              {violationsUploading ? 'Analyzing…' : 'Extract & Import'}
+            </button>
+            {violationsUploadSuccess && (
+              <span style={{ color: '#10b981', fontSize: 13, fontWeight: 600 }}>✓ Violation types updated</span>
+            )}
+            {violationsUploadError && (
+              <span style={{ color: '#ef4444', fontSize: 13 }}>{violationsUploadError}</span>
+            )}
+          </div>
+
+          {/* ── PREVIEW TABLE (shown after extraction, before saving) ── */}
+          {vtPreview && (() => {
+            const normalize = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+            const existingDescs = vtExisting.map(v => normalize(v.description));
+            const isLikelyUpdate = desc => {
+              const nd = normalize(desc);
+              if (!nd) return false;
+              return existingDescs.some(ed => ed === nd || ed.includes(nd) || nd.includes(ed));
+            };
+            return (
+            <div style={{ marginBottom: 18 }}>
+              {/* Existing violations reference */}
+              {vtExisting.length > 0 && (
+                <details style={{ marginBottom: 10, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                  <summary style={{ padding: '8px 14px', background: '#f9fafb', cursor: 'pointer', fontWeight: 600, fontSize: 12, color: '#374151', userSelect: 'none' }}>
+                    📋 Existing in DB ({vtExisting.length} violations) — expand to compare
+                  </summary>
+                  <div style={{ overflowX: 'auto', maxHeight: 220, overflowY: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                      <thead>
+                        <tr style={{ background: '#f3f4f6', position: 'sticky', top: 0 }}>
+                          <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Ref</th>
+                          <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Category</th>
+                          <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Description</th>
+                          <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600, fontFamily: 'monospace' }}>Code</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {vtExisting.map((v, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: '#fff' }}>
+                            <td style={{ padding: '3px 10px', color: '#9ca3af', fontFamily: 'monospace' }}>{v.section_ref}</td>
+                            <td style={{ padding: '3px 10px' }}>
+                              <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 10, background: v.category === 'minor' ? '#fef9c3' : '#fee2e2', color: v.category === 'minor' ? '#92400e' : '#991b1b' }}>
+                                {v.category}
+                              </span>
+                            </td>
+                            <td style={{ padding: '3px 10px', color: '#374151' }}>{v.description}</td>
+                            <td style={{ padding: '3px 10px', fontFamily: 'monospace', color: '#6b7280', fontSize: 10 }}>{v.code}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              )}
+
+              {/* Extracted preview */}
+              <div style={{ border: '1.5px solid #3b82f6', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ background: '#eff6ff', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>
+                      🔍 Review extracted violations ({vtPreview.length})
+                    </span>
+                    <span style={{ fontSize: 11, color: '#6b7280' }}>
+                      <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '1px 6px', fontWeight: 600, marginRight: 6 }}>NEW</span>will be added
+                      &nbsp;&nbsp;<span style={{ background: '#fef9c3', color: '#92400e', borderRadius: 4, padding: '1px 6px', fontWeight: 600, marginRight: 6 }}>UPDATE</span>code already exists
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {vtPreviewError && <span style={{ color: '#ef4444', fontSize: 12 }}>{vtPreviewError}</span>}
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => { setVtPreview(null); setVtExisting([]); setVtPreviewError(''); }}
+                      style={{ fontSize: 12 }}
+                    >
+                      Discard
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleSaveViolations}
+                      disabled={vtPreviewSaving || vtPreview.length === 0}
+                      style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                    >
+                      {vtPreviewSaving ? 'Saving…' : `✓ Confirm & Import (${vtPreview.length})`}
+                    </button>
+                  </div>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 50 }}>Status</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 60 }}>Ref</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 80 }}>Category</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Description</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 160 }}>Code</th>
+                        <th style={{ padding: '6px 10px', width: 32 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vtPreview.map((vt, i) => {
+                        const isUpdate = isLikelyUpdate(vt.description);
+                        return (
+                        <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: isUpdate ? '#fffbeb' : '#fff' }}>
+                          <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: isUpdate ? '#fef9c3' : '#dcfce7', color: isUpdate ? '#92400e' : '#166534' }}>
+                              {isUpdate ? 'UPDATE' : 'NEW'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '4px 6px' }}>
+                            <input
+                              value={vt.section_ref || ''}
+                              onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, section_ref: e.target.value } : v))}
+                              style={{ width: 52, fontSize: 12, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4 }}
+                            />
+                          </td>
+                          <td style={{ padding: '4px 6px' }}>
+                            <select
+                              value={vt.category}
+                              onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, category: e.target.value } : v))}
+                              style={{ fontSize: 12, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4 }}
+                            >
+                              <option value="minor">Minor</option>
+                              <option value="major">Major</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: '4px 6px' }}>
+                            <input
+                              value={vt.description || ''}
+                              onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, description: e.target.value } : v))}
+                              style={{ width: '100%', minWidth: 200, fontSize: 12, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4 }}
+                            />
+                          </td>
+                          <td style={{ padding: '4px 6px' }}>
+                            <input
+                              value={vt.code || ''}
+                              onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, code: e.target.value.toUpperCase() } : v))}
+                              style={{ width: 148, fontSize: 11, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4, fontFamily: 'monospace' }}
+                            />
+                          </td>
+                          <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => setVtPreview(prev => prev.filter((_, idx) => idx !== i))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }}
+                              title="Remove"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ padding: '8px 12px', borderTop: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setVtPreview(prev => [...prev, { code: '', description: '', category: 'minor', section_ref: '' }])}
+                    style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <Plus size={12} /> Add row
+                  </button>
+                </div>
+              </div>
+            </div>
+            );
+          })()}
+
+          {vtPreviewSaveSuccess && (
+            <div style={{ marginBottom: 12, color: '#10b981', fontWeight: 600, fontSize: 13 }}>✓ Violation types saved successfully</div>
+          )}
+
           {violationTypesLoading ? (
             <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading…</div>
           ) : (() => {

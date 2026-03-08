@@ -299,6 +299,246 @@ router.put('/violation-types/:id', async (req, res) => {
   }
 });
 
+// ── VIOLATIONS UPLOAD (txt → LLM extraction) ─────────────────────────────────
+
+const http = require('http');
+const OLLAMA_BASE_URL = process.env.OLLAMA_URL   || 'http://localhost:11434';
+const OLLAMA_MODEL    = process.env.OLLAMA_MODEL || 'deepseek-v3.1:671b-cloud';
+
+function callOllamaAdmin(data) {
+  return new Promise((resolve, reject) => {
+    const url = new URL('/api/chat', OLLAMA_BASE_URL);
+    const postData = JSON.stringify(data);
+    const req = http.request(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, (res) => {
+      let body = '';
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => resolve(body));
+    });
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
+  });
+}
+
+async function isOllamaAvailableAdmin() {
+  try {
+    const response = await new Promise((resolve, reject) => {
+      const url = new URL('/api/tags', OLLAMA_BASE_URL);
+      const req = http.request(url, { method: 'GET' }, (res) => {
+        let body = '';
+        res.on('data', chunk => { body += chunk; });
+        res.on('end', () => resolve(body));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+    return response.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+// multer for violations .txt (memory storage — read text, discard file)
+const violationsUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext !== '.txt' || !file.mimetype.startsWith('text/')) {
+      return cb(new Error('Only plain-text (.txt) files are accepted for violations'));
+    }
+    cb(null, true);
+  },
+});
+
+// POST /api/admin/violations/extract — LLM extraction only, does NOT save to DB
+router.post('/violations/extract', (req, res) => {
+  violationsUpload.single('violations')(req, res, async (err) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ error: `Upload error: ${err.message}` });
+    }
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    const docText = req.file.buffer.toString('utf-8').trim();
+    if (!docText) {
+      return res.status(400).json({ error: 'Uploaded file is empty' });
+    }
+
+    // Check Ollama
+    const ollamaUp = await isOllamaAvailableAdmin();
+    if (!ollamaUp) {
+      return res.status(503).json({ error: 'AI service (Ollama) is not reachable. Cannot extract violations without it.' });
+    }
+
+    // Ask the LLM to extract violations
+    const systemPrompt = `You are a data extraction assistant. Your task is to find student discipline violations, offenses, infractions, or prohibited acts in the document.
+
+If the document does NOT contain any student discipline violations or offenses (e.g. it is a recipe, letter, schedule, financial report, or any non-discipline document), output exactly: []
+
+If violations ARE found, output ONLY a raw JSON array with no explanation, no markdown, no code fences. Each element:
+{
+  "code": "SCREAMING_SNAKE_CASE key derived from the violation name",
+  "description": "exact violation text from the document",
+  "category": "minor" or "major" (if document does not distinguish, infer: serious offenses = major, lesser offenses = minor),
+  "section_ref": "section/article number if present, otherwise use sequential numbering like 1.1, 1.2"
+}
+
+Rules:
+- Include ALL violations/offenses/infractions/prohibited acts found in the document.
+- Never skip items because of formatting differences.
+- If no section numbers exist, assign sequential ones (1.1, 1.2, … for minor; 2.1, 2.2, … for major).
+- Output ONLY the JSON array starting with [ and ending with ]. No prose, no explanation.`;
+
+    let rawLLM;
+    try {
+      rawLLM = await callOllamaAdmin({
+        model: OLLAMA_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Extract all violations from this document:\n\n${docText}` },
+        ],
+        stream: false,
+        options: {
+          temperature: 0,
+          num_predict: 4096,
+          num_ctx: 8192,
+        },
+      });
+    } catch (llmErr) {
+      console.error('Violations LLM call error:', llmErr.message);
+      return res.status(503).json({ error: 'AI service failed to respond. Please try again.' });
+    }
+
+    // Parse the LLM response — robustly extract the JSON array
+    let entries;
+
+    // Step 1: parse the Ollama HTTP response envelope
+    let rawParsed;
+    try {
+      rawParsed = JSON.parse(rawLLM);
+    } catch (e) {
+      console.error('Violations: Ollama response is not valid JSON (first 500):', String(rawLLM).slice(0, 500));
+      return res.status(503).json({ error: 'AI service returned an unexpected response. Please try again.' });
+    }
+
+    // Step 2: extract the model's text content and parse the JSON array inside it
+    {
+      let content = (rawParsed?.message?.content || '').trim();
+      console.log('[violations extract] LLM content length:', content.length, '| first 400:', content.slice(0, 400));
+
+      // Strip ALL markdown code fences wherever they appear
+      content = content.replace(/```[\w]*\n?/gi, '').replace(/```/g, '').trim();
+
+      // Find the JSON array — prefer [{...}] to avoid matching inline [brackets]
+      if (!content.startsWith('[')) {
+        const objArray = content.match(/\[\s*\{[\s\S]*/);
+        if (objArray) content = objArray[0];
+      }
+
+      // Try strict parse first
+      try {
+        entries = JSON.parse(content);
+      } catch (_) {
+        // Output was truncated — recover all complete objects from partial JSON
+        const recovered = [];
+        const objRegex = /\{[^{}]*\}/g;
+        let m;
+        while ((m = objRegex.exec(content)) !== null) {
+          try {
+            const obj = JSON.parse(m[0]);
+            if (obj && (obj.description || obj.code)) recovered.push(obj);
+          } catch { /* skip malformed object */ }
+        }
+        if (recovered.length > 0) {
+          console.warn(`[violations extract] JSON was truncated — recovered ${recovered.length} objects`);
+          entries = recovered;
+        } else {
+          console.error('Violations: Could not parse LLM content as JSON and recovery found nothing');
+          return res.status(422).json({
+            error: 'Could not parse violations from the document. The AI could not identify structured violation data — please ensure the document contains a discipline/offenses section.',
+          });
+        }
+      }
+    }
+
+    if (!Array.isArray(entries)) {
+      return res.status(422).json({ error: 'Could not extract violations from the document. Please ensure it contains a violations or offenses section.' });
+    }
+    if (entries.length === 0) {
+      return res.status(422).json({ error: 'The uploaded document does not appear to contain student discipline violations or offenses. Please upload a student manual or disciplinary policy document.' });
+    }
+
+    // Normalise and validate every extracted entry — be lenient with missing fields
+    let idx = 0;
+    for (const e of entries) {
+      // Derive missing code from description
+      if (!e.code && e.description) {
+        e.code = e.description.toString().trim().toUpperCase()
+          .replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 128);
+      }
+      // Default category to major if missing/unknown
+      if (!['minor', 'major'].includes(e.category)) {
+        e.category = 'major';
+      }
+      // Assign sequential section_ref if missing
+      if (!e.section_ref) {
+        e.section_ref = `${e.category === 'minor' ? '1' : '2'}.${++idx}`;
+      }
+      if (!e.code || !e.description) {
+        return res.status(422).json({ error: `Incomplete violation at index ${idx}: could not determine code or description.` });
+      }
+    }
+
+    // Return extracted violations + current DB violations for side-by-side review
+    const existing = await db.query(
+      `SELECT id, code, description, category, section_ref FROM violation_types WHERE section_ref IS NOT NULL ORDER BY category DESC, section_ref, id`
+    );
+    res.json({ success: true, violations: entries, existing: existing.rows });
+  });
+});
+
+// POST /api/admin/violations/save — user-confirmed violations → upsert to DB
+router.post('/violations/save', async (req, res) => {
+  const entries = req.body?.violations;
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return res.status(400).json({ error: 'violations array is required' });
+  }
+  try {
+    for (const vt of entries) {
+      if (!vt.code || !vt.description || !vt.category || !vt.section_ref) continue;
+      await db.query(
+        `INSERT INTO violation_types (code, description, category, section_ref)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (code) DO UPDATE
+           SET description = EXCLUDED.description,
+               category    = EXCLUDED.category,
+               section_ref = EXCLUDED.section_ref`,
+        [
+          vt.code.toString().trim().toUpperCase().slice(0, 128),
+          vt.description.toString().trim().slice(0, 256),
+          vt.category,
+          vt.section_ref.toString().trim().slice(0, 16),
+        ]
+      );
+    }
+    const result = await db.query(
+      `SELECT id, code, description, category, section_ref, requires_admission_slip
+       FROM violation_types
+       WHERE section_ref IS NOT NULL
+       ORDER BY category DESC, section_ref, id`
+    );
+    res.json({ success: true, violationTypes: result.rows });
+  } catch (dbErr) {
+    console.error('Violations save DB error:', dbErr);
+    res.status(500).json({ error: dbErr.message });
+  }
+});
+
 // ── STUDENT MANUAL ───────────────────────────────────────────────────────────
 
 // GET /api/admin/student-manual/info

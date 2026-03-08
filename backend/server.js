@@ -66,6 +66,8 @@ async function ensureViolationTypeCategory() {
     await pool.query("ALTER TABLE violation_types ADD COLUMN IF NOT EXISTS category VARCHAR(32);");
     await pool.query("ALTER TABLE violation_types ADD COLUMN IF NOT EXISTS section_ref VARCHAR(16);");
     await pool.query("ALTER TABLE violation_types ADD COLUMN IF NOT EXISTS requires_admission_slip BOOLEAN NOT NULL DEFAULT false;");
+    // Widen code column if it is still the old VARCHAR(50)
+    await pool.query("ALTER TABLE violation_types ALTER COLUMN code TYPE VARCHAR(128);");
     // Ensure unique constraint on code so ON CONFLICT (code) works in the upsert
     await pool.query(`
       DO $$
