@@ -284,35 +284,62 @@ const SearchRecords = () => {
     }
   };
 
-  // Count of approved slips in current filtered results
+  // Count of approved slips and resolved reports in current filtered results
   const approvedCount = filteredSlips.filter(s => s.status === 'approved').length;
+  const resolvedReportsCount = allReports.filter(r => r.status === 'resolved').length;
+  const exportableCount = approvedCount + resolvedReportsCount;
 
   const exportApprovedToXLSX = () => {
     const approved = filteredSlips.filter(s => s.status === 'approved');
-    if (!approved || approved.length === 0) {
-      alert('No APPROVED records to export');
+    const resolved = allReports.filter(r => r.status === 'resolved');
+
+    if (approved.length === 0 && resolved.length === 0) {
+      alert('No APPROVED slips or RESOLVED reports to export');
       return;
     }
 
-    // Map slips to a flat JSON structure suitable for XLSX
-    const rows = approved.map(s => ({
-      SlipNumber: s.slip_number || '',
-      StudentName: s.student_name || '',
-      StudentId: s.student_id || '',
-      Year: s.year || '',
-      Section: s.section || '',
-      Status: (s.status || '').toString().toUpperCase(),
-      DateIssued: s.created_at || '',
-      LastUpdated: s.updated_at || '',
-      Violation: s.violation_description || '',
-      Description: s.description || '',
-      CounselorRemarks: s.teacher_comments || s.remarks || ''
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Approved Slips');
-    XLSX.writeFile(wb, `approved_slips_${new Date().toISOString().slice(0,10)}.xlsx`);
+
+    // Sheet 1 – Approved Admission Slips
+    if (approved.length > 0) {
+      const slipRows = approved.map(s => ({
+        SlipNumber: s.slip_number || '',
+        StudentName: s.student_name || '',
+        StudentId: s.student_id || '',
+        Year: s.year || '',
+        Section: s.section || '',
+        Status: (s.status || '').toString().toUpperCase(),
+        DateIssued: s.created_at || '',
+        LastUpdated: s.updated_at || '',
+        Violation: s.violation_description || '',
+        Description: s.description || '',
+        CounselorRemarks: s.teacher_comments || s.remarks || ''
+      }));
+      const ws1 = XLSX.utils.json_to_sheet(slipRows);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Approved Slips');
+    }
+
+    // Sheet 2 – Resolved Violation Reports
+    if (resolved.length > 0) {
+      const reportRows = resolved.map(r => ({
+        StudentName: r.student_name || '',
+        StudentId: r.student_id || '',
+        Course: r.course || '',
+        Year: r.year || '',
+        Section: r.section || '',
+        ViolationCategory: (r.violation_category || '').toUpperCase(),
+        ViolationType: r.violation_description || '',
+        Description: r.description || '',
+        CounselorRemarks: r.remarks || '',
+        Status: (r.status || '').toString().toUpperCase(),
+        DateReported: r.created_at || '',
+        LastUpdated: r.updated_at || ''
+      }));
+      const ws2 = XLSX.utils.json_to_sheet(reportRows);
+      XLSX.utils.book_append_sheet(wb, ws2, 'Resolved Reports');
+    }
+
+    XLSX.writeFile(wb, `records_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
   const location = useLocation();
@@ -790,13 +817,15 @@ const SearchRecords = () => {
           <button
             onClick={exportApprovedToXLSX}
             className="btn btn-primary"
-            disabled={approvedCount === 0}
-            title={approvedCount === 0 ? 'No approved records to export' : `Export ${approvedCount} approved record${approvedCount!==1?'s':''} to XLSX`}
+            disabled={exportableCount === 0}
+            title={exportableCount === 0
+              ? 'No approved slips or resolved reports to export'
+              : `Export ${approvedCount} approved slip${approvedCount!==1?'s':''} + ${resolvedReportsCount} resolved report${resolvedReportsCount!==1?'s':''} to XLSX`}
             style={{ padding: '10px 14px', borderRadius: 8, boxShadow: '0 6px 18px rgba(15,23,42,0.12)', display: 'flex', alignItems: 'center', gap: 8 }}
           >
             Export to XLSX
-            {approvedCount > 0 && (
-              <span style={{ background: 'rgba(255,255,255,0.12)', padding: '2px 8px', borderRadius: 9999, fontSize: 12 }}>{approvedCount}</span>
+            {exportableCount > 0 && (
+              <span style={{ background: 'rgba(255,255,255,0.12)', padding: '2px 8px', borderRadius: 9999, fontSize: 12 }}>{exportableCount}</span>
             )}
           </button>
         </div>
