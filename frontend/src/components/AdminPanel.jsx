@@ -23,6 +23,8 @@ const AdminPanel = () => {
   const [editCourse, setEditCourse] = useState(null); // { id, name, code }
   const [editCourseError, setEditCourseError] = useState('');
   const [editCourseSaving, setEditCourseSaving] = useState(false);
+  const [coursePage, setCoursePage] = useState(1);
+  const COURSES_PAGE_SIZE = 8;
 
   // ── Year Levels ────────────────────────────────────────────────────────────
   const [yearLevels, setYearLevels] = useState([]);
@@ -31,6 +33,7 @@ const AdminPanel = () => {
   const [newYearLevel, setNewYearLevel] = useState('');
   const [yearLevelError, setYearLevelError] = useState('');
   const [yearLevelAdding, setYearLevelAdding] = useState(false);
+  const [yearLevelPage, setYearLevelPage] = useState(1);
 
   // edit mode for year levels
   const [editYearLevel, setEditYearLevel] = useState(null); // { id, year_level }
@@ -43,6 +46,7 @@ const AdminPanel = () => {
   const [newSection, setNewSection] = useState('');
   const [sectionError, setSectionError] = useState('');
   const [sectionAdding, setSectionAdding] = useState(false);
+  const [sectionPage, setSectionPage] = useState(1);
 
   // edit mode for sections
   const [editSection, setEditSection] = useState(null); // { id, name }
@@ -106,10 +110,11 @@ const AdminPanel = () => {
   }, []);
   // ── Load year levels when course changes ───────────────────────────────────
   useEffect(() => {
-    if (!selectedCourse) { setYearLevels([]); setSelectedYearLevel(null); return; }
+    if (!selectedCourse) { setYearLevels([]); setSelectedYearLevel(null); setYearLevelPage(1); return; }
     let mounted = true;
     setYearLevelsLoading(true);
     setSelectedYearLevel(null);
+    setYearLevelPage(1);
     getCourseYearLevels(selectedCourse.id)
       .then(res => { if (mounted) setYearLevels(res.data?.yearLevels || []); })
       .catch(err => console.error('Failed to load year levels', err))
@@ -119,9 +124,10 @@ const AdminPanel = () => {
 
   // ── Load sections when year level changes ──────────────────────────────────
   useEffect(() => {
-    if (!selectedYearLevel) { setSections([]); return; }
+    if (!selectedYearLevel) { setSections([]); setSectionPage(1); return; }
     let mounted = true;
     setSectionsLoading(true);
+    setSectionPage(1);
     getYearLevelSections(selectedYearLevel.id)
       .then(res => { if (mounted) setSections(res.data?.sections || []); })
       .catch(err => console.error('Failed to load sections', err))
@@ -141,6 +147,7 @@ const AdminPanel = () => {
       setCourses(prev => [...prev, { ...res.data.course, year_level_count: 0 }]);
       setNewCourseName('');
       setNewCourseCode('');
+      setCoursePage(1);
     } catch (err) {
       setCourseError(err.response?.data?.error || 'Failed to add course');
     } finally {
@@ -172,6 +179,7 @@ const AdminPanel = () => {
       await deleteAdminCourse(course.id);
       setCourses(prev => prev.filter(c => c.id !== course.id));
       if (selectedCourse?.id === course.id) setSelectedCourse(null);
+      setCoursePage(1);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to delete course');
     }
@@ -194,6 +202,7 @@ const AdminPanel = () => {
         c.id === selectedCourse.id ? { ...c, year_level_count: (c.year_level_count || 0) + 1 } : c
       ));
       setNewYearLevel('');
+      setYearLevelPage(1);
     } catch (err) {
       setYearLevelError(err.response?.data?.error || 'Failed to add year level');
     } finally {
@@ -228,6 +237,7 @@ const AdminPanel = () => {
       setCourses(prev => prev.map(c =>
         c.id === selectedCourse.id ? { ...c, year_level_count: Math.max(0, (c.year_level_count || 1) - 1) } : c
       ));
+      setYearLevelPage(1);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to delete year level');
     }
@@ -246,6 +256,7 @@ const AdminPanel = () => {
         y.id === selectedYearLevel.id ? { ...y, section_count: (y.section_count || 0) + 1 } : y
       ));
       setNewSection('');
+      setSectionPage(1);
     } catch (err) {
       setSectionError(err.response?.data?.error || 'Failed to add section');
     } finally {
@@ -276,6 +287,7 @@ const AdminPanel = () => {
       setYearLevels(prev => prev.map(y =>
         y.id === selectedYearLevel.id ? { ...y, section_count: Math.max(0, (y.section_count || 1) - 1) } : y
       ));
+      setSectionPage(1);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to delete section');
     }
@@ -457,41 +469,59 @@ const AdminPanel = () => {
               <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading…</div>
             ) : courses.length === 0 ? (
               <div style={{ fontSize: 13, color: '#9ca3af' }}>No courses defined yet.</div>
-            ) : (
-              <div>
-                {courses.map(c => (
-                  <div key={c.id} onClick={() => setSelectedCourse(c)} style={itemRow(selectedCourse?.id === c.id)}>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {c.name}
+            ) : (() => {
+              const totalCoursePages = Math.max(1, Math.ceil(courses.length / COURSES_PAGE_SIZE));
+              const pagedCourses = courses.slice((coursePage - 1) * COURSES_PAGE_SIZE, coursePage * COURSES_PAGE_SIZE);
+              return (
+                <div>
+                  {pagedCourses.map(c => (
+                    <div key={c.id} onClick={() => setSelectedCourse(c)} style={itemRow(selectedCourse?.id === c.id)}>
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {c.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#6b7280' }}>
+                          {c.code} · {c.year_level_count} year level{c.year_level_count !== 1 ? 's' : ''}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 11, color: '#6b7280' }}>
-                        {c.code} · {c.year_level_count} year level{c.year_level_count !== 1 ? 's' : ''}
+                      <div style={{ display: 'flex', gap: 2, marginLeft: 6, flexShrink: 0 }}>
+                        <ChevronRight size={13} color={selectedCourse?.id === c.id ? 'var(--primary)' : '#d1d5db'} />
+                        <button
+                          type="button"
+                          title="Edit course"
+                          onClick={ev => { ev.stopPropagation(); setEditCourse({ id: c.id, name: c.name, code: c.code }); setEditCourseError(''); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px' }}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete course"
+                          onClick={ev => { ev.stopPropagation(); handleDeleteCourse(c); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 4px' }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 2, marginLeft: 6, flexShrink: 0 }}>
-                      <ChevronRight size={13} color={selectedCourse?.id === c.id ? 'var(--primary)' : '#d1d5db'} />
-                      <button
-                        type="button"
-                        title="Edit course"
-                        onClick={ev => { ev.stopPropagation(); setEditCourse({ id: c.id, name: c.name, code: c.code }); setEditCourseError(''); }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px' }}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        type="button"
-                        title="Delete course"
-                        onClick={ev => { ev.stopPropagation(); handleDeleteCourse(c); }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 4px' }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                  ))}
+                  {totalCoursePages > 1 && (
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 10 }}>
+                      {Array.from({ length: totalCoursePages }, (_, i) => i + 1).map(p => (
+                        <button
+                          key={p}
+                          onClick={() => setCoursePage(p)}
+                          className={`btn ${p === coursePage ? 'btn-primary' : 'btn-outline'}`}
+                          style={{ padding: '4px 9px', fontSize: 12 }}
+                        >
+                          {p}
+                        </button>
+                      ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* ── YEAR LEVELS ─────────────────────────────────────────────────── */}
@@ -547,39 +577,57 @@ const AdminPanel = () => {
                   <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading…</div>
                 ) : yearLevels.length === 0 ? (
                   <div style={{ fontSize: 13, color: '#9ca3af' }}>No year levels yet.</div>
-                ) : (
-                  <div>
-                    {yearLevels.map(yl => (
-                      <div key={yl.id} onClick={() => setSelectedYearLevel(yl)} style={itemRow(selectedYearLevel?.id === yl.id)}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{yl.year_level}</div>
-                          <div style={{ fontSize: 11, color: '#6b7280' }}>
-                            {yl.section_count} section{yl.section_count !== 1 ? 's' : ''}
+                ) : (() => {
+                  const totalYlPages = Math.max(1, Math.ceil(yearLevels.length / COURSES_PAGE_SIZE));
+                  const pagedYl = yearLevels.slice((yearLevelPage - 1) * COURSES_PAGE_SIZE, yearLevelPage * COURSES_PAGE_SIZE);
+                  return (
+                    <div>
+                      {pagedYl.map(yl => (
+                        <div key={yl.id} onClick={() => setSelectedYearLevel(yl)} style={itemRow(selectedYearLevel?.id === yl.id)}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{yl.year_level}</div>
+                            <div style={{ fontSize: 11, color: '#6b7280' }}>
+                              {yl.section_count} section{yl.section_count !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 2, marginLeft: 6, flexShrink: 0 }}>
+                            <ChevronRight size={13} color={selectedYearLevel?.id === yl.id ? 'var(--primary)' : '#d1d5db'} />
+                            <button
+                              type="button"
+                              title="Edit year level"
+                              onClick={ev => { ev.stopPropagation(); setEditYearLevel({ id: yl.id, year_level: yl.year_level }); setEditYearLevelError(''); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px' }}
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              type="button"
+                              title="Delete year level"
+                              onClick={ev => { ev.stopPropagation(); handleDeleteYearLevel(yl); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 4px' }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 2, marginLeft: 6, flexShrink: 0 }}>
-                          <ChevronRight size={13} color={selectedYearLevel?.id === yl.id ? 'var(--primary)' : '#d1d5db'} />
-                          <button
-                            type="button"
-                            title="Edit year level"
-                            onClick={ev => { ev.stopPropagation(); setEditYearLevel({ id: yl.id, year_level: yl.year_level }); setEditYearLevelError(''); }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px' }}
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            type="button"
-                            title="Delete year level"
-                            onClick={ev => { ev.stopPropagation(); handleDeleteYearLevel(yl); }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 4px' }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                      ))}
+                      {totalYlPages > 1 && (
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 10 }}>
+                          {Array.from({ length: totalYlPages }, (_, i) => i + 1).map(p => (
+                            <button
+                              key={p}
+                              onClick={() => setYearLevelPage(p)}
+                              className={`btn ${p === yearLevelPage ? 'btn-primary' : 'btn-outline'}`}
+                              style={{ padding: '4px 9px', fontSize: 12 }}
+                            >
+                              {p}
+                            </button>
+                          ))}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
@@ -637,33 +685,51 @@ const AdminPanel = () => {
                   <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading…</div>
                 ) : sections.length === 0 ? (
                   <div style={{ fontSize: 13, color: '#9ca3af' }}>No sections yet.</div>
-                ) : (
-                  <div>
-                    {sections.map(sec => (
-                      <div key={sec.id} style={{ ...itemRow(false), cursor: 'default' }}>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{sec.name}</div>
-                        <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                          <button
-                            type="button"
-                            title="Edit section"
-                            onClick={() => { setEditSection({ id: sec.id, name: sec.name }); setEditSectionError(''); }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px' }}
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            type="button"
-                            title="Delete section"
-                            onClick={() => handleDeleteSection(sec)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 4px' }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                ) : (() => {
+                  const totalSecPages = Math.max(1, Math.ceil(sections.length / COURSES_PAGE_SIZE));
+                  const pagedSec = sections.slice((sectionPage - 1) * COURSES_PAGE_SIZE, sectionPage * COURSES_PAGE_SIZE);
+                  return (
+                    <div>
+                      {pagedSec.map(sec => (
+                        <div key={sec.id} style={{ ...itemRow(false), cursor: 'default' }}>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{sec.name}</div>
+                          <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              title="Edit section"
+                              onClick={() => { setEditSection({ id: sec.id, name: sec.name }); setEditSectionError(''); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px' }}
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              type="button"
+                              title="Delete section"
+                              onClick={() => handleDeleteSection(sec)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 4px' }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                      {totalSecPages > 1 && (
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 10 }}>
+                          {Array.from({ length: totalSecPages }, (_, i) => i + 1).map(p => (
+                            <button
+                              key={p}
+                              onClick={() => setSectionPage(p)}
+                              className={`btn ${p === sectionPage ? 'btn-primary' : 'btn-outline'}`}
+                              style={{ padding: '4px 9px', fontSize: 12 }}
+                            >
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
