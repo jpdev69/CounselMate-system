@@ -33,15 +33,17 @@ function callOllama(endpoint, data) {
 }
 
 /**
- * Check if Ollama is reachable
+ * Check if Ollama is reachable (GET /api/tags)
  */
-async function isOllamaAvailable() {
-  try {
-    const response = await callOllama('/api/tags', {});
-    return response.includes('models') || response.length > 0;
-  } catch {
-    return false;
-  }
+function isOllamaAvailable() {
+  return new Promise((resolve) => {
+    const url = new URL('/api/tags', OLLAMA_BASE_URL);
+    http.get(url.toString(), (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => resolve(res.statusCode === 200));
+    }).on('error', () => resolve(false));
+  });
 }
 
 // GET /api/chatbot/manual â€” returns the raw manual text and metadata
