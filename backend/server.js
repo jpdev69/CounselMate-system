@@ -4,7 +4,12 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 const { authenticate } = require('./middleware/auth');
+
+// In-memory OTP store: { otp, expiresAt, verified }
+// Single-entry keyed by a fixed key since there is only one counselor account.
+const otpStore = new Map();
 // shared DB pool is in ./config/database.js
 
 const app = express();
@@ -37,6 +42,15 @@ async function ensureSecurityColumns() {
   } catch (err) {
     // Non-fatal: log and continue — queries below will surface errors if necessary
     console.warn('ensureSecurityColumns warning:', err.message || err);
+  }
+}
+
+// Ensure recovery_email column exists (safe to call repeatedly)
+async function ensureRecoveryEmailColumn() {
+  try {
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_email VARCHAR(256);");
+  } catch (err) {
+    console.warn('ensureRecoveryEmailColumn warning:', err.message || err);
   }
 }
 
@@ -376,6 +390,50 @@ app.put('/api/auth/me/security-question', authenticate, precheckRateLimit('me-se
   }
 });
 
+// GET /api/auth/me/gmail-settings — returns Gmail readiness + recovery email
+app.get('/api/auth/me/gmail-settings', authenticate, async (req, res) => {
+  try {
+    await ensureRecoveryEmailColumn();
+    const email = 'counselor@university.edu';
+    const result = await pool.query('SELECT recovery_email FROM users WHERE email = $1', [email]);
+    const dbRecoveryEmail = result.rows[0]?.recovery_email || null;
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailReady = !!(gmailUser && process.env.GMAIL_APP_PASSWORD && gmailUser !== 'your_gmail@gmail.com');
+    const fallbackEmail = process.env.RECOVERY_EMAIL || gmailUser || null;
+    return res.json({
+      success: true,
+      gmailReady,
+      gmailUser: gmailReady ? gmailUser : null,
+      recoveryEmail: dbRecoveryEmail || fallbackEmail || null,
+      usingEnvFallback: !dbRecoveryEmail
+    });
+  } catch (err) {
+    console.error('Get gmail-settings error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to get Gmail settings' });
+  }
+});
+
+// PUT /api/auth/me/gmail-settings — saves recovery_email to DB
+app.put('/api/auth/me/gmail-settings', authenticate, async (req, res) => {
+  try {
+    const { recoveryEmail } = req.body || {};
+    if (!recoveryEmail || typeof recoveryEmail !== 'string') {
+      return res.status(400).json({ success: false, error: 'recoveryEmail is required' });
+    }
+    // Basic email format check
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail)) {
+      return res.status(400).json({ success: false, error: 'Invalid email address' });
+    }
+    await ensureRecoveryEmailColumn();
+    const email = 'counselor@university.edu';
+    await pool.query('UPDATE users SET recovery_email = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [recoveryEmail.trim(), email]);
+    return res.json({ success: true, message: 'Recovery email saved' });
+  } catch (err) {
+    console.error('Put gmail-settings error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to save recovery email' });
+  }
+});
+
 // Debug endpoint: check database connectivity and simple students count
 app.get('/api/debug/db', async (req, res) => {
   try {
@@ -402,11 +460,208 @@ app.get('/api/debug/db', async (req, res) => {
   }
 });
 
+// ─── Gmail OTP endpoints ────────────────────────────────────────────────────
+
+const OTP_KEY = 'counselor_otp';
+const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+// POST /api/auth/forgot/send-otp
+// Generates a 6-digit OTP and emails it to the configured RECOVERY_EMAIL.
+app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), async (req, res) => {
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+
+  if (!gmailUser || !gmailPass || gmailUser === 'your_gmail@gmail.com') {
+    return res.status(503).json({ success: false, error: 'OTP via Gmail is not configured on this server.' });
+  }
+
+  // Resolve recovery email: prefer DB-stored value, fall back to env var
+  let recoveryEmail = process.env.RECOVERY_EMAIL || gmailUser;
+  try {
+    await ensureRecoveryEmailColumn();
+    const emailQ = await pool.query('SELECT recovery_email FROM users WHERE email = $1', ['counselor@university.edu']);
+    const dbEmail = emailQ.rows[0]?.recovery_email || null;
+    if (dbEmail) recoveryEmail = dbEmail;
+  } catch (_) { /* fall through to env var */ }
+
+  // Generate 6-digit OTP
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  otpStore.set(OTP_KEY, { otp, expiresAt: Date.now() + OTP_TTL_MS, verified: false });
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailUser, pass: gmailPass }
+    });
+
+    const logoPath = require('path').join(__dirname, '..', 'GuidanceOS-system-logo.png');
+    const logoExists = require('fs').existsSync(logoPath);
+
+    await transporter.sendMail({
+      from: `"GuidanceOS Security" <${gmailUser}>`,
+      to: recoveryEmail,
+      subject: 'GuidanceOS — Password Reset OTP',
+      text: `Your one-time password (OTP) for GuidanceOS password reset is:\n\n  ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`,
+      html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 16px">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+
+        <!-- Header banner -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#1e3a5f 0%,#2d5f8a 100%);padding:32px 40px;text-align:center">
+            ${logoExists ? `<img src="cid:guidanceos-logo" alt="GuidanceOS" style="height:48px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto" />` : ''}
+            <div style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px">GuidanceOS</div>
+            <div style="color:#93c5fd;font-size:13px;margin-top:4px">Web-based Guidance Monitoring System</div>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 40px">
+            <p style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1e3a5f">Password Reset Request</p>
+            <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6">
+              We received a request to reset the password for the counselor account. Use the one-time password below to proceed.
+            </p>
+
+            <!-- OTP box -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px">
+              <tr>
+                <td align="center" style="background:#f1f5f9;border:2px dashed #cbd5e1;border-radius:12px;padding:24px">
+                  <div style="font-size:11px;font-weight:600;letter-spacing:2px;color:#64748b;text-transform:uppercase;margin-bottom:10px">Your One-Time Password</div>
+                  <div style="font-size:42px;font-weight:800;letter-spacing:10px;color:#1e3a5f;font-family:'Courier New',monospace">${otp}</div>
+                  <div style="margin-top:12px;display:inline-block;background:#fef3c7;border:1px solid #fde68a;border-radius:20px;padding:4px 14px;font-size:12px;color:#92400e;font-weight:600">
+                    ⏱ Expires in 10 minutes
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Steps -->
+            <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#374151">How to use this OTP:</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px">
+              <tr>
+                <td style="padding:6px 0;font-size:13px;color:#4b5563">
+                  <span style="display:inline-block;width:20px;height:20px;background:#1e3a5f;color:#fff;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:700;margin-right:8px;vertical-align:middle">1</span>
+                  Go to the <strong>Forgot Password</strong> page on GuidanceOS.
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;font-size:13px;color:#4b5563">
+                  <span style="display:inline-block;width:20px;height:20px;background:#1e3a5f;color:#fff;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:700;margin-right:8px;vertical-align:middle">2</span>
+                  Select the <strong>Gmail OTP</strong> tab.
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;font-size:13px;color:#4b5563">
+                  <span style="display:inline-block;width:20px;height:20px;background:#1e3a5f;color:#fff;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:700;margin-right:8px;vertical-align:middle">3</span>
+                  Enter the 6-digit code above and set your new password.
+                </td>
+              </tr>
+            </table>
+
+            <!-- Warning box -->
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:12px 16px;font-size:13px;color:#9a3412;line-height:1.5">
+                  <strong>Didn't request this?</strong> You can safely ignore this email. Your password will not be changed unless you complete the reset process.
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center">
+            <p style="margin:0;font-size:12px;color:#94a3b8">This is an automated message from <strong>GuidanceOS</strong>. Please do not reply to this email.</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+      attachments: logoExists ? [{
+        filename: 'GuidanceOS-system-logo.png',
+        path: logoPath,
+        cid: 'guidanceos-logo'
+      }] : []
+    });
+
+    // Mask the recovery email before sending it back (e.g. jo***@gmail.com)
+    const masked = recoveryEmail.replace(/^(.{2})(.+?)(@.*)$/, (_, a, b, c) => a + b.replace(/./g, '*') + c);
+    return res.json({ success: true, message: `OTP sent to ${masked}` });
+  } catch (err) {
+    console.error('send-otp error:', err.message || err);
+    otpStore.delete(OTP_KEY);
+    return res.status(500).json({ success: false, error: 'Failed to send OTP. Check Gmail configuration.' });
+  }
+});
+
+// POST /api/auth/forgot/verify-otp
+// Validates the OTP. On success marks it as verified in the store.
+app.post('/api/auth/forgot/verify-otp', precheckRateLimit('forgot-otp-verify'), async (req, res) => {
+  const { otp } = req.body || {};
+  if (!otp) return res.status(400).json({ success: false, error: 'OTP is required' });
+
+  const stored = otpStore.get(OTP_KEY);
+  if (!stored || Date.now() > stored.expiresAt) {
+    otpStore.delete(OTP_KEY);
+    try { recordFailedAttempt(req, 'forgot-otp-verify'); } catch (e) { /* no-op */ }
+    return res.status(400).json({ success: false, error: 'OTP has expired. Please request a new one.' });
+  }
+
+  if (stored.otp !== String(otp).trim()) {
+    try { recordFailedAttempt(req, 'forgot-otp-verify'); } catch (e) { /* no-op */ }
+    return res.status(400).json({ success: false, error: 'Invalid OTP' });
+  }
+
+  // Mark as verified and extend expiry by 5 more minutes for form completion
+  otpStore.set(OTP_KEY, { ...stored, verified: true, expiresAt: Date.now() + 5 * 60 * 1000 });
+  try { clearAttempts(req, 'forgot-otp-verify'); } catch (e) { /* no-op */ }
+  return res.json({ success: true });
+});
+
+// POST /api/auth/forgot/reset-with-otp
+// Resets the counselor password using a previously verified OTP session.
+app.post('/api/auth/forgot/reset-with-otp', precheckRateLimit('forgot-otp-reset'), async (req, res) => {
+  const { newPassword } = req.body || {};
+  if (!newPassword) return res.status(400).json({ success: false, error: 'newPassword is required' });
+
+  const stored = otpStore.get(OTP_KEY);
+  if (!stored || !stored.verified || Date.now() > stored.expiresAt) {
+    otpStore.delete(OTP_KEY);
+    return res.status(400).json({ success: false, error: 'OTP session expired. Please start over.' });
+  }
+
+  const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
+  if (!requireLetterAndDigit.test(newPassword)) {
+    return res.status(400).json({ success: false, error: 'New password must include at least one letter and one number' });
+  }
+
+  try {
+    const email = 'counselor@university.edu';
+    await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [newPassword, email]);
+    otpStore.delete(OTP_KEY);
+    try { clearAttempts(req, 'forgot-otp-reset'); } catch (e) { /* no-op */ }
+    return res.json({ success: true, message: 'Password reset successfully' });
+  } catch (err) {
+    console.error('reset-with-otp error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to reset password' });
+  }
+});
+
 // Run DB migrations on startup, then start server
 (async () => {
   try {
     await ensureStudentReportsTable();
     await seedStudentManualViolationTypes();
+    await ensureRecoveryEmailColumn();
   } catch (err) {
     console.warn('Startup migration warning:', err.message || err);
   }

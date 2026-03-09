@@ -65,11 +65,26 @@ export const resetPasswordWithSecurity = (payload) =>
 export const verifySecurityAnswer = (payload) =>
   api.post('/auth/forgot/verify', payload);
 
+export const sendOtp = () =>
+  api.post('/auth/forgot/send-otp');
+
+export const verifyOtp = (payload) =>
+  api.post('/auth/forgot/verify-otp', payload);
+
+export const resetPasswordWithOtp = (payload) =>
+  api.post('/auth/forgot/reset-with-otp', payload);
+
 export const getMySecurityQuestion = () =>
   api.get('/auth/me/security-question');
 
 export const updateMySecurityQuestion = (payload) =>
   api.put('/auth/me/security-question', payload);
+
+export const getGmailSettings = () =>
+  api.get('/auth/me/gmail-settings');
+
+export const updateGmailSettings = (payload) =>
+  api.put('/auth/me/gmail-settings', payload);
 
 // Admission Slips API
 export const issueAdmissionSlip = (data) => 

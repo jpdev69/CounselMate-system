@@ -1,7 +1,7 @@
 // src/components/ForgotPassword.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSecurityQuestion, resetPasswordWithSecurity, verifySecurityAnswer } from '../services/api';
+import { getSecurityQuestion, resetPasswordWithSecurity, verifySecurityAnswer, sendOtp, verifyOtp, resetPasswordWithOtp } from '../services/api';
 
 // Preset questions (keep in sync with SecurityQuestion component)
 const PRESET = [
@@ -44,8 +44,23 @@ const evaluatePassword = (pwd) => {
 };
 
 const ForgotPassword = () => {
+  // 'security' | 'otp'
+  const [activeTab, setActiveTab] = useState('security');
+
+  // ── Security-question state ──────────────────────────────────────
   const [question, setQuestion] = useState(null);
   const [answer, setAnswer] = useState('');
+  const [answerVerified, setAnswerVerified] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+
+  // ── OTP state ────────────────────────────────────────────────────
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpSentMsg, setOtpSentMsg] = useState('');
+  const [otpValue, setOtpValue] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+
+  // ── Shared new-password state ────────────────────────────────────
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordFeedback, setPasswordFeedback] = useState({
@@ -63,9 +78,23 @@ const ForgotPassword = () => {
   const [message, setMessage] = useState(null);
   const [retryAfterMs, setRetryAfterMs] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
-  const [answerVerified, setAnswerVerified] = useState(false);
-  const [verifying, setVerifying] = useState(false);
   const navigate = useNavigate();
+
+  // Derived: whether the current tab's identity step is complete
+  const isVerified = activeTab === 'security' ? answerVerified : otpVerified;
+
+  // Switch tabs: clear messages and per-tab state
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    setMessage(null);
+    setRetryAfterMs(null);
+    setTimeLeft(null);
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordFeedback({ length: false, letter: false, number: false, upper: false, special: false, strength: 'Weak', score: 0 });
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -102,21 +131,26 @@ const ForgotPassword = () => {
   const handleReset = async (e) => {
     e.preventDefault();
     setMessage(null);
-    if (!answer.trim()) return setMessage({ type: 'error', text: 'Please enter your answer' });
-    if (!answerVerified) return setMessage({ type: 'error', text: 'Verification failed' });
     if (!newPassword || newPassword !== confirmPassword) return setMessage({ type: 'error', text: 'Passwords do not match' });
-    // basic password policy check: require at least one letter and one number (allow special chars)
     if (!/(?=.*[A-Za-z])(?=.*\d)/.test(newPassword)) {
       return setMessage({ type: 'error', text: 'Password must include at least one letter and one number' });
     }
 
     setLoading(true);
     try {
-      const res = await resetPasswordWithSecurity({ answer, newPassword });
-        if (res.data && res.data.success) {
-          setMessage({ type: 'success', text: 'Password reset successfully. Please sign in.' });
-          setRetryAfterMs(null);
-          setTimeLeft(null);
+      let res;
+      if (activeTab === 'security') {
+        if (!answer.trim()) { setLoading(false); return setMessage({ type: 'error', text: 'Please enter your answer' }); }
+        if (!answerVerified) { setLoading(false); return setMessage({ type: 'error', text: 'Verification failed' }); }
+        res = await resetPasswordWithSecurity({ answer, newPassword });
+      } else {
+        if (!otpVerified) { setLoading(false); return setMessage({ type: 'error', text: 'OTP not verified' }); }
+        res = await resetPasswordWithOtp({ newPassword });
+      }
+      if (res.data && res.data.success) {
+        setMessage({ type: 'success', text: 'Password reset successfully. Please sign in.' });
+        setRetryAfterMs(null);
+        setTimeLeft(null);
         setTimeout(() => navigate('/login'), 1400);
       } else {
         setMessage({ type: 'error', text: res.data?.error || 'Failed to reset password' });
@@ -156,6 +190,50 @@ const ForgotPassword = () => {
     }
   };
 
+  const handleSendOtp = async () => {
+    setMessage(null);
+    setOtpLoading(true);
+    try {
+      const res = await sendOtp();
+      if (res.data && res.data.success) {
+        setOtpSent(true);
+        setOtpSentMsg(res.data.message || 'OTP sent. Check your email.');
+      } else {
+        setMessage({ type: 'error', text: res.data?.error || 'Failed to send OTP' });
+      }
+    } catch (err) {
+      const errMsg = err.response?.data?.error || err.message || 'Failed to send OTP';
+      const r = err.response?.data?.retryAfterMs || null;
+      if (r) setRetryAfterMs(r);
+      setMessage({ type: 'error', text: errMsg });
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setMessage(null);
+    if (!otpValue.trim()) return setMessage({ type: 'error', text: 'Please enter the OTP' });
+    setOtpLoading(true);
+    try {
+      const res = await verifyOtp({ otp: otpValue.trim() });
+      if (res.data && res.data.success) {
+        setOtpVerified(true);
+        setRetryAfterMs(null);
+        setTimeLeft(null);
+      } else {
+        setMessage({ type: 'error', text: res.data?.error || 'Invalid OTP' });
+      }
+    } catch (err) {
+      const errMsg = err.response?.data?.error || err.message || 'Invalid OTP';
+      const r = err.response?.data?.retryAfterMs || null;
+      if (r) setRetryAfterMs(r);
+      setMessage({ type: 'error', text: errMsg });
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!retryAfterMs) return undefined;
     const end = Date.now() + retryAfterMs;
@@ -184,7 +262,47 @@ const ForgotPassword = () => {
       <div className="login-card card">
         <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
           <h2 style={{ margin: 0 }}>Forgot Password</h2>
-          <p className="text-muted">Answer your saved security question to reset the counselor account password.</p>
+          <p className="text-muted">Use your security question or a Gmail OTP to reset the counselor account password.</p>
+        </div>
+
+        {/* Tab switcher */}
+        <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', marginBottom: '1rem' }}>
+          <button
+            type="button"
+            onClick={() => switchTab('security')}
+            style={{
+              flex: 1,
+              padding: '0.5rem 0',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === 'security' ? '2px solid #1e3a5f' : '2px solid transparent',
+              marginBottom: '-2px',
+              fontWeight: activeTab === 'security' ? 700 : 400,
+              color: activeTab === 'security' ? '#1e3a5f' : '#6b7280',
+              cursor: 'pointer',
+              fontSize: '0.9rem'
+            }}
+          >
+            Security Question
+          </button>
+          <button
+            type="button"
+            onClick={() => switchTab('otp')}
+            style={{
+              flex: 1,
+              padding: '0.5rem 0',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === 'otp' ? '2px solid #1e3a5f' : '2px solid transparent',
+              marginBottom: '-2px',
+              fontWeight: activeTab === 'otp' ? 700 : 400,
+              color: activeTab === 'otp' ? '#1e3a5f' : '#6b7280',
+              cursor: 'pointer',
+              fontSize: '0.9rem'
+            }}
+          >
+            Gmail OTP
+          </button>
         </div>
 
         <form onSubmit={handleReset} style={{ display: 'grid', gap: '0.75rem' }}>
@@ -197,35 +315,88 @@ const ForgotPassword = () => {
             </div>
           )}
 
-          <div>
-            {!answerVerified ? (
-              <>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '6px' }}>Security Question</div>
-                <div style={{ marginBottom: '8px' }}>{question || '-'}</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    value={answer}
-                    onChange={(e) => { setAnswer((e.target.value || '').toString().slice(0, 32)); if (answerVerified) setAnswerVerified(false); }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        // If the answer isn't verified yet, treat Enter as a "Verify" action
-                        if (!answerVerified && answer.trim()) {
-                          handleVerifyAnswer();
-                        }
-                      }
-                    }}
-                    className="form-input"
-                    placeholder="Your answer"
-                  />
-                  <button type="button" className="btn btn-primary" onClick={handleVerifyAnswer} disabled={verifying || !answer.trim() || !!retryAfterMs} style={{ whiteSpace: 'nowrap' }}>{verifying ? 'Verifying...' : 'Verify Answer'}</button>
-                </div>
-              </>
-            ) : (
-              <div style={{ fontSize: 12, color: '#065f46', marginTop: 6 }}>Answer verified — you may now choose a new password.</div>
-            )}
-          </div>
-          {answerVerified && (
+          {/* ── Security Question tab ── */}
+          {activeTab === 'security' && (
+            <div>
+              {!answerVerified ? (
+                <>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '6px' }}>Security Question</div>
+                  <div style={{ marginBottom: '8px' }}>{loading ? 'Loading...' : (question || 'No security question configured.')}</div>
+                  {question && (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        value={answer}
+                        onChange={(e) => { setAnswer((e.target.value || '').toString().slice(0, 32)); if (answerVerified) setAnswerVerified(false); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (!answerVerified && answer.trim()) handleVerifyAnswer();
+                          }
+                        }}
+                        className="form-input"
+                        placeholder="Your answer"
+                      />
+                      <button type="button" className="btn btn-primary" onClick={handleVerifyAnswer} disabled={verifying || !answer.trim() || !!retryAfterMs} style={{ whiteSpace: 'nowrap' }}>
+                        {verifying ? 'Verifying...' : 'Verify Answer'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ fontSize: 12, color: '#065f46', marginTop: 6 }}>Answer verified — you may now choose a new password.</div>
+              )}
+            </div>
+          )}
+
+          {/* ── Gmail OTP tab ── */}
+          {activeTab === 'otp' && (
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {!otpVerified ? (
+                <>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>
+                    A 6-digit one-time password will be sent to your configured recovery Gmail address.
+                  </p>
+                  {!otpSent ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleSendOtp}
+                      disabled={otpLoading || !!retryAfterMs}
+                    >
+                      {otpLoading ? 'Sending...' : 'Send OTP to Gmail'}
+                    </button>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 12, color: '#065f46' }}>{otpSentMsg}</div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                          value={otpValue}
+                          onChange={(e) => setOtpValue((e.target.value || '').replace(/\D/g, '').slice(0, 6))}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (otpValue.length === 6) handleVerifyOtp(); } }}
+                          className="form-input"
+                          placeholder="Enter 6-digit OTP"
+                          maxLength={6}
+                          inputMode="numeric"
+                          style={{ letterSpacing: '0.2em', fontWeight: 700 }}
+                        />
+                        <button type="button" className="btn btn-primary" onClick={handleVerifyOtp} disabled={otpLoading || otpValue.length < 6 || !!retryAfterMs} style={{ whiteSpace: 'nowrap' }}>
+                          {otpLoading ? 'Verifying...' : 'Verify OTP'}
+                        </button>
+                      </div>
+                      <button type="button" className="btn" style={{ fontSize: '0.8rem', color: '#6b7280' }} onClick={() => { setOtpSent(false); setOtpValue(''); setMessage(null); }} disabled={otpLoading}>
+                        Resend OTP
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div style={{ fontSize: 12, color: '#065f46' }}>OTP verified — you may now choose a new password.</div>
+              )}
+            </div>
+          )}
+
+          {/* ── Shared new-password fields (shown once identity is verified) ── */}
+          {isVerified && (
             <>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px' }}>New Password</label>
@@ -249,25 +420,12 @@ const ForgotPassword = () => {
                     aria-label={showNewPassword ? 'Hide password' : 'Show password'}
                     className="btn"
                     onClick={() => setShowNewPassword(s => !s)}
-                    style={{
-                      position: 'absolute',
-                      right: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: '#6b7280',
-                      cursor: 'pointer',
-                      padding: 0,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
+                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                {/* Password intellisense / feedback */}
+                {/* Password strength feedback */}
                 <div style={{ marginTop: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <div style={{ flex: 1, height: 8, borderRadius: 6, background: '#e6edf3', overflow: 'hidden' }}>
@@ -275,7 +433,6 @@ const ForgotPassword = () => {
                     </div>
                     <div style={{ fontSize: 12, color: '#6b7280', minWidth: 64, textAlign: 'right' }}>{passwordFeedback.strength}</div>
                   </div>
-
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <Badge ok={passwordFeedback.length} text="At least 6 characters" />
                     <Badge ok={passwordFeedback.letter} text="Contains at least one letter" />
@@ -303,32 +460,23 @@ const ForgotPassword = () => {
                     aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                     className="btn"
                     onClick={() => setShowConfirmPassword(s => !s)}
-                    style={{
-                      position: 'absolute',
-                      right: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: '#6b7280',
-                      cursor: 'pointer',
-                      padding: 0,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
+                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-primary" disabled={loading || !!retryAfterMs} style={{ flex: 1 }}>{loading ? 'Resetting...' : 'Reset Password'}</button>
+                <button type="button" className="btn" onClick={() => navigate('/login')}>Cancel</button>
+              </div>
             </>
           )}
 
-          {answerVerified && (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-primary" disabled={loading || !!retryAfterMs} style={{ flex: 1 }}>{loading ? 'Resetting...' : 'Reset Password'}</button>
-              <button type="button" className="btn" onClick={() => navigate('/login')}>Cancel</button>
+          {!isVerified && (
+            <div style={{ textAlign: 'center' }}>
+              <button type="button" className="btn" onClick={() => navigate('/login')} style={{ fontSize: '0.875rem' }}>Back to Login</button>
             </div>
           )}
         </form>

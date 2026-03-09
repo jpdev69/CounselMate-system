@@ -1,7 +1,7 @@
 // src/components/SecurityQuestion.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMySecurityQuestion, updateMySecurityQuestion } from '../services/api';
+import { getMySecurityQuestion, updateMySecurityQuestion, getGmailSettings, updateGmailSettings } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -25,6 +25,13 @@ const SecurityQuestion = () => {
 	const [verifyError, setVerifyError] = useState(null);
 	const [retryAfterMs, setRetryAfterMs] = useState(null);
 	const [timeLeft, setTimeLeft] = useState(null);
+	// Gmail recovery email state
+	const [gmailReady, setGmailReady] = useState(false);
+	const [gmailUser, setGmailUser] = useState(null);
+	const [recoveryEmail, setRecoveryEmail] = useState('');
+	const [recoveryEmailInput, setRecoveryEmailInput] = useState('');
+	const [gmailFeedback, setGmailFeedback] = useState(null);
+	const [savingGmail, setSavingGmail] = useState(false);
 	const navigate = useNavigate();
 	const { user, login } = useAuth();
 
@@ -50,14 +57,52 @@ const SecurityQuestion = () => {
 			}
 		};
 
+		const loadGmail = async () => {
+			try {
+				const res = await getGmailSettings();
+				if (!mounted) return;
+				if (res.data && res.data.success) {
+					setGmailReady(res.data.gmailReady || false);
+					setGmailUser(res.data.gmailUser || null);
+					const re = res.data.recoveryEmail || '';
+					setRecoveryEmail(re);
+					setRecoveryEmailInput(re);
+				}
+			} catch (err) {
+				console.error('Failed to load Gmail settings', err);
+			}
+		};
+
 		if (verified) {
 			load();
+			loadGmail();
 		}
 
 		return () => { mounted = false; };
 	}, [verified]);
 
 	const selected = PRESET.find(p => p.id === selectedId) || null;
+
+	const handleSaveGmail = async (e) => {
+		e.preventDefault();
+		setGmailFeedback(null);
+		if (!recoveryEmailInput.trim()) return setGmailFeedback({ ok: false, text: 'Please enter an email address.' });
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmailInput.trim())) return setGmailFeedback({ ok: false, text: 'Invalid email address.' });
+		setSavingGmail(true);
+		try {
+			const res = await updateGmailSettings({ recoveryEmail: recoveryEmailInput.trim() });
+			if (res.data && res.data.success) {
+				setRecoveryEmail(recoveryEmailInput.trim());
+				setGmailFeedback({ ok: true, text: 'Recovery email saved.' });
+			} else {
+				setGmailFeedback({ ok: false, text: res.data?.error || 'Failed to save' });
+			}
+		} catch (err) {
+			setGmailFeedback({ ok: false, text: err.response?.data?.error || err.message || 'Failed to save' });
+		} finally {
+			setSavingGmail(false);
+		}
+	};
 
 	const handleSave = async (e) => {
 		e.preventDefault();
@@ -143,7 +188,7 @@ const SecurityQuestion = () => {
 				<div className="card" style={{ padding: 20, maxWidth: 520, margin: '80px auto' }}>
 					<div style={{ marginBottom: 12 }}>
 						<h2 style={{ margin: 0 }}>Verify Password</h2>
-						<div style={{ fontSize: 13, color: '#6b7280' }}>Please enter your current password to continue to Security Question settings.</div>
+						<div style={{ fontSize: 13, color: '#6b7280' }}>Please enter your current password to continue to Security &amp; Recovery settings.</div>
 					</div>
 					<form onSubmit={handleVerify} style={{ display: 'grid', gap: 10 }}>
 						<div style={{ position: 'relative' }}>
@@ -202,15 +247,16 @@ const SecurityQuestion = () => {
 			<div className="card" style={{ padding: 20, maxWidth: 720, margin: '0 auto' }}>
 				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
 					<div>
-						<h2 style={{ margin: 0 }}>Security Question</h2>
-						<div style={{ fontSize: 13, color: '#6b7280' }}>Save your answer — this will be used to reset the counselor account password.</div>
+						<h2 style={{ margin: 0 }}>Security &amp; Recovery</h2>
+						<div style={{ fontSize: 13, color: '#6b7280' }}>Manage your security question and Gmail recovery settings for password reset.</div>
 					</div>
 					<div />
 				</div>
 
 				<div style={{ display: 'grid', gap: 14 }}>
+					{/* ── Security Question ── */}
+					<div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Security Question</div>
 					<div style={{ display: 'grid', gap: 8 }}>
-						<div style={{ fontWeight: 700 }}>Choose a question</div>
 						<div style={{ display: 'grid', gap: 8 }}>
 							{PRESET.map(p => (
 								<label
@@ -250,6 +296,35 @@ const SecurityQuestion = () => {
 							</div>
 						</form>
 					)}
+
+					{/* ── Gmail Recovery Email ── */}
+					<div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 20, marginTop: 4 }}>
+						<div style={{ marginBottom: 12 }}>
+							<div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Gmail Recovery Email</div>
+						</div>
+
+						<form onSubmit={handleSaveGmail} style={{ display: 'grid', gap: 10 }}>
+							<div>
+								<label style={{ display: 'block', fontSize: 13, marginBottom: 6, fontWeight: 600 }}>Recovery Email Address</label>
+								<input
+									className="form-input"
+									type="email"
+									value={recoveryEmailInput}
+									onChange={(e) => { setRecoveryEmailInput(e.target.value); setGmailFeedback(null); }}
+									placeholder="e.g. counselor@gmail.com"
+								/>
+								{recoveryEmail && recoveryEmailInput !== recoveryEmail && (
+									<div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Current: {recoveryEmail}</div>
+								)}
+							</div>
+							<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+								<button className="btn btn-primary" type="submit" disabled={savingGmail} style={{ whiteSpace: 'nowrap' }}>{savingGmail ? 'Saving...' : 'Save Recovery Email'}</button>
+								{gmailFeedback && (
+									<div className={`alert ${gmailFeedback.ok ? 'alert-success' : 'alert-error'}`} style={{ margin: 0 }}>{gmailFeedback.text}</div>
+								)}
+							</div>
+						</form>
+					</div>
 				</div>
 			</div>
 		</div>

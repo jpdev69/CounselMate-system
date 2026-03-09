@@ -21,7 +21,7 @@ const Layout = ({ children }) => {
     { name: 'Student Manual', href: '/student-manual', icon: BookOpen },
     { name: 'Admin Panel', href: '/admin', icon: Settings },
     { name: 'Change Password', href: '/change-password', icon: Key },
-    { name: 'Security Question', href: '/security-question', icon: User },
+    { name: 'Security & Recovery', href: '/security-question', icon: User },
   ];
 
   return (

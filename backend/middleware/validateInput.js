@@ -117,6 +117,13 @@ module.exports = (req, res, next) => {
       }
     }
 
+    // Allow email addresses for gmail-settings
+    // Endpoint: PUT /api/auth/me/gmail-settings
+    const gmailSettingsMatch = req.path && req.path.match(/^\/api\/auth\/me\/gmail-settings$/);
+    if (gmailSettingsMatch && String(req.method).toUpperCase() === 'PUT') {
+      overrides.set('body.recoveryEmail', 128);
+    }
+
     // Allow longer fields when saving extracted violations
     // Endpoint: POST /api/admin/violations/save
     const violationsSaveMatch = req.path && req.path.match(/^\/api\/admin\/violations\/save$/);

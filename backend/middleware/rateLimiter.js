@@ -7,7 +7,10 @@ const DEFAULT_ESCALATIONS = {
   login: [3,5,7,9,12,15],
   'forgot-verify': [3,5,7,9,12,15],
   'forgot-reset': [3,5,7,9,12,15],
-  'me-security-question': [3,5,7,9,12,15]
+  'me-security-question': [3,5,7,9,12,15],
+  'forgot-otp-send': [3,5,7,9,12,15],
+  'forgot-otp-verify': [3,5,7,9,12,15],
+  'forgot-otp-reset': [3,5,7,9,12,15]
 };
 
 // Read a global fallback escalation list if present
