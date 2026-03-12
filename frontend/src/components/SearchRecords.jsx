@@ -989,6 +989,9 @@ const SearchRecords = () => {
                 <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>YEAR &amp; SECTION</div>
                 <div style={{ fontSize: '15px', color: '#111827' }}>{[selectedReport.year, selectedReport.section].filter(Boolean).join(' - ') || '-'}</div>
               </div>
+              <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
+                {/* Empty cell to complete the grid */}
+              </div>
             </div>
 
             {/* Content sections */}

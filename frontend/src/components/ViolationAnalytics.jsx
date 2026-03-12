@@ -33,9 +33,9 @@ const ViolationAnalytics = () => {
     const student = violations[idx];
     if (!student) return;
     const maxViolations = Math.max(...violations.slice(0, 10).map(s => parseInt(s.violation_count)));
-    const barHeight = (parseInt(student.violation_count) / maxViolations) * 120;
+    const barHeight = (parseInt(student.violation_count) / maxViolations) * 140;
     const x = 15 + idx * 25;
-    const y = 140 - barHeight;
+    const y = 170 - barHeight;
     const svgRect = violatorSvgRef.current.getBoundingClientRect();
     const containerRect = violatorVizRef.current.getBoundingClientRect();
     let left = svgRect.left + x + 10 - containerRect.left;
@@ -111,7 +111,7 @@ const ViolationAnalytics = () => {
   const courseColors = (courses || []).map((_, idx) => `hsl(${idx * 80}, 85%, 55%)`);
   const courseTotal = (courses || []).reduce((sum, course) => sum + (parseInt(course.violation_count, 10) || 0), 0);
   const circumference = 2 * Math.PI * 60;
-  const courseSegments = (courses || []).slice(0, 6).reduce((acc, course, idx) => {
+  const courseSegments = (courses || []).reduce((acc, course, idx) => {
     const value = parseInt(course.violation_count, 10) || 0;
     const dash = courseTotal > 0 ? (value / courseTotal) * circumference : 0;
     const segment = {
@@ -144,7 +144,7 @@ const ViolationAnalytics = () => {
           </div>
           <div className="metric-content">
             <div className="metric-value">{totalViolations}</div>
-            <div className="metric-label">Total Violations</div>
+            <div className="metric-label">Total {totalViolations === 1 ? 'Violation' : 'Violations'}</div>
           </div>
         </div>
         
@@ -154,7 +154,7 @@ const ViolationAnalytics = () => {
           </div>
           <div className="metric-content">
             <div className="metric-value">{summary?.students_with_violations || 0}</div>
-            <div className="metric-label">Students with Violations</div>
+            <div className="metric-label">Student{summary?.students_with_violations === 1 ? '' : 's'} with Violations</div>
           </div>
         </div>
         
@@ -163,7 +163,7 @@ const ViolationAnalytics = () => {
             <TrendingUp size={24} />
           </div>
           <div className="metric-content">
-            <div className="metric-value">{summary?.most_common_violation?.description?.length > 20 ? summary.most_common_violation.description.substring(0, 20) + '...' : summary?.most_common_violation?.description || 'N/A'}</div>
+            <div className="metric-value">{summary?.most_common_violation?.description?.length > 50 ? summary.most_common_violation.description.substring(0, 50) + '...' : summary?.most_common_violation?.description || 'N/A'}</div>
             <div className="metric-label">Most Common Violation</div>
           </div>
         </div>
@@ -178,12 +178,12 @@ const ViolationAnalytics = () => {
             <h3>Top Violators</h3>
           </div>
           <div className="viz-content" ref={violatorVizRef}>
-            <svg ref={violatorSvgRef} className="compact-bar-chart" viewBox="0 0 250 160">
+            <svg ref={violatorSvgRef} className="compact-bar-chart" viewBox="0 0 250 200">
               {topViolators.map((student, idx) => {
                 const maxViolations = Math.max(...topViolators.map(s => parseInt(s.violation_count)));
-                const barHeight = (parseInt(student.violation_count) / maxViolations) * 120;
+                const barHeight = (parseInt(student.violation_count) / maxViolations) * 140;
                 const x = 15 + idx * 25;
-                const y = 140 - barHeight;
+                const y = 170 - barHeight;
                 const isHovered = hoveredBar === idx;
                 return (
                   <g key={idx} 
@@ -194,7 +194,7 @@ const ViolationAnalytics = () => {
                       rx={2}
                       style={{ transition: 'all 0.2s ease' }}
                     />
-                    <text x={x + 10} y="155" textAnchor="middle" fontSize="9" fill="#666">
+                    <text x={x + 10} y="190" textAnchor="middle" fontSize="9" fill="#666">
                       {idx + 1}
                     </text>
                   </g>
@@ -204,11 +204,11 @@ const ViolationAnalytics = () => {
             {violatorTooltip.visible && (
               <div className="compact-tooltip" style={{ left: `${violatorTooltip.left}px`, top: `${violatorTooltip.top}px` }}>
                 <div className="tooltip-name">{violatorTooltip.name}</div>
-                <div className="tooltip-count">{violatorTooltip.count} violations</div>
+                <div className="tooltip-count">{violatorTooltip.count} {parseInt(violatorTooltip.count) === 1 ? 'violation' : 'violations'}</div>
               </div>
             )}
             <div className="compact-legend">
-              {topViolators.slice(0, 4).map((student, idx) => (
+              {topViolators.map((student, idx) => (
                 <div key={idx} className="legend-item-small">
                   <span className="legend-dot-small" style={{ backgroundColor: violatorColors[idx] }}></span>
                   <span className="legend-text">{student.full_name.split(' ')[0]} ({student.violation_count})</span>
@@ -226,33 +226,45 @@ const ViolationAnalytics = () => {
           </div>
           <div className="viz-content">
             <svg className="compact-pie-chart" viewBox="0 0 200 200">
-              {courseSegments.map((segment, idx) => {
-                const isActive = hoveredCourse === idx;
-                return (
-                  <circle
-                    key={idx}
-                    cx="100"
-                    cy="100"
-                    r="60"
-                    fill="none"
-                    stroke={segment.color}
-                    strokeWidth={isActive ? 50 : 40}
-                    strokeDasharray={`${segment.dash} ${circumference}`}
-                    strokeDashoffset={segment.offset}
-                    opacity={isActive ? 1 : 0.85}
-                    onMouseEnter={() => setHoveredCourse(idx)}
-                    onMouseLeave={() => setHoveredCourse(null)}
-                    style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
-                  />
-                );
-              })}
+              {courseSegments.length > 0 && courseTotal > 0 ? (
+                courseSegments.map((segment, idx) => {
+                  const isActive = hoveredCourse === idx;
+                  return (
+                    <circle
+                      key={idx}
+                      cx="100"
+                      cy="100"
+                      r="60"
+                      fill="none"
+                      stroke={segment.color}
+                      strokeWidth={isActive ? 50 : 40}
+                      strokeDasharray={`${segment.dash} ${circumference}`}
+                      strokeDashoffset={segment.offset}
+                      opacity={isActive ? 1 : 0.85}
+                      onMouseEnter={() => setHoveredCourse(idx)}
+                      onMouseLeave={() => setHoveredCourse(null)}
+                      style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                    />
+                  );
+                })
+              ) : (
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="60"
+                  fill="none"
+                  stroke="#e2e8f0"
+                  strokeWidth="40"
+                  opacity="0.5"
+                />
+              )}
               {hoveredCourseData ? (
                 <>
                   <text x="100" y="95" textAnchor="middle" fontSize="12" fontWeight="600" fill="#333">
-                    {hoveredCourseData.course.length > 15 ? hoveredCourseData.course.substring(0, 15) + '...' : hoveredCourseData.course}
+                    {hoveredCourseData.code || hoveredCourseData.course}
                   </text>
                   <text x="100" y="110" textAnchor="middle" fontSize="11" fill="#666">
-                    {hoveredCourseData.violation_count} violations
+                    {hoveredCourseData.violation_count} {parseInt(hoveredCourseData.violation_count) === 1 ? 'violation' : 'violations'}
                   </text>
                 </>
               ) : (
@@ -267,10 +279,10 @@ const ViolationAnalytics = () => {
               )}
             </svg>
             <div className="compact-legend">
-              {courseSegments.slice(0, 3).map((segment, idx) => (
+              {courseSegments.map((segment, idx) => (
                 <div key={idx} className="legend-item-small">
                   <span className="legend-dot-small" style={{ backgroundColor: segment.color }}></span>
-                  <span className="legend-text">{segment.course} ({segment.violation_count})</span>
+                  <span className="legend-text">{segment.code || segment.course} ({segment.violation_count})</span>
                 </div>
               ))}
             </div>

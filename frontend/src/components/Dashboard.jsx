@@ -1,178 +1,133 @@
 // src/components/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// getAdmissionSlips handled by SlipsContext
-import { FileText, CheckCircle, Clock, Users, TrendingUp } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import '../App.css';
+import ViolationAnalytics from './ViolationAnalytics';
 import { useSlips } from '../contexts/SlipsContext';
 
 const Dashboard = () => {
-  const { slips, loadSlips } = useSlips();
-
-  const [stats, setStats] = useState({
-    total: 0,
-    issued: 0,
-    formCompleted: 0,
-    approved: 0
-  });
-
-  useEffect(() => {
-    // ensure context has loaded slips
-    if (!slips || slips.length === 0) loadSlips();
-  }, []);
-
-  useEffect(() => {
-    const slipsData = slips || [];
-    setStats({
-      total: slipsData.length,
-      issued: slipsData.filter(s => s.status === 'issued').length,
-      formCompleted: slipsData.filter(s => s.status === 'form_completed').length,
-      approved: slipsData.filter(s => s.status === 'approved').length
-    });
-  }, [slips]);
-
-  // Limit the recent slips shown on the dashboard to 4 items
-  const recentSlips = slips.slice(0, 4);
-
-  const handleSlipClick = (slip) => {
-    // If the slip has been completed (awaiting review), open Complete Form
-    if (slip.status === 'form_completed') {
-      navigate(`/complete-form?slipId=${slip.id}`);
-      return;
-    }
-
-    // If the slip is approved, go to search (read-only historical view)
-    if (slip.status === 'approved') {
-      navigate(`/search?slipId=${slip.id}`);
-      return;
-    }
-
-    // Default: for issued or other statuses, route to complete-form
-    navigate(`/complete-form?slipId=${slip.id}`);
-  };
-
-  const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
-    <div
-      className="stat-card"
-      onClick={onClick}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={(e) => { if (onClick && (e.key === 'Enter' || e.key === ' ')) onClick(); }}
-      style={onClick ? { cursor: 'pointer' } : undefined}
-    >
-      <div className="stat-content">
-        <div className={`stat-icon stat-icon-${color}`}>
-          <Icon className="stat-icon-svg" />
-        </div>
-        <div className="stat-text">
-          <p className="stat-title">{title}</p>
-          <p className="stat-value">{value}</p>
-        </div>
-      </div>
-    </div>
-  );
-
+  const { slips } = useSlips();
+  const [recentViolations, setRecentViolations] = useState([]);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (slips && slips.length > 0) {
+      // Get recent violations with status that indicates active/recent activity
+      const recent = slips
+        .filter(slip => slip.status === 'issued' || slip.status === 'form_completed')
+        .slice(0, 10)
+        .map(slip => ({
+          id: slip.id,
+          studentName: slip.student_name,
+          violation: slip.violation_description || 'Policy Violation',
+          time: slip.created_at ? new Date(slip.created_at).toLocaleString() : 'Unknown',
+          status: slip.status?.replace('_', ' ').toUpperCase()
+        }));
+      setRecentViolations(recent);
+    }
+  }, [slips]);
+
+  const handleTickerClick = (violation) => {
+    // Navigate based on violation status
+    if (violation.status === 'FORM COMPLETED') {
+      navigate(`/complete-form?slipId=${violation.id}`);
+    } else {
+      navigate(`/complete-form?slipId=${violation.id}`);
+    }
+  };
+
   return (
-    <div className="dashboard-container container">
-      <div className="dashboard-header">
-        <h1 className="dashboard-title">Dashboard</h1>
-        <p className="dashboard-subtitle">Web-based Guidance Monitoring and Record-Keeping System</p>
+    <div>
+      {/* Violation Ticker */}
+      <div style={{
+        backgroundColor: '#1e293b',
+        color: '#ffffff',
+        padding: '8px 0',
+        overflow: 'hidden',
+        position: 'relative',
+        borderBottom: '2px solid #006633'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          backgroundColor: '#006633',
+          padding: '0 15px',
+          zIndex: 2,
+          fontWeight: 'bold',
+          fontSize: '14px'
+        }}>
+          LATEST ADMISSION SLIPS
+        </div>
+        <div style={{
+          display: 'flex',
+          animation: 'scroll 30s linear infinite',
+          paddingLeft: '180px', // Space for the label
+          whiteSpace: 'nowrap'
+        }}>
+          {recentViolations.length === 0 ? (
+            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No recent violations reported</span>
+          ) : (
+            // Duplicate the list for seamless scrolling
+            [...recentViolations, ...recentViolations].map((violation, index) => (
+              <span 
+                key={index} 
+                style={{
+                  marginRight: '50px',
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '15px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease',
+                  padding: '4px 8px',
+                  borderRadius: '4px'
+                }}
+                onClick={() => handleTickerClick(violation)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                title={`Click to view ${violation.studentName}'s violation details`}
+              >
+                <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>{violation.studentName}</span>
+                <span>{violation.violation}</span>
+                <span style={{ color: '#94a3b8', fontSize: '12px' }}>{violation.time}</span>
+                <span style={{
+                  backgroundColor: violation.status === 'ISSUED' ? '#f59e0b' : '#3b82f6',
+                  color: '#ffffff',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '11px',
+                  fontWeight: 'bold'
+                }}>
+                  {violation.status}
+                </span>
+              </span>
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Statistics */}
-      <div className="stats-grid">
-        <StatCard
-          title="Total Slips"
-          value={stats.total}
-          icon={FileText}
-          color="blue"
-          onClick={() => navigate('/search')}
-        />
-        <StatCard
-          title="Awaiting Forms"
-          value={stats.issued}
-          icon={Clock}
-          color="yellow"
-          onClick={() => navigate('/complete-form')}
-        />
-        <StatCard
-          title="Pending Review"
-          value={stats.formCompleted}
-          icon={Users}
-          color="blue"
-          onClick={() => navigate('/complete-form')}
-        />
-        <StatCard
-          title="Approved"
-          value={stats.approved}
-          icon={CheckCircle}
-          color="green"
-          onClick={() => navigate('/search')}
-        />
-      </div>
+      {/* Add CSS animation */}
+      <style>{`
+        @keyframes scroll {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+      `}</style>
 
-      <div className="dashboard-content">
-        {/* Recent Activity */}
-          <div className="dashboard-section card surface">
-          <h2 className="section-title">Recent Admission Slips</h2>
-            <div className="slips-list max-h-64 overflow-y-auto min-h-0 border border-gray-100 rounded-lg">
-              {recentSlips.length === 0 && (
-                <p className="p-4 text-sm text-gray-500">No admission slips found</p>
-              )}
-              {recentSlips.map((slip) => (
-                <div
-                  key={slip.id}
-                  className="slip-item p-3 border-b border-gray-100 flex justify-between items-center"
-                  onClick={() => handleSlipClick(slip)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSlipClick(slip); }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className="slip-info">
-                    <p className="slip-name font-medium text-gray-900">{slip.student_name}</p>
-                    <p className="slip-details text-xs text-gray-600"><span className="text-xs text-gray-500">{slip.slip_number}</span></p>
-                  </div>
-                  <span className={`status-badge status-${slip.status} text-xs`}>
-                    {slip.status?.replace('_', ' ').toUpperCase()}
-                  </span>
-                </div>
-              ))}
-            </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="dashboard-section card surface quick-actions-card">
-          <h2 className="section-title">Quick Actions</h2>
-          <div className="quick-actions">
-            <Link to="/print-slip" className="action-link">
-              <FileText className="action-icon action-icon-blue" />
-              <div className="action-content">
-                <p className="action-title">Print Admission Slip</p>
-                <p className="action-description">Issue a new admission slip for policy violation</p>
-              </div>
-            </Link>
-
-            <Link to="/complete-form" className="action-link">
-              <CheckCircle className="action-icon action-icon-green" />
-              <div className="action-content">
-                <p className="action-title">Complete Forms</p>
-                <p className="action-description">Process returned admission slips</p>
-              </div>
-            </Link>
-
-            <Link to="/search" className="action-link">
-              <TrendingUp className="action-icon action-icon-purple" />
-              <div className="action-content">
-                <p className="action-title">Search Records</p>
-                <p className="action-description">View historical records and analytics</p>
-              </div>
-            </Link>
-          </div>
-        </div>
+      {/* Original Dashboard Content */}
+      <div style={{ padding: '20px' }}>
+        <ViolationAnalytics />
       </div>
     </div>
   );
