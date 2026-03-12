@@ -3,7 +3,34 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getViolationTypes, validateViolation } from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
-import { FileText, CheckCircle, Search, Filter, Trash2 } from 'lucide-react';
+import { FileText, CheckCircle, Search, Filter, Trash2, Calendar } from 'lucide-react';
+import '../App-table-update.css';
+
+// ── Sort helper component ─────────────────────────────────────────────
+const SortHeader = ({ colKey, label, sortCol, sortDir, onSort, className }) => {
+  const active = sortCol === colKey;
+  return (
+    <th
+      className={className}
+      data-sort-active={active ? 'true' : 'false'}
+      data-sort-dir={active ? sortDir : 'none'}
+    >
+      <button className="sort-btn" onClick={() => onSort(colKey)}>
+        <span>{label}</span>
+        <span className="sort-icon">
+          <span
+            className="arr-up"
+            style={{ opacity: active && sortDir === 'asc' ? 1 : 0.3 }}
+          />
+          <span
+            className="arr-down"
+            style={{ opacity: active && sortDir === 'desc' ? 1 : 0.3 }}
+          />
+        </span>
+      </button>
+    </th>
+  );
+};
 
 const CompleteForm = () => {
   const { slips, loadSlips, completeSlip, approveSlip: approveSlipApi, updateSlipInState, deleteSlip } = useSlips();
@@ -11,7 +38,9 @@ const CompleteForm = () => {
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState('newest');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [formData, setFormData] = useState({
     violationTypeId: '',
     description: '',
@@ -22,6 +51,18 @@ const CompleteForm = () => {
   const [validationError, setValidationError] = useState(null);
   const [proceedWithError, setProceedWithError] = useState(false);
   const formRef = useRef(null);
+  // Column sort state
+  const [sortCol, setSortCol] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
+
+  const handleColSort = (col) => {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -54,29 +95,50 @@ const CompleteForm = () => {
   // Exclude already approved slips from being selectable for completion
   const filteredSlips = slips
     .filter(slip => slip.status !== 'approved')
+    .filter(slip => statusFilter === 'all' || slip.status === statusFilter)
     .filter(slip =>
       slip.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       slip.slip_number?.toLowerCase().includes(searchTerm.toLowerCase())
     )
+    .filter(slip => {
+      if (!startDate && !endDate) return true;
+      if (!slip.created_at) return false;
+      const slipDateObj = new Date(slip.created_at);
+      slipDateObj.setHours(0, 0, 0, 0);
+
+      const isAfterStart = !startDate || slipDateObj >= new Date(new Date(startDate).setHours(0,0,0,0));
+      const isBeforeEnd = !endDate || slipDateObj <= new Date(new Date(endDate).setHours(23,59,59,999));
+      
+      return isAfterStart && isBeforeEnd;
+    })
     .sort((a, b) => {
-      const parseTime = (slip, mode) => {
-        const dateStr = mode === 'newest' ? (slip.updated_at || slip.created_at) : slip.created_at;
-        const t = new Date(dateStr).getTime();
-        return Number.isFinite(t) ? t : 0;
-      };
-
-      if (sortOrder === 'newest') {
-        const tA = parseTime(a, 'newest');
-        const tB = parseTime(b, 'newest');
-        return tB - tA; // most recently updated first
+      const dir = sortDir === 'asc' ? 1 : -1;
+      switch (sortCol) {
+        case 'name': return dir * (a.student_name || '').localeCompare(b.student_name || '');
+        case 'status': return dir * (a.status || '').localeCompare(b.status || '');
+        case 'violation': return dir * (a.violation_description || '').localeCompare(b.violation_description || '');
+        case 'section': return dir * (`${a.year} ${a.section}` || '').localeCompare(`${b.year} ${b.section}` || '');
+        case 'issued': {
+          const tA = new Date(a.created_at).getTime() || 0;
+          const tB = new Date(b.created_at).getTime() || 0;
+          return dir * (tA - tB);
+        }
+        case 'updated': {
+          // If no updated_at exists, fall back to created_at
+          const tA = new Date(a.updated_at || a.created_at).getTime() || 0;
+          const tB = new Date(b.updated_at || b.created_at).getTime() || 0;
+          return dir * (tA - tB);
+        }
+        case 'date':
+        default: {
+          const tA = new Date(a.created_at).getTime() || 0;
+          const tB = new Date(b.created_at).getTime() || 0;
+          return dir * (tA - tB);
+        }
       }
-
-      const tA = parseTime(a, 'oldest');
-      const tB = parseTime(b, 'oldest');
-      return tA - tB; // oldest issued first
     });
 
-    
+
 
   const handleSelectSlip = (slip) => {
     console.log('📝 Selected slip:', slip);
@@ -112,7 +174,7 @@ const CompleteForm = () => {
     setLoading(true);
     try {
       console.log('🔍 Validating violation description matches violation type...');
-      
+
       // First, validate that the description matches the violation type
       const validationResponse = await validateViolation({
         violation_type_id: parseInt(formData.violationTypeId),
@@ -120,7 +182,7 @@ const CompleteForm = () => {
       });
 
       const validationResult = validationResponse.data?.validation;
-      
+
       // If validation fails and user hasn't chosen to proceed anyway, show error
       if (!validationResult?.matches && !proceedWithError) {
         // Violation doesn't match - display error below the field
@@ -130,7 +192,7 @@ const CompleteForm = () => {
         console.log('❌ Form completion suspended due to validation failure');
         return;
       }
-      
+
       if (validationResult?.matches) {
         console.log('✅ Violation description validation passed');
         setValidationError(null);
@@ -166,7 +228,7 @@ const CompleteForm = () => {
       setIsModalOpen(false);
     } catch (error) {
       console.error('❌ COMPLETE FORM ERROR:', error);
-      
+
       // If the endpoint doesn't exist, use a fallback
       if (error.response?.status === 404) {
         console.log('🔧 Endpoint not found, using fallback...');
@@ -185,7 +247,7 @@ const CompleteForm = () => {
   const handleSubmitFallback = async () => {
     try {
       console.log('🔄 Using fallback - updating local state only');
-      
+
       // Update local state to simulate success
       const updatedSlip = {
         ...(selectedSlip || {}),
@@ -202,7 +264,7 @@ const CompleteForm = () => {
       if (updateSlipInState) updateSlipInState(updatedSlip);
       setSelectedSlip(null);
       setFormData({ violationTypeId: '', description: '', remarks: '', course: '' });
-      
+
       alert('Form completed successfully! (Local update - backend endpoint not available)');
     } catch (fallbackError) {
       console.error('❌ Fallback also failed:', fallbackError);
@@ -211,7 +273,7 @@ const CompleteForm = () => {
     }
   };
 
-  
+
 
   const handleApprove = async (slipId) => {
     if (!confirm('Are you sure you want to approve this slip?')) return;
@@ -270,7 +332,7 @@ const CompleteForm = () => {
   const getStatusDisplay = (status) => {
     const statusMap = {
       'issued': 'ISSUED',
-      'form_completed': 'FORM COMPLETED', 
+      'form_completed': 'FORM COMPLETED',
       'approved': 'APPROVED'
     };
     return statusMap[status] || status?.toUpperCase() || 'UNKNOWN';
@@ -300,12 +362,12 @@ const CompleteForm = () => {
         </p>
 
         {/* Search and Sort */}
-        <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
+        <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '1.5fr 1fr 2fr', gap: '12px' }}>
           <div className="input-with-icon">
             <Search className="icon" />
             <input
               type="text"
-              placeholder="Search by student name or slip number..."
+              placeholder="Search by student or slip..."
               value={searchTerm}
               onChange={(e) => setSearchTerm((e.target.value || '').toString().slice(0, 32))}
               maxLength={32}
@@ -315,13 +377,43 @@ const CompleteForm = () => {
           <div className="input-with-icon">
             <Filter className="icon" />
             <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
               className="form-input"
             >
-              <option value="newest">Most Recently Updated</option>
-              <option value="oldest">Oldest Issued</option>
+              <option value="all">All Status</option>
+              <option value="issued">Issued</option>
+              <option value="form_completed">Form Completed</option>
             </select>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', border: '1px solid #ced4da', borderRadius: '4px', paddingLeft: '12px' }}>
+            <Calendar className="icon" style={{ color: '#6c757d', width: '16px', height: '16px' }} />
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: 500 }}>From:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="form-input"
+                style={{ border: 'none', background: 'transparent', padding: '6px' }}
+                title="Start Date"
+              />
+            </div>
+
+            <div style={{ width: '1px', height: '24px', backgroundColor: '#e9ecef' }}></div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: 500 }}>To:</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="form-input"
+                style={{ border: 'none', background: 'transparent', padding: '6px', borderRadius: 0 }}
+                title="End Date"
+              />
+            </div>
           </div>
         </div>
 
@@ -329,23 +421,24 @@ const CompleteForm = () => {
           {/* Slip List */}
           <div>
             <h2 className="text-lg font-semibold mb-4">Issued Admission Slips</h2>
-              <div className="records-table-container" style={{ overflowX: 'auto' }}>
-                <div className="records-table-scroll">
-                  <table className="records-table">
+            <div className="records-table-container" style={{ overflowX: 'auto' }}>
+              <div className="records-table-scroll">
+                <table className="records-table">
                   <thead>
                     <tr>
-                      <th>Student & Slip Info</th>
-                      <th>Status</th>
-                      <th>Violation</th>
-                      <th>Year & Section</th>
-                      <th>Date &amp; Time</th>
-                      <th></th>
+                      <SortHeader colKey="name" label="Student & Slip Info" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-name" />
+                      <SortHeader colKey="status" label="Status" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-status" />
+                      <SortHeader colKey="violation" label="Violation" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-violation" />
+                      <SortHeader colKey="section" label="Year & Section" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-section" />
+                      <SortHeader colKey="issued"    label="Issued"               sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-issued" />
+                      <SortHeader colKey="updated"   label="Updated"              sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-updated" />
+                      <th className="col-actions"><button className="sort-btn" style={{ cursor: 'default' }}>Actions</button></th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredSlips.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-8 text-gray-500">
+                        <td colSpan={7} className="text-center py-8 text-gray-500">
                           <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                           <p>No admission slips found</p>
                         </td>
@@ -375,9 +468,14 @@ const CompleteForm = () => {
                           </td>
 
                           <td className="text-xs text-gray-600">
-                            <div className="text-gray-700">Issued: {slip.created_at ? new Date(slip.created_at).toLocaleString() : '-'}</div>
-                            {slip.updated_at && slip.status !== 'issued' && slip.updated_at !== slip.created_at && (
-                              <div className="text-gray-600">Updated: {new Date(slip.updated_at).toLocaleString()}</div>
+                            <div className="text-gray-700">{slip.created_at ? new Date(slip.created_at).toLocaleString() : '-'}</div>
+                          </td>
+
+                          <td className="text-xs text-gray-600">
+                            {slip.updated_at && slip.status !== 'issued' && slip.updated_at !== slip.created_at ? (
+                              <div className="text-gray-700">{new Date(slip.updated_at).toLocaleString()}</div>
+                            ) : (
+                              <div className="text-gray-400">-</div>
                             )}
                           </td>
 
@@ -409,12 +507,12 @@ const CompleteForm = () => {
                       ))
                     )}
                   </tbody>
-                  </table>
-                </div>
+                </table>
               </div>
-              <div className="mt-4 text-sm text-gray-600" style={{ paddingLeft: '4px' }}>
-                <p>Showing {filteredSlips.length} of {slips.length} total records</p>
-              </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-600" style={{ paddingLeft: '4px' }}>
+              <p>Showing {filteredSlips.length} of {slips.length} total records</p>
+            </div>
           </div>
 
           {isModalOpen && selectedSlip && (
@@ -424,9 +522,9 @@ const CompleteForm = () => {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedSlip.student_name}</h3>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
-                        <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
-                      </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                      <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(selectedSlip.status)}`}>
@@ -642,7 +740,7 @@ const CompleteForm = () => {
               </div>
             </div>
           )}
-          
+
         </div>
       </div>
     </div>

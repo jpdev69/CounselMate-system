@@ -1,34 +1,162 @@
-/* Updated table styles - auto-sizing without resizers */
+/* App-table-update.css - Enhanced table styles: visible borders, fixed sizing, sortable headers */
 
+/* Table wrapper */
 .records-table-container {
   width: 100%;
   overflow-x: auto;
+  border: 2px solid #6c757d;
+  border-radius: 0;
 }
 
+/* Scroll area */
+.records-table-scroll {
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+/* Core table */
 .records-table {
   width: 100%;
-  border-collapse: separate;
+  border-collapse: collapse;
   border-spacing: 0;
-  table-layout: auto;
-  white-space: nowrap;
+  table-layout: fixed;
+  font-size: 14px;
+  font-family: var(--font-sans);
+}
+
+/* All cells get borders on every side */
+.records-table th,
+.records-table td {
+  border: 1px solid #adb5bd;
+  padding: 0;
+  vertical-align: top;
+  box-sizing: border-box;
+}
+
+/* Regular td inner padding */
+.records-table td {
+  padding: 10px 12px;
+}
+
+/* Header row */
+.records-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .records-table thead th {
-  background: #f3f4f6;
-  padding: 12px 16px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 0.95rem;
-  border-bottom: 1px solid #e5e7eb;
+  background-color: #343a40;
+  color: #ffffff;
+  border-color: #495057;
+  border-right: 1px solid #6c757d;
+  position: sticky;
+  top: 0;
+  background-clip: padding-box; /* Fixes text bleeding through borders on scroll */
+  height: 1px; /* Forces height: 100% on child buttons to expand fully */
+}
+
+.records-table thead th:last-child {
+  border-right: 1px solid #495057;
+}
+
+/* Body rows – strong horizontal dividers */
+.records-table tbody tr {
+  background-color: #ffffff;
 }
 
 .records-table tbody td {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
+  border-bottom: 2px solid #ced4da;
 }
 
-/* Make rows highlightable */
-.records-table tbody tr:hover {
-  background-color: #fbfdff;
+.records-table tbody tr:nth-child(even) {
+  background-color: #f1f3f5; /* Darkened slightly to make the pattern more visible */
 }
+
+.records-table tbody tr:hover {
+  background-color: #e8f5e9;
+  cursor: pointer;
+}
+
+/* Active / selected row */
+.records-table tbody tr.row-selected {
+  background-color: #d1f0da;
+  border-left: 3px solid #006633;
+}
+
+/* Column sizing helpers */
+.col-name      { width: 26%; }
+.col-status    { width: 12%; }
+.col-violation { width: 18%; }
+.col-section   { width: 12%; }
+.col-issued    { width: 11%; }
+.col-updated   { width: 11%; }
+.col-actions   { width: 10%; }
+.col-count     { width: 18%; }
+
+/* ─── Sortable column header button ─────────────────────────────────── */
+.sort-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  white-space: normal;
+  text-align: left;
+  transition: background-color 0.15s;
+}
+
+.sort-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sort-btn:focus-visible {
+  outline: 2px solid #facc15;
+  outline-offset: -2px;
+}
+
+/* Sort arrow indicator using CSS triangles */
+.sort-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  user-select: none;
+}
+
+.sort-icon .arr-up,
+.sort-icon .arr-down {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  display: block;
+}
+
+.sort-icon .arr-up  { border-bottom: 5px solid currentColor; }
+.sort-icon .arr-down{ border-top:    5px solid currentColor; }
+
+/* Active sort column */
+th[data-sort-active="true"] .sort-btn {
+  background-color: rgba(250, 204, 21, 0.12);
+}
+th[data-sort-active="true"] .sort-icon {
+  opacity: 1;
+  color: #facc15;
+}
+th[data-sort-active="true"][data-sort-dir="asc"]  .sort-icon .arr-down { opacity: 0.25; }
+th[data-sort-active="true"][data-sort-dir="desc"] .sort-icon .arr-up   { opacity: 0.25; }

@@ -6,6 +6,27 @@ import { getStudentAdmissionSlips, getStudentReports, resolveStudentReport, dele
 import api from '../services/api';
 import * as XLSX from 'xlsx';
 import { Search, FileText, User, Calendar, CheckCircle, Trash2 } from 'lucide-react';
+import '../App-table-update.css';
+
+// ── Sort helper component ─────────────────────────────────────────────
+const SortHeader = ({ colKey, label, sortCol, sortDir, onSort, className }) => {
+  const active = sortCol === colKey;
+  return (
+    <th
+      className={className}
+      data-sort-active={active ? 'true' : 'false'}
+      data-sort-dir={active ? sortDir : 'none'}
+    >
+      <button className="sort-btn" onClick={() => onSort(colKey)}>
+        <span>{label}</span>
+        <span className="sort-icon">
+          <span className="arr-up"  style={{ opacity: active && sortDir === 'asc'  ? 1 : 0.3 }} />
+          <span className="arr-down" style={{ opacity: active && sortDir === 'desc' ? 1 : 0.3 }} />
+        </span>
+      </button>
+    </th>
+  );
+};
 
 const SearchRecords = () => {
   const { slips, loadSlips, approveSlip: approveSlipApi, updateSlipInState } = useSlips();
@@ -28,6 +49,18 @@ const SearchRecords = () => {
   const [groupStatusFilter, setGroupStatusFilter] = useState('all');
   const [groupDateFilter, setGroupDateFilter] = useState('');
   const [groupSortOrder, setGroupSortOrder] = useState('newest');
+
+  // Column sort state for the student list table
+  const [sortCol, setSortCol] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleColSort = (col) => {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  };
 
   // Student reports (violation reports, no admission slip)
   const [allReports, setAllReports] = useState([]);
@@ -370,7 +403,14 @@ const SearchRecords = () => {
     }
   });
   const mergedGroupedList = Object.values(mergedGroupsMap);
-  if (numberSort === 'highest') {
+  // Column-click sort takes precedence; fall back to numberSort dropdown
+  if (sortCol === 'count') {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    mergedGroupedList.sort((a, b) => dir * ((a.count + a.reports.length) - (b.count + b.reports.length)));
+  } else if (sortCol === 'name') {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    mergedGroupedList.sort((a, b) => dir * (a.student_name || '').localeCompare(b.student_name || ''));
+  } else if (numberSort === 'highest') {
     mergedGroupedList.sort((a, b) => (b.count + b.reports.length) - (a.count + a.reports.length));
   } else if (numberSort === 'lowest') {
     mergedGroupedList.sort((a, b) => (a.count + a.reports.length) - (b.count + b.reports.length));
@@ -447,8 +487,8 @@ const SearchRecords = () => {
               <table className="records-table">
               <thead>
                 <tr>
-                  <th>Student Name</th>
-                  <th style={{ width: 140, textAlign: 'center' }}>Number of Records</th>
+                  <SortHeader colKey="name"  label="Student Name"       sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-name" />
+                  <SortHeader colKey="count" label="Number of Records"  sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-count" />
                 </tr>
               </thead>
 

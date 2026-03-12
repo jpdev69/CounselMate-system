@@ -10,6 +10,7 @@ const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
@@ -24,63 +25,94 @@ const Layout = ({ children }) => {
     { name: 'Security & Recovery', href: '/security-question', icon: User },
   ];
 
+  const handleSidebarToggle = () => {
+    if (window.innerWidth <= 768) {
+      setMobileOpen(!mobileOpen);
+    } else {
+      setCollapsed(!collapsed);
+    }
+  };
+
   return (
     <div className="layout">
-      {/* Sidebar */}
-      <div className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
-        <div className="sidebar-header">
+      {/* Top Header Navigation */}
+      <header className="top-header">
+        <div className="top-header-left">
           <button
             className="sidebar-toggle"
-            onClick={() => setCollapsed((c) => !c)}
+            onClick={handleSidebarToggle}
             aria-label="Toggle sidebar"
           >
-            <Menu />
+            <Menu size={20} />
           </button>
-          <img src="/GuidanceOS-system-logo.png" alt="GuidanceOS" className="sidebar-logo" style={{ height: '32px', objectFit: 'contain', flexShrink: 0 }} />
-          <span className="sidebar-title">GuidanceOS</span>
+          <img src="/GuidanceOS-system-logo.png" alt="ISU Logo" className="top-header-logo" />
+          <h1 className="top-header-title">GuidanceOS - Isabela State University</h1>
         </div>
         
-        <nav className="sidebar-nav">
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={`nav-item ${isActive ? 'nav-item-active' : ''}`}
-              >
-                <Icon className="nav-icon" />
-                <span className="nav-text">{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* User info and logout */}
-        <div className="sidebar-footer">
-          <div className="user-info">
-            <div className="user-avatar">
-              <User className="user-icon" />
+        <div className="top-header-right">
+          <div className="user-profile">
+            <div className="user-avatar-icon">
+              <User size={16} />
             </div>
-            <div className="user-details">
-              <p className="user-name">University Counselor</p>
-            </div>
-            <button
-              onClick={logout}
-              className="btn btn-ghost logout-btn"
-              title="Logout"
-            >
-              <LogOut className="logout-icon" />
-            </button>
+            <span className="user-name">University Counselor</span>
           </div>
+          <button
+            onClick={logout}
+            className="logout-btn-header"
+            title="Logout"
+          >
+            <LogOut size={16} />
+            <span className="logout-text">Logout</span>
+          </button>
         </div>
-      </div>
+      </header>
+      
+      {/* Main Layout Body */}
+      <div className="layout-body">
+        {/* Sidebar */}
+        <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
+          <nav className="sidebar-nav">
+            {navigation.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`nav-item ${isActive ? 'nav-item-active' : ''}`}
+                  onClick={() => {
+                    if (window.innerWidth <= 768) {
+                      setMobileOpen(false);
+                    }
+                  }}
+                >
+                  <Icon className="nav-icon" />
+                  <span className="nav-text">{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </aside>
 
-      {/* Main content */}
-      <div className="main-content">
-        <main className="main-container">{children}</main>
+        {/* Main content */}
+        <main className="main-content">
+          <div className="main-container">
+            {children}
+          </div>
+        </main>
       </div>
+      
+      {/* Overlay for mobile when sidebar is open */}
+      {mobileOpen && (
+        <div 
+          className="sidebar-overlay" 
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 800
+          }}
+        ></div>
+      )}
     </div>
   );
 };

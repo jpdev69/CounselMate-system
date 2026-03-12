@@ -180,10 +180,27 @@ app.get('/api/health', (req, res) => {
 const { precheckRateLimit, recordFailedAttempt, clearAttempts } = require('./middleware/rateLimiter');
 
 // Login endpoint
+
 app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
   const { email, password } = req.body;
 
   try {
+
+    // Require both email and password fields
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required.'
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        error: 'password is required.'
+      });
+    }
+
     // Only allow counselor@university.edu
     if (email !== 'counselor@university.edu') {
       // Record failed login for invalid email

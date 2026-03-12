@@ -21,9 +21,18 @@ const Login = () => {
     setError('');
 
     // Client-side validation (disable native browser validation via form noValidate)
-    if (!email || !password) {
-      // Keep message generic to avoid revealing which field is missing
-      setError('Invalid email or password. Please check your credentials and try again.');
+    if (!email && !password) {
+      setError('Email and password is required.');
+      return;
+    }
+
+    if (!email) {
+      setError('Email is required.');
+      return;
+    }
+
+    if (!password) {
+      setError('Password is required.');
       return;
     }
 
