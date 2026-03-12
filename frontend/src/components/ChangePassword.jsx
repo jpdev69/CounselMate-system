@@ -151,9 +151,20 @@ const ChangePassword = () => {
   return (
     <div className="container" style={{ maxWidth: '500px' }}>
       <div className="card" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-          <div className="icon-container" style={{ width: '48px', height: '48px', marginRight: '12px' }}>
-            <Key style={{ width: '24px', height: '24px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="icon-container" style={{ 
+            width: '40px', 
+            height: '40px', 
+            marginRight: '12px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            background: 'rgba(0, 102, 51, 0.08)',
+            borderRadius: '8px',
+            color: 'var(--primary)',
+            flexShrink: 0
+          }}>
+            <Key style={{ width: '22px', height: '22px' }} />
           </div>
           <h1 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>
             Change Password

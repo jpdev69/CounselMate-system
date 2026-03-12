@@ -106,9 +106,9 @@ const CompleteForm = () => {
       const slipDateObj = new Date(slip.created_at);
       slipDateObj.setHours(0, 0, 0, 0);
 
-      const isAfterStart = !startDate || slipDateObj >= new Date(new Date(startDate).setHours(0,0,0,0));
-      const isBeforeEnd = !endDate || slipDateObj <= new Date(new Date(endDate).setHours(23,59,59,999));
-      
+      const isAfterStart = !startDate || slipDateObj >= new Date(new Date(startDate).setHours(0, 0, 0, 0));
+      const isBeforeEnd = !endDate || slipDateObj <= new Date(new Date(endDate).setHours(23, 59, 59, 999));
+
       return isAfterStart && isBeforeEnd;
     })
     .sort((a, b) => {
@@ -350,15 +350,26 @@ const CompleteForm = () => {
   return (
     <div className="container">
       <div className="card" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-          <div className="icon-container" style={{ width: '48px', height: '48px', marginRight: '12px' }}>
-            <FileText style={{ width: '24px', height: '24px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="icon-container" style={{ 
+            width: '40px', 
+            height: '40px', 
+            marginRight: '12px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            background: 'rgba(0, 102, 51, 0.08)',
+            borderRadius: '8px',
+            color: 'var(--primary)',
+            flexShrink: 0
+          }}>
+            <FileText style={{ width: '22px', height: '22px' }} />
           </div>
           <h1 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>Complete Admission Form</h1>
         </div>
 
         <p className="text-muted" style={{ marginBottom: '16px', fontSize: '0.95rem' }}>
-          Search for issued admission slips and complete the violation details after the student returns the filled form.
+          Search for admission slips to complete violation details.
         </p>
 
         {/* Search and Sort */}
@@ -388,7 +399,7 @@ const CompleteForm = () => {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', border: '1px solid #ced4da', borderRadius: '4px', paddingLeft: '12px' }}>
             <Calendar className="icon" style={{ color: '#6c757d', width: '16px', height: '16px' }} />
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: 500 }}>From:</span>
               <input
@@ -430,8 +441,8 @@ const CompleteForm = () => {
                       <SortHeader colKey="status" label="Status" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-status" />
                       <SortHeader colKey="violation" label="Violation" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-violation" />
                       <SortHeader colKey="section" label="Year & Section" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-section" />
-                      <SortHeader colKey="issued"    label="Issued"               sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-issued" />
-                      <SortHeader colKey="updated"   label="Updated"              sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-updated" />
+                      <SortHeader colKey="issued" label="Issued" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-issued" />
+                      <SortHeader colKey="updated" label="Updated" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-updated" />
                       <th className="col-actions"><button className="sort-btn" style={{ cursor: 'default' }}>Actions</button></th>
                     </tr>
                   </thead>
@@ -516,222 +527,210 @@ const CompleteForm = () => {
           </div>
 
           {isModalOpen && selectedSlip && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
-              <div className="card" style={{ width: '100%', maxWidth: '760px', maxHeight: '90vh', overflowY: 'auto', padding: '18px' }}>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
+              <div className="card" style={{ width: '100%', maxWidth: '760px', maxHeight: '90vh', overflowY: 'auto', padding: '32px' }}>
                 {/* Header: compact title + actions */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedSlip.student_name}</h3>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
-                      <span className="text-xs text-gray-500">{selectedSlip.slip_number}</span>
-                    </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+                  <h2 style={{ color: '#006400', fontFamily: 'Times New Roman, serif', margin: '0', fontSize: '24px', letterSpacing: '0.5px' }}>ISABELA STATE UNIVERSITY</h2>
+                  <h3 style={{ margin: '8px 0', fontFamily: 'Times New Roman, serif', fontSize: '16px', fontWeight: 'normal', letterSpacing: '1px' }}>GUIDANCE OFFICE</h3>
+                  <h3 style={{ textDecoration: 'underline', margin: '15px 0 5px 0', fontSize: '20px', fontWeight: 'bold', fontFamily: 'Arial, sans-serif' }}>ADMISSION SLIP REPORT</h3>
+                </div>
+
+                <hr style={{ border: 'none', borderTop: '3px double #006400', margin: '20px 0' }} />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '15px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 5px 0', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>{selectedSlip.student_name}</h3>
+                    <div style={{ color: '#555', fontSize: '15px' }}>Slip Reference: <strong style={{ color: '#000' }}>{selectedSlip.slip_number}</strong></div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(selectedSlip.status)}`}>
-                      {getStatusDisplay(selectedSlip.status)}
-                    </span>
-                    <button
-                      onClick={() => setIsModalOpen(false)}
-                      className="btn"
-                      style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}
-                    >
-                      Close
-                    </button>
+                  <div style={{ border: '1px solid #333', padding: '4px 8px', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px', textTransform: 'uppercase', color: '#000' }}>
+                    {getStatusDisplay(selectedSlip.status)}
                   </div>
                 </div>
 
-                {/* Meta rows - include Year, Section and Course as labeled cells */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date &amp; Time</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</div>
+                {/* Meta table rows */}
+                <div style={{ border: '1px solid #a1a1aa', borderBottom: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', marginBottom: '20px', fontFamily: 'Arial, sans-serif' }}>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', borderRight: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>DATE &amp; TIME</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Last Updated</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{(selectedSlip.updated_at && selectedSlip.updated_at !== selectedSlip.created_at) ? new Date(selectedSlip.updated_at).toLocaleString() : '-'}</div>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>LAST UPDATED</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{(selectedSlip.updated_at && selectedSlip.updated_at !== selectedSlip.created_at) ? new Date(selectedSlip.updated_at).toLocaleString() : '-'}</div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Year &amp; Section</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{[selectedSlip.year, selectedSlip.section].filter(Boolean).join(' ') || '-'}</div>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', borderRight: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>YEAR &amp; SECTION</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{[selectedSlip.year, selectedSlip.section].filter(Boolean).join(' ') || '-'}</div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Course</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', marginTop: '4px' }}>{selectedSlip.course || '-'}</div>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>COURSE</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{selectedSlip.course || '-'}</div>
                   </div>
                 </div>
 
                 {/* Content */}
                 {selectedSlip.status === 'form_completed' ? (
-                  <div style={{ display: 'grid', gap: '12px' }}>
-                    <div>
-                      <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Violation</div>
-                      <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.violation_description || 'No violation specified'}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', fontFamily: 'Arial, sans-serif' }}>
+                    <div style={{ border: '1px solid #c1c1c1', backgroundColor: '#fff', marginBottom: '20px' }}>
+                      <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                        <div style={{ fontSize: '13px', color: '#555', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>VIOLATION</div>
+                        <div style={{ fontSize: '15px', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.violation_description || 'No violation specified'}</div>
+                      </div>
+
+                      <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                        <div style={{ fontSize: '13px', color: '#555', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>DESCRIPTION</div>
+                        <div style={{ fontSize: '15px', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.description || '-'}</div>
+                      </div>
+
+                      <div style={{ padding: '12px 16px' }}>
+                        <div style={{ fontSize: '13px', color: '#555', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>COUNSELOR REMARKS</div>
+                        <textarea
+                          value={formData.remarks}
+                          onChange={(e) => setFormData({ ...formData, remarks: (e.target.value || '').toString().slice(0, 500) })}
+                          maxLength={500}
+                          rows="4"
+                          className="form-input"
+                          placeholder="Add counselor remarks or recommendations..."
+                          style={{ width: '100%', resize: 'vertical', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '10px', fontSize: '15px', fontFamily: 'Arial, sans-serif' }}
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Description</div>
-                      <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.description || '-'}</div>
-                    </div>
-
-
-                    <div>
-                      <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600, marginBottom: '6px' }}>Counselor Remarks</div>
-                      <textarea
-                        value={formData.remarks}
-                        onChange={(e) => setFormData({ ...formData, remarks: (e.target.value || '').toString().slice(0, 128) })}
-                        maxLength={128}
-                        rows="4"
-                        className="form-input"
-                        placeholder="Add counselor remarks or recommendations..."
-                        style={{ width: '100%', resize: 'vertical' }}
-                      />
-                    </div>
-
-                    {/* Course is shown in the meta header above */}
-
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                       <button
                         onClick={async () => { await handleApprove(selectedSlip.id); setIsModalOpen(false); }}
-                        className="btn btn-primary"
+                        style={{ padding: '8px 16px', backgroundColor: '#1e7b44', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                       >
                         Approve Slip
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(selectedSlip); }}
-                        className="btn"
-                        style={{ padding: '6px 12px', background: '#ef4444', color: 'white', borderRadius: 6, border: 'none' }}
+                        style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', borderRadius: '4px', border: 'none', display: 'flex', alignItems: 'center', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
                       >
-                        <Trash2 className="w-4 h-4 mr-1" />
+                        <Trash2 className="w-4 h-4 mr-2" />
                         Delete
-                      </button>
-                      <button
-                        onClick={() => setIsModalOpen(false)}
-                        className="btn"
-                        style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}
-                      >
-                        Close
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'grid', gap: '12px' }}>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type</label>
-                      <select
-                        value={formData.violationTypeId}
-                        onChange={(e) => setFormData({ ...formData, violationTypeId: e.target.value })}
-                        className="form-input"
-                        required
-                        style={{ width: '100%' }}
-                      >
-                        <option value="">Select violation type</option>
-                        {(() => {
-                          const minor = violationTypes.filter(vt => vt.category === 'minor' && vt.requires_admission_slip);
-                          const major = violationTypes.filter(vt => vt.category === 'major' && vt.requires_admission_slip);
-                          if (minor.length === 0 && major.length === 0) {
-                            return <option disabled>No violations set to require a slip — configure in Admin Panel</option>;
-                          }
-                          return (
-                            <>
-                              {minor.length > 0 && (
-                                <optgroup label="Minor Offenses (Section 2.1)">
-                                  {minor.map(type => (
-                                    <option key={type.id} value={type.id}>
-                                      {type.description}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              )}
-                              {major.length > 0 && (
-                                <optgroup label="Major Offenses (Section 2.2)">
-                                  {major.map(type => (
-                                    <option key={type.id} value={type.id}>
-                                      {type.description}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </select>
-                    </div>
+                  <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', fontFamily: 'Arial, sans-serif' }}>
+                    <div style={{ border: '1px solid #c1c1c1', backgroundColor: '#fff', marginBottom: '20px' }}>
+                      <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'Arial, sans-serif' }}>VIOLATION TYPE *</label>
+                        <select
+                          value={formData.violationTypeId}
+                          onChange={(e) => setFormData({ ...formData, violationTypeId: e.target.value })}
+                          className="form-input"
+                          required
+                          style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '15px', fontFamily: 'Arial, sans-serif' }}
+                        >
+                          <option value="">Select violation type</option>
+                          {(() => {
+                            const minor = violationTypes.filter(vt => vt.category === 'minor' && vt.requires_admission_slip);
+                            const major = violationTypes.filter(vt => vt.category === 'major' && vt.requires_admission_slip);
+                            if (minor.length === 0 && major.length === 0) {
+                              return <option disabled>No violations set to require a slip — configure in Admin Panel</option>;
+                            }
+                            return (
+                              <>
+                                {minor.length > 0 && (
+                                  <optgroup label="Minor Offenses (Section 2.1)">
+                                    {minor.map(type => (
+                                      <option key={type.id} value={type.id}>
+                                        {type.description}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                                {major.length > 0 && (
+                                  <optgroup label="Major Offenses (Section 2.2)">
+                                    {major.map(type => (
+                                      <option key={type.id} value={type.id}>
+                                        {type.description}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </select>
+                      </div>
 
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Description *</label>
-                      <textarea
-                        value={formData.description}
-                        onChange={(e) => {
-                          setFormData({ ...formData, description: (e.target.value || '').toString().slice(0, 500) });
-                          // Clear validation error when user edits the field
-                          if (validationError) setValidationError(null);
-                        }}
-                        maxLength={500}
-                        rows="4"
-                        className="form-input"
-                        placeholder="Detailed description of the violation..."
-                        required
-                        style={{ width: '100%', resize: 'vertical', borderColor: validationError ? '#ef4444' : undefined }}
-                      />
-                      {validationError && (
-                        <div style={{ marginTop: '8px', padding: '10px', backgroundColor: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem' }}>
-                          <strong>⚠️ Validation Issue:</strong> {validationError}
-                          <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setProceedWithError(true);
-                                // Trigger form submission after state update is applied
-                                setTimeout(() => {
-                                  if (formRef.current) formRef.current.requestSubmit();
-                                }, 0);
-                              }}
-                              className="btn"
-                              style={{ padding: '4px 12px', backgroundColor: '#fbbf24', color: '#111827', border: 'none', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer' }}
-                            >
-                              Proceed Anyway
-                            </button>
+                      <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'Arial, sans-serif' }}>VIOLATION DESCRIPTION *</label>
+                        <textarea
+                          value={formData.description}
+                          onChange={(e) => {
+                            setFormData({ ...formData, description: (e.target.value || '').toString().slice(0, 500) });
+                            if (validationError) setValidationError(null);
+                          }}
+                          maxLength={500}
+                          rows="4"
+                          className="form-input"
+                          placeholder="Detailed description of the violation..."
+                          required
+                          style={{ width: '100%', resize: 'vertical', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '15px', fontFamily: 'Arial, sans-serif', borderColor: validationError ? '#ef4444' : undefined }}
+                        />
+                        {validationError && (
+                          <div style={{ marginTop: '8px', padding: '10px', backgroundColor: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem' }}>
+                            <strong>⚠️ Validation Issue:</strong> {validationError}
+                            <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProceedWithError(true);
+                                  setTimeout(() => {
+                                    if (formRef.current) formRef.current.requestSubmit();
+                                  }, 0);
+                                }}
+                                className="btn"
+                                style={{ padding: '4px 12px', backgroundColor: '#fbbf24', color: '#111827', border: 'none', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer' }}
+                              >
+                                Proceed Anyway
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
+
+                      <div style={{ padding: '12px 16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'Arial, sans-serif' }}>COUNSELOR REMARKS</label>
+                        <textarea
+                          value={formData.remarks}
+                          onChange={(e) => setFormData({ ...formData, remarks: (e.target.value || '').toString().slice(0, 500) })}
+                          maxLength={500}
+                          rows="3"
+                          className="form-input"
+                          placeholder="Additional remarks or recommendations..."
+                          style={{ width: '100%', resize: 'vertical', padding: '10px', border: '1px solid #e5e7eb', borderRadius: '4px', fontSize: '15px', fontFamily: 'Arial, sans-serif' }}
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Counselor Remarks</label>
-                      <textarea
-                        value={formData.remarks}
-                        onChange={(e) => setFormData({ ...formData, remarks: (e.target.value || '').toString().slice(0, 500) })}
-                        maxLength={500}
-                        rows="3"
-                        className="form-input"
-                        placeholder="Additional remarks or recommendations..."
-                        style={{ width: '100%', resize: 'vertical' }}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
                       <button
                         type="submit"
                         disabled={loading}
-                        className="btn btn-primary"
+                        style={{ padding: '8px 16px', backgroundColor: '#1e7b44', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
                       >
-                        {loading ? 'Submitting...' : `Complete Form for ${selectedSlip.student_name}`}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsModalOpen(false)}
-                        className="btn"
-                        style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}
-                      >
-                        Cancel
+                        {loading ? 'Submitting...' : `Complete Form`}
                       </button>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleDelete(selectedSlip); }}
-                        className="btn"
-                        style={{ padding: '6px 12px', background: '#ef4444', color: 'white', borderRadius: 6, border: 'none' }}
+                        style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', borderRadius: '4px', border: 'none', display: 'flex', alignItems: 'center', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
                       >
-                        <Trash2 className="w-4 h-4 mr-1" />
+                        <Trash2 className="w-4 h-4 mr-2" />
                         Delete
                       </button>
                     </div>

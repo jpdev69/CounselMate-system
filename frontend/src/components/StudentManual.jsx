@@ -255,24 +255,37 @@ const StudentManual = () => {
 
   return (
     <div className="student-manual-container">
-      {/* Header */}
-      <div className="student-manual-header">
-        <div className="student-manual-header-text">
-          <h1 className="student-manual-title">
-            <BookOpen size={28} style={{ marginRight: 10, verticalAlign: 'middle' }} />
-            {manualName}
-          </h1>
-          <p className="student-manual-subtitle">
-            {manualInfo?.source === 'upload'
-              ? `Custom manual · uploaded ${new Date(manualInfo.uploadedAt).toLocaleDateString()}`
-              : `${manualInfo?.filename?.replace(/\.[^.]+$/, '') || 'Student Manual'} — Reference Guide`}
-          </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            marginRight: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 102, 51, 0.08)',
+            borderRadius: '8px',
+            color: 'var(--primary)',
+            flexShrink: 0
+          }}>
+            <BookOpen style={{ width: '22px', height: '22px' }} />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>{manualName}</h1>
+            <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>
+              {manualInfo?.source === 'upload'
+                ? `Custom manual · uploaded ${new Date(manualInfo.uploadedAt).toLocaleDateString()}`
+                : `${manualInfo?.filename?.replace(/\.[^.]+$/, '') || 'Student Manual'} — Reference Guide`}
+            </p>
+          </div>
         </div>
+
         {manualInfo && (
-          <div style={{ fontSize: 12, color: '#6b7280', textAlign: 'right', marginTop: 4 }}>
-            {(manualInfo.chars || 0).toLocaleString()} chars ·{' '}
-            {(manualInfo.lines || 0).toLocaleString()} lines ·{' '}
-            <span style={{ color: manualInfo.source === 'upload' ? '#10b981' : '#9ca3af', fontWeight: 600 }}>
+          <div style={{ fontSize: '12px', color: '#6b7280', textAlign: 'right', background: '#f9fafb', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+            {(manualInfo.chars || 0).toLocaleString()} chars · {' '}
+            {(manualInfo.lines || 0).toLocaleString()} lines · {' '}
+            <span style={{ color: manualInfo.source === 'upload' ? '#10b981' : '#9ca3af', fontWeight: 700 }}>
               {manualInfo.source === 'upload' ? 'CUSTOM' : 'DEFAULT'}
             </span>
           </div>

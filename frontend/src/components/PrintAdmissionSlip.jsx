@@ -377,36 +377,42 @@ const PrintAdmissionSlip = () => {
 
   return (
     <div className="container">
-      <div className="card" style={{ padding: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <Printer style={{ width: 28, height: 28, color: 'var(--primary)' }} />
-          <h1 style={{ marginLeft: 12, fontSize: 20, fontWeight: 700 }}>Print Admission Slip</h1>
+      <div className="card" style={{ padding: '32px', fontFamily: 'Arial, sans-serif' }}>
+
+        {/* University Header */}
+        <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+          <h2 style={{ color: '#006400', fontFamily: 'Times New Roman, serif', margin: '0', fontSize: '24px', letterSpacing: '0.5px' }}>ISABELA STATE UNIVERSITY</h2>
+          <h3 style={{ margin: '8px 0', fontFamily: 'Times New Roman, serif', fontSize: '16px', fontWeight: 'normal', letterSpacing: '1px' }}>GUIDANCE OFFICE</h3>
+          <h3 style={{ textDecoration: 'underline', margin: '15px 0 5px 0', fontSize: '20px', fontWeight: 'bold', fontFamily: 'Arial, sans-serif' }}>ADMISSION SLIP ISSUANCE</h3>
         </div>
 
-        <p className="text-muted" style={{ marginBottom: '16px', lineHeight: '1.5', fontSize: '0.95rem' }}>
+        <hr style={{ border: 'none', borderTop: '3px double #006400', margin: '20px 0' }} />
+
+        <p className="text-muted" style={{ marginBottom: '24px', lineHeight: '1.5', fontSize: '0.95rem', color: '#555', fontFamily: 'Arial, sans-serif' }}>
           Issue an admission slip for a student who has violated university policy. The system will log the issuance and generate a printable slip.
         </p>
 
-        <form onSubmit={handleSubmit} className="" style={{ display: 'grid', gap: 12 }}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Student Name
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-              <div className="input-with-icon">
-                <User className="icon" />
-                <input
-                  type="text"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  maxLength={32}
-                  className="form-input"
-                  placeholder="First name"
-                  required
-                />
-              </div>
-              <div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
+
+          <div style={{ border: '1px solid #c1c1c1', backgroundColor: '#fff', marginBottom: '20px' }}>
+            {/* Student Name Section */}
+            <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>STUDENT NAME *</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+                <div style={{ position: 'relative' }}>
+                  <User style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#6b7280' }} />
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    maxLength={32}
+                    className="form-input"
+                    placeholder="First"
+                    required
+                    style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px' }}
+                  />
+                </div>
                 <input
                   type="text"
                   name="middleName"
@@ -414,10 +420,9 @@ const PrintAdmissionSlip = () => {
                   onChange={handleChange}
                   maxLength={32}
                   className="form-input"
-                  placeholder="Middle name (optional)"
+                  placeholder="Middle"
+                  style={{ width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px' }}
                 />
-              </div>
-              <div>
                 <input
                   type="text"
                   name="lastName"
@@ -425,192 +430,185 @@ const PrintAdmissionSlip = () => {
                   onChange={handleChange}
                   maxLength={32}
                   className="form-input"
-                  placeholder="Last name"
+                  placeholder="Last"
                   required
+                  style={{ width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px' }}
                 />
               </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Course
-            </label>
-            <div className="input-with-icon">
-              <GraduationCap className="icon" />
-              <select
-                value={courseId}
-                onChange={handleCourseChange}
-                className="form-input"
-                required
-                disabled={coursesLoading}
-              >
-                <option value="">
-                  {coursesLoading
-                    ? 'Loading courses…'
-                    : courses.length === 0
-                      ? 'No courses — configure in Admin Panel'
-                      : 'Select course'}
-                </option>
-                {courses.map(c => (
-                  <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                ))}
-              </select>
+            {/* Course Section */}
+            <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>COURSE *</label>
+              <div style={{ position: 'relative' }}>
+                <GraduationCap style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '18px', height: '18px', color: '#6b7280' }} />
+                <select
+                  value={courseId}
+                  onChange={handleCourseChange}
+                  className="form-input"
+                  required
+                  disabled={coursesLoading}
+                  style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px', appearance: 'none', backgroundColor: '#fff' }}
+                >
+                  <option value="">
+                    {coursesLoading ? 'Loading courses…' : 'Select course'}
+                  </option>
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Year Level
-            </label>
-            <div className="input-with-icon">
-              <Book className="icon" />
-              <select
-                value={yearLevelId}
-                onChange={handleYearLevelChange}
-                className="form-input"
-                required
-                disabled={!courseId || yearLevelsLoading}
-              >
-                <option value="">
-                  {!courseId
-                    ? 'Select a course first'
-                    : yearLevelsLoading
-                      ? 'Loading…'
-                      : yearLevels.length === 0
-                        ? 'No year levels configured'
-                        : 'Select year level'}
-                </option>
-                {yearLevels.map(yl => (
-                  <option key={yl.id} value={yl.id}>{yl.year_level}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+            {/* Year & Section Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+              <div style={{ borderRight: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>YEAR LEVEL *</label>
+                <div style={{ position: 'relative' }}>
+                  <Book style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#6b7280' }} />
+                  <select
+                    value={yearLevelId}
+                    onChange={handleYearLevelChange}
+                    className="form-input"
+                    required
+                    disabled={!courseId || yearLevelsLoading}
+                    style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px', appearance: 'none', backgroundColor: '#fff' }}
+                  >
+                    <option value="">Select year</option>
+                    {yearLevels.map(yl => (
+                      <option key={yl.id} value={yl.id}>{yl.year_level}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Section
-            </label>
-            <div className="input-with-icon">
-              <Users className="icon" />
-              <select
-                name="section"
-                value={formData.section}
-                onChange={handleChange}
-                className="form-input"
-                required
-                disabled={!yearLevelId || sectionsLoading}
-              >
-                <option value="">
-                  {!yearLevelId
-                    ? 'Select a year level first'
-                    : sectionsLoading
-                      ? 'Loading…'
-                      : sections.length === 0
-                        ? 'No sections configured'
-                        : 'Select section'}
-                </option>
-                {sections.map(s => (
-                  <option key={s.id} value={s.name}>{s.name}</option>
-                ))}
-              </select>
+              <div style={{ padding: '12px 16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>SECTION *</label>
+                <div style={{ position: 'relative' }}>
+                  <Users style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#6b7280' }} />
+                  <select
+                    name="section"
+                    value={formData.section}
+                    onChange={handleChange}
+                    className="form-input"
+                    required
+                    disabled={!yearLevelId || sectionsLoading}
+                    style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px', appearance: 'none', backgroundColor: '#fff' }}
+                  >
+                    <option value="">Select section</option>
+                    {sections.map(s => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
 
           {error && (
-            <div className="p-3 text-sm text-red-700 bg-red-100 rounded-lg">
+            <div style={{ padding: '12px', marginBottom: '16px', fontSize: '14px', color: '#b91c1c', backgroundColor: '#fee2e2', borderRadius: '4px', border: '1px solid #fca5a5' }}>
               {error}
             </div>
           )}
 
-          {/* Verification status (automatic) */}
-          <div style={{ marginTop: 6 }}>
-            <div style={{ fontSize: 13, color: verified === true ? 'green' : verified === false ? '#b91c1c' : '#6b7280' }}>
-              {verificationLoading ? 'Verifying...' : verificationMessage}
+          {/* Verification status */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 500, color: verified === true ? '#059669' : verified === false ? '#b91c1c' : '#6b7280' }}>
+              {verificationLoading ? 'Checking records...' : verificationMessage}
             </div>
           </div>
 
-          {/* Matched student's previous slips */}
+          {/* Previous slips display */}
           {matchedStudent && (
-            <div style={{ marginTop: 12, padding: 12, borderRadius: 8, background: '#f8fafc' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ fontWeight: 600 }}>Previous slips for: {matchedStudent.full_name || matchedStudent.student_id || '—'}</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)' }}>{slipsTotal} total</div>
+            <div style={{ marginBottom: '20px', padding: '16px', borderRadius: '4px', border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', color: '#374151' }}>Previous records: {matchedStudent.full_name}</div>
+                <div style={{ fontSize: '12px', background: '#e5e7eb', padding: '2px 8px', borderRadius: '12px', color: '#4b5563' }}>{slipsTotal} slips</div>
               </div>
 
               {slipsLoading ? (
-                <div style={{ fontSize: 13, color: '#6b7280' }}>Loading slips…</div>
+                <div style={{ fontSize: '13px', color: '#6b7280' }}>Loading records…</div>
               ) : studentSlips.length === 0 ? (
-                <div style={{ fontSize: 13, color: '#6b7280' }}>No previously issued slips for this student.</div>
+                <div style={{ fontSize: '13px', color: '#6b7280' }}>No previous records found.</div>
               ) : (
-                <div>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {studentSlips.map(s => (
-                      <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e6edf3' }}>
+                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', borderBottom: '1px solid #e5e7eb', fontSize: '13px' }}>
                         <div>
                           <div style={{ fontWeight: 600 }}>{s.slip_number}</div>
-                          <div style={{ fontSize: 13, color: '#6b7280' }}>{new Date(s.created_at || Date.now()).toLocaleString()}</div>
+                          <div style={{ color: '#6b7280' }}>{new Date(s.created_at).toLocaleDateString()}</div>
                         </div>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <div style={{ fontSize: 13, color: '#374151' }}>{(s.status || '').toString().toUpperCase()}</div>
+                        <div style={{ fontWeight: 700, color: s.status === 'approved' ? '#059669' : '#b45309' }}>
+                          {(s.status || '').toUpperCase()}
                         </div>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
 
-                  {/* Pagination buttons */}
                   {(() => {
                     const totalPages = Math.ceil((slipsTotal || 0) / slipsPageSize);
                     if (totalPages <= 1) return null;
-                    const pages = [];
-                    for (let i = 1; i <= totalPages; i++) pages.push(i);
                     return (
-                      <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {pages.map(p => (
+                      <div style={{ marginTop: '12px', display: 'flex', gap: '6px' }}>
+                        {[...Array(totalPages)].map((_, i) => (
                           <button
                             type="button"
-                            key={p}
-                            onClick={() => setSlipsPage(p)}
-                            className={`btn ${p === slipsPage ? 'btn-primary' : 'btn-outline'}`}
-                            style={{ padding: '6px 10px' }}
-                          >{p}</button>
+                            key={i}
+                            onClick={() => setSlipsPage(i + 1)}
+                            style={{
+                              padding: '4px 10px',
+                              fontSize: '12px',
+                              backgroundColor: (i + 1) === slipsPage ? '#1e7b44' : '#fff',
+                              color: (i + 1) === slipsPage ? '#fff' : '#374151',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >{i + 1}</button>
                         ))}
                       </div>
                     );
                   })()}
-                </div>
+                </>
               )}
             </div>
           )}
 
           {result && (
-            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(16,185,129,0.08)', color: 'var(--success)' }}>
-              <p style={{ fontWeight: 600 }}>Admission slip issued successfully!</p>
-              <p>Slip Number: {result.slip.slip_number}</p>
+            <div style={{ padding: '16px', borderRadius: '4px', border: '1px solid #d1fae5', background: '#ecfdf5', color: '#065f46', marginBottom: '20px' }}>
+              <p style={{ fontWeight: 700, margin: '0 0 8px 0' }}>SLIP ISSUED SUCCESSFULLY</p>
+              <p style={{ margin: '0 0 12px 0', fontSize: '14px' }}>Reference: <strong>{result.slip.slip_number}</strong></p>
               {printedSlipId !== result.slip.id && (
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="btn btn-primary"
-                  style={{ marginTop: 8 }}
+                  style={{ padding: '8px 16px', backgroundColor: '#1e7b44', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
                 >
-                  Print Slip
+                  Print Admission Slip
                 </button>
-              )}
-              {printedSlipId === result.slip.id && (
-                <p style={{ marginTop: 8, fontSize: 13, color: 'var(--muted)' }}>Slip has been printed.</p>
               )}
             </div>
           )}
 
-          {/* Hide issue button after the slip has been printed */}
           {!(printedSlipId && result && printedSlipId === result.slip.id) && (
             <button
               type="submit"
               disabled={submitDisabled}
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '12px', fontWeight: 600, opacity: submitDisabled ? 0.6 : 1 }}
+              style={{
+                width: '100%',
+                padding: '14px',
+                backgroundColor: '#1e7b44',
+                color: 'white',
+                borderRadius: '4px',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '15px',
+                cursor: submitDisabled ? 'not-allowed' : 'pointer',
+                opacity: submitDisabled ? 0.6 : 1,
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
             >
               {submitLabel}
             </button>

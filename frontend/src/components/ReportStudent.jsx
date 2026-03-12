@@ -361,59 +361,105 @@ const ReportStudent = () => {
 
   return (
     <div className="container">
-      <div className="card" style={{ padding: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <ClipboardList style={{ width: 28, height: 28, color: 'var(--primary)' }} />
-          <h1 style={{ marginLeft: 12, fontSize: 20, fontWeight: 700 }}>Report Student</h1>
+      <div className="card" style={{ padding: '32px', fontFamily: 'Arial, sans-serif' }}>
+        
+        {/* University Header */}
+        <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+          <h2 style={{ color: '#006400', fontFamily: 'Times New Roman, serif', margin: '0', fontSize: '24px', letterSpacing: '0.5px' }}>ISABELA STATE UNIVERSITY</h2>
+          <h3 style={{ margin: '8px 0', fontFamily: 'Times New Roman, serif', fontSize: '16px', fontWeight: 'normal', letterSpacing: '1px' }}>GUIDANCE OFFICE</h3>
+          <h3 style={{ textDecoration: 'underline', margin: '15px 0 5px 0', fontSize: '20px', fontWeight: 'bold', fontFamily: 'Arial, sans-serif' }}>STUDENT VIOLATION REPORT</h3>
         </div>
+        
+        <hr style={{ border: 'none', borderTop: '3px double #006400', margin: '20px 0' }} />
 
-        <p className="text-muted" style={{ marginBottom: '16px', lineHeight: '1.5', fontSize: '0.95rem' }}>
+        <p className="text-muted" style={{ marginBottom: '24px', lineHeight: '1.5', fontSize: '0.95rem', color: '#555', fontFamily: 'Arial, sans-serif' }}>
           Report a student violation based on the ISU Student Manual. This does not require an admission slip.
         </p>
 
-        <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
-              {/* Student Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Student Name</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-                  <div className="input-with-icon">
-                    <User className="icon" />
-                    <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} maxLength={32} className="form-input" placeholder="First name" required />
-                  </div>
-                  <div>
-                    <input type="text" name="middleName" value={formData.middleName} onChange={handleChange} maxLength={32} className="form-input" placeholder="Middle name (optional)" />
-                  </div>
-                  <div>
-                    <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} maxLength={32} className="form-input" placeholder="Last name" required />
-                  </div>
+        <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
+          
+          <div style={{ border: '1px solid #c1c1c1', backgroundColor: '#fff', marginBottom: '20px' }}>
+            
+            {/* Student Name Section */}
+            <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>STUDENT NAME *</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+                <div style={{ position: 'relative' }}>
+                  <User style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#6b7280' }} />
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    maxLength={32}
+                    className="form-input"
+                    placeholder="First"
+                    required
+                    style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px' }}
+                  />
                 </div>
+                <input
+                  type="text"
+                  name="middleName"
+                  value={formData.middleName}
+                  onChange={handleChange}
+                  maxLength={32}
+                  className="form-input"
+                  placeholder="Middle"
+                  style={{ width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px' }}
+                />
+                <input
+                  type="text"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  maxLength={32}
+                  className="form-input"
+                  placeholder="Last"
+                  required
+                  style={{ width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px' }}
+                />
               </div>
+            </div>
 
-              {/* Course */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Course</label>
-                <div className="input-with-icon">
-                  <GraduationCap className="icon" />
-                  <select value={courseId} onChange={handleCourseChange} className="form-input" required disabled={coursesLoading}>
-                    <option value="">
-                      {coursesLoading ? 'Loading courses...' : courses.length === 0 ? 'No courses — configure in Admin Panel' : 'Select course'}
-                    </option>
-                    {courses.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                    ))}
-                  </select>
-                </div>
+            {/* Course Section */}
+            <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>COURSE *</label>
+              <div style={{ position: 'relative' }}>
+                <GraduationCap style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '18px', height: '18px', color: '#6b7280' }} />
+                <select
+                  value={courseId}
+                  onChange={handleCourseChange}
+                  className="form-input"
+                  required
+                  disabled={coursesLoading}
+                  style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px', appearance: 'none', backgroundColor: '#fff' }}
+                >
+                  <option value="">
+                    {coursesLoading ? 'Loading courses…' : 'Select course'}
+                  </option>
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                  ))}
+                </select>
               </div>
+            </div>
 
-              {/* Year Level */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Year Level</label>
-                <div className="input-with-icon">
-                  <Book className="icon" />
-                  <select value={yearLevelId} onChange={handleYearLevelChange} className="form-input" required disabled={!courseId || yearLevelsLoading}>
-                    <option value="">
-                      {!courseId ? 'Select a course first' : yearLevelsLoading ? 'Loading...' : yearLevels.length === 0 ? 'No year levels configured' : 'Select year level'}
-                    </option>
+            {/* Year & Section Grid */}
+            <div style={{ borderBottom: '1px solid #c1c1c1', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+              <div style={{ borderRight: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>YEAR LEVEL *</label>
+                <div style={{ position: 'relative' }}>
+                  <Book style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#6b7280' }} />
+                  <select
+                    value={yearLevelId}
+                    onChange={handleYearLevelChange}
+                    className="form-input"
+                    required
+                    disabled={!courseId || yearLevelsLoading}
+                    style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px', appearance: 'none', backgroundColor: '#fff' }}
+                  >
+                    <option value="">Select year</option>
                     {yearLevels.map(yl => (
                       <option key={yl.id} value={yl.id}>{yl.year_level}</option>
                     ))}
@@ -421,113 +467,136 @@ const ReportStudent = () => {
                 </div>
               </div>
 
-              {/* Section */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
-                <div className="input-with-icon">
-                  <Users className="icon" />
-                  <select name="section" value={formData.section} onChange={handleChange} className="form-input" required disabled={!yearLevelId || sectionsLoading}>
-                    <option value="">
-                      {!yearLevelId ? 'Select a year level first' : sectionsLoading ? 'Loading...' : sections.length === 0 ? 'No sections configured' : 'Select section'}
-                    </option>
+              <div style={{ padding: '12px 16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>SECTION *</label>
+                <div style={{ position: 'relative' }}>
+                  <Users style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#6b7280' }} />
+                  <select
+                    name="section"
+                    value={formData.section}
+                    onChange={handleChange}
+                    className="form-input"
+                    required
+                    disabled={!yearLevelId || sectionsLoading}
+                    style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px', appearance: 'none', backgroundColor: '#fff' }}
+                  >
+                    <option value="">Select section</option>
                     {sections.map(s => (
                       <option key={s.id} value={s.name}>{s.name}</option>
                     ))}
                   </select>
                 </div>
               </div>
+            </div>
 
-              {/* Verification status */}
-              <div style={{ fontSize: 13, color: verified === true ? 'green' : verified === false ? '#b91c1c' : '#6b7280' }}>
-                {verificationLoading ? 'Verifying...' : verificationMessage}
+            {/* Verification Status Row (Single centered cell inside table) */}
+            <div style={{ borderBottom: '1px solid #c1c1c1', padding: '8px 16px', textAlign: 'center', backgroundColor: '#f9fafb' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: verified === true ? '#059669' : verified === false ? '#b91c1c' : '#6b7280' }}>
+                {verificationLoading ? 'VERIFYING STUDENT...' : (verificationMessage || 'COMPLETE FIELDS TO VERIFY').toUpperCase()}
               </div>
+            </div>
 
-              {/* Violation Type */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Type</label>
-                <select
-                  value={violationTypeId}
-                  onChange={(e) => setViolationTypeId(e.target.value)}
-                  className="form-input"
-                  required
-                  style={{ width: '100%' }}
-                >
-                  <option value="">Select violation type</option>
-                  {minorOffenses.length === 0 && majorOffenses.length === 0 && (
-                    <option disabled>No violations configured for Report Student — check Admin Panel</option>
-                  )}
-                  {minorOffenses.length > 0 && (
-                    <optgroup label="Minor Offenses (Section 2.1)">
-                      {minorOffenses.map(vt => (
-                        <option key={vt.id} value={vt.id}>{vt.description}</option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {majorOffenses.length > 0 && (
-                    <optgroup label="Major Offenses (Section 2.2)">
-                      {majorOffenses.map(vt => (
-                        <option key={vt.id} value={vt.id}>{vt.description}</option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Violation Description *</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => { setDescription((e.target.value || '').slice(0, 500)); if (validationError) setValidationError(null); }}
-                  maxLength={500}
-                  rows="4"
-                  className="form-input"
-                  placeholder="Detailed description of the violation..."
-                  required
-                  style={{ width: '100%', resize: 'vertical', borderColor: validationError ? '#ef4444' : undefined }}
-                />
-                {validationError && (
-                  <div style={{ marginTop: '8px', padding: '10px', backgroundColor: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem' }}>
-                    <strong>⚠️ Validation Issue:</strong> {validationError}
-                    <div style={{ marginTop: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProceedWithError(true);
-                          setTimeout(() => { if (formRef.current) formRef.current.requestSubmit(); }, 0);
-                        }}
-                        className="btn"
-                        style={{ padding: '4px 12px', backgroundColor: '#fbbf24', color: '#111827', border: 'none', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer' }}
-                      >
-                        Proceed Anyway
-                      </button>
-                    </div>
-                  </div>
+            {/* Violation Type */}
+            <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>VIOLATION TYPE *</label>
+              <select
+                value={violationTypeId}
+                onChange={(e) => setViolationTypeId(e.target.value)}
+                className="form-input"
+                required
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '15px' }}
+              >
+                <option value="">Select violation type</option>
+                {minorOffenses.length > 0 && (
+                  <optgroup label="Minor Offenses (Section 2.1)">
+                    {minorOffenses.map(vt => (
+                      <option key={vt.id} value={vt.id}>{vt.description}</option>
+                    ))}
+                  </optgroup>
                 )}
-              </div>
+                {majorOffenses.length > 0 && (
+                  <optgroup label="Major Offenses (Section 2.2)">
+                    {majorOffenses.map(vt => (
+                      <option key={vt.id} value={vt.id}>{vt.description}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
 
-              {/* Remarks */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>Counselor Remarks</label>
-                <textarea
-                  value={remarks}
-                  onChange={(e) => setRemarks((e.target.value || '').slice(0, 500))}
-                  maxLength={500}
-                  rows="3"
-                  className="form-input"
-                  placeholder="Additional remarks or recommendations..."
-                  style={{ width: '100%', resize: 'vertical' }}
-                />
-              </div>
-
-              {error && (
-                <div className="p-3 text-sm text-red-700 bg-red-100 rounded-lg">{error}</div>
+            {/* Violation Description */}
+            <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>VIOLATION DESCRIPTION *</label>
+              <textarea
+                value={description}
+                onChange={(e) => { setDescription((e.target.value || '').slice(0, 500)); if (validationError) setValidationError(null); }}
+                maxLength={500}
+                rows="4"
+                className="form-input"
+                placeholder="Detailed description of the violation..."
+                required
+                style={{ width: '100%', resize: 'vertical', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '15px', borderColor: validationError ? '#ef4444' : undefined }}
+              />
+              {validationError && (
+                <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '4px', color: '#991b1b', fontSize: '13px' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '6px' }}>⚠️ VALIDATION ISSUE</div>
+                  <div style={{ marginBottom: '10px' }}>{validationError}</div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProceedWithError(true);
+                      setTimeout(() => { if (formRef.current) formRef.current.requestSubmit(); }, 0);
+                    }}
+                    style={{ padding: '6px 12px', backgroundColor: '#fbbf24', color: '#111827', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    PROCEED ANYWAY
+                  </button>
+                </div>
               )}
+            </div>
 
-              <button type="submit" disabled={submitDisabled} className="btn btn-primary" style={{ width: '100%' }}>
-                {submitLabel}
-              </button>
-            </form>
+            {/* Counselor Remarks */}
+            <div style={{ padding: '12px 16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>COUNSELOR REMARKS</label>
+              <textarea
+                value={remarks}
+                onChange={(e) => setRemarks((e.target.value || '').slice(0, 500))}
+                maxLength={500}
+                rows="3"
+                className="form-input"
+                placeholder="Additional remarks or recommendations..."
+                style={{ width: '100%', resize: 'vertical', padding: '10px', border: '1px solid #e5e7eb', borderRadius: '4px', fontSize: '15px' }}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div style={{ padding: '12px', marginBottom: '16px', fontSize: '14px', color: '#b91c1c', backgroundColor: '#fee2e2', borderRadius: '4px', border: '1px solid #fca5a5' }}>
+              {error}
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={submitDisabled} 
+            style={{ 
+              width: '100%', 
+              padding: '14px', 
+              backgroundColor: '#1e7b44', 
+              color: 'white', 
+              borderRadius: '4px', 
+              border: 'none', 
+              fontWeight: 700, 
+              fontSize: '15px', 
+              cursor: submitDisabled ? 'not-allowed' : 'pointer',
+              opacity: submitDisabled ? 0.6 : 1,
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}
+          >
+            {submitLabel}
+          </button>
+        </form>
       </div>
     </div>
   );

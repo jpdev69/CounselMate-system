@@ -103,7 +103,7 @@ const Login = () => {
             <img src="/GuidanceOS-system-logo.png" alt="GuidanceOS" style={{ height: '72px', objectFit: 'contain' }} />
           </div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>GuidanceOS</h1>
-          <p className="text-muted">Guidance Counselor Portal</p>
+          <p className="text-muted">Guidance Portal</p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="" style={{ display: 'grid', gap: '0.75rem' }}>

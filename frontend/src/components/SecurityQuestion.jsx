@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMySecurityQuestion, updateMySecurityQuestion, getGmailSettings, updateGmailSettings } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
 // Preset questions (front-end choices only)
 const PRESET = [
@@ -245,13 +245,28 @@ const SecurityQuestion = () => {
 	return (
 		<div className="container">
 			<div className="card" style={{ padding: 20, maxWidth: 720, margin: '0 auto' }}>
-				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-					<div>
-						<h2 style={{ margin: 0 }}>Security &amp; Recovery</h2>
-						<div style={{ fontSize: 13, color: '#6b7280' }}>Manage your security question and Gmail recovery settings for password reset.</div>
-					</div>
-					<div />
-				</div>
+				<div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            marginRight: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 102, 51, 0.08)',
+            borderRadius: '8px',
+            color: 'var(--primary)',
+            flexShrink: 0
+          }}>
+            <ShieldCheck style={{ width: '22px', height: '22px' }} />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>Security & Recovery</h1>
+            <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>
+              Manage your security question and Gmail recovery settings for password reset.
+            </p>
+          </div>
+        </div>
 
 				<div style={{ display: 'grid', gap: 14 }}>
 					{/* ── Security Question ── */}

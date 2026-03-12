@@ -20,7 +20,7 @@ const SortHeader = ({ colKey, label, sortCol, sortDir, onSort, className }) => {
       <button className="sort-btn" onClick={() => onSort(colKey)}>
         <span>{label}</span>
         <span className="sort-icon">
-          <span className="arr-up"  style={{ opacity: active && sortDir === 'asc'  ? 1 : 0.3 }} />
+          <span className="arr-up" style={{ opacity: active && sortDir === 'asc' ? 1 : 0.3 }} />
           <span className="arr-down" style={{ opacity: active && sortDir === 'desc' ? 1 : 0.3 }} />
         </span>
       </button>
@@ -35,7 +35,7 @@ const SearchRecords = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
   const [sortOrder, setSortOrder] = useState('newest');
-  const [numberSort, setNumberSort] = useState('highest');
+  const numberSort = 'highest';
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [groupViewStudent, setGroupViewStudent] = useState(null);
@@ -47,8 +47,8 @@ const SearchRecords = () => {
   const [groupFetchedAll, setGroupFetchedAll] = useState(false);
   const [groupSearchTerm, setGroupSearchTerm] = useState('');
   const [groupStatusFilter, setGroupStatusFilter] = useState('all');
-  const [groupDateFilter, setGroupDateFilter] = useState('');
-  const [groupSortOrder, setGroupSortOrder] = useState('newest');
+  const [groupStartDate, setGroupStartDate] = useState('');
+  const [groupEndDate, setGroupEndDate] = useState('');
 
   // Column sort state for the student list table
   const [sortCol, setSortCol] = useState('name');
@@ -87,7 +87,7 @@ const SearchRecords = () => {
     filterSlips();
   }, [slips, searchTerm, statusFilter, dateFilter, sortOrder]);
 
-  // Fetch current group page when group view student, page, pageSize, sort order, or status filter changes
+  // Fetch current group page when group view student, page, pageSize, or status filter changes
   useEffect(() => {
     let mounted = true;
     const fetchPage = async () => {
@@ -98,7 +98,7 @@ const SearchRecords = () => {
       if (groupFetchedAll) return;
       setGroupLoading(true);
       try {
-        const params = { sort: groupSortOrder };
+        const params = { sort: 'newest' };
         if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
         const resp = await getStudentAdmissionSlips(groupViewStudent.id, groupPage, groupPageSize, params);
         if (!mounted) return;
@@ -116,18 +116,18 @@ const SearchRecords = () => {
     };
     fetchPage();
     return () => { mounted = false; };
-  }, [groupViewStudent, groupPage, groupPageSize, groupSortOrder, groupStatusFilter, groupFetchedAll]);
+  }, [groupViewStudent, groupPage, groupPageSize, groupStatusFilter, groupFetchedAll]);
 
   // If a client-side filter is applied and the student has more slips than the page size, fetch all slips so client-side filtering can operate across the whole set
   useEffect(() => {
     let mounted = true;
-      // Only fetch all slips when client-side searchable filters are applied; use server-side pagination for status-only filters
-      const shouldFetchAll = !!groupViewStudent && (groupSearchTerm || groupDateFilter || groupSortOrder !== 'newest') && (groupTotal > groupPageSize) && !groupFetchedAll;
+    // Only fetch all slips when client-side searchable filters are applied; use server-side pagination for status-only filters
+    const shouldFetchAll = !!groupViewStudent && (groupSearchTerm || groupStartDate || groupEndDate) && (groupTotal > groupPageSize) && !groupFetchedAll;
     if (!shouldFetchAll) return;
     (async () => {
       setGroupLoading(true);
       try {
-        const params = { sort: groupSortOrder };
+        const params = { sort: 'newest' };
         if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
         const resp = await getStudentAdmissionSlips(groupViewStudent.id, 1, groupTotal || 1000, params);
         if (!mounted) return;
@@ -142,14 +142,14 @@ const SearchRecords = () => {
       }
     })();
     return () => { mounted = false; };
-  }, [groupSearchTerm, groupStatusFilter, groupDateFilter, groupSortOrder, groupViewStudent, groupTotal, groupFetchedAll, groupPageSize]);
+  }, [groupSearchTerm, groupStatusFilter, groupStartDate, groupEndDate, groupViewStudent, groupTotal, groupFetchedAll, groupPageSize]);
 
   // Reset to first page when any group filter changes to keep pagination stable and predictable
   useEffect(() => {
     if (!groupViewStudent) return;
     setGroupPage(1);
     setGroupFetchedAll(false);
-  }, [groupSearchTerm, groupStatusFilter, groupDateFilter, groupSortOrder, groupViewStudent]);
+  }, [groupSearchTerm, groupStatusFilter, groupStartDate, groupEndDate, groupViewStudent]);
 
   // loadSlips provided by context
 
@@ -205,14 +205,14 @@ const SearchRecords = () => {
 
   // Group slips by student (prefer student_id if available, otherwise student_name)
   const grouped = filteredSlips.reduce((acc, slip) => {
-    const key = slip.student_id ? `id:${slip.student_id}` : `name:${(slip.student_name||'').toLowerCase()}`;
+    const key = slip.student_id ? `id:${slip.student_id}` : `name:${(slip.student_name || '').toLowerCase()}`;
     if (!acc[key]) acc[key] = { key, student_id: slip.student_id, student_name: slip.student_name, slips: [] };
     acc[key].slips.push(slip);
     return acc;
   }, {});
 
   const groupedList = Object.values(grouped).map(g => {
-    const sorted = g.slips.slice().sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const sorted = g.slips.slice().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     const latest = sorted[0];
     return {
       key: g.key,
@@ -230,7 +230,7 @@ const SearchRecords = () => {
   } else if (numberSort === 'lowest') {
     groupedList.sort((a, b) => a.count - b.count);
   } else {
-    groupedList.sort((a,b) => b.latest && a.latest ? new Date(b.latest.created_at).getTime() - new Date(a.latest.created_at).getTime() : 0);
+    groupedList.sort((a, b) => b.latest && a.latest ? new Date(b.latest.created_at).getTime() - new Date(a.latest.created_at).getTime() : 0);
   }
 
   const getStatusBadge = (status) => {
@@ -241,7 +241,7 @@ const SearchRecords = () => {
     };
 
     const config = statusConfig[status] || { color: 'bg-gray-100 text-gray-800', label: status };
-    
+
     return (
       <span className={`px-2 py-1 text-xs rounded-full ${config.color}`}>
         {config.label}
@@ -372,7 +372,7 @@ const SearchRecords = () => {
       XLSX.utils.book_append_sheet(wb, ws2, 'Resolved Reports');
     }
 
-    XLSX.writeFile(wb, `records_export_${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.writeFile(wb, `records_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const location = useLocation();
@@ -425,9 +425,9 @@ const SearchRecords = () => {
   // Reports belonging to the currently open group modal student
   const groupViewReports = groupViewStudent
     ? allReports.filter(r => {
-        if (groupViewStudent.id && r.student_id) return String(r.student_id) === String(groupViewStudent.id);
-        return (r.student_name || '').toLowerCase() === (groupViewStudent.name || '').toLowerCase();
-      })
+      if (groupViewStudent.id && r.student_id) return String(r.student_id) === String(groupViewStudent.id);
+      return (r.student_name || '').toLowerCase() === (groupViewStudent.name || '').toLowerCase();
+    })
     : [];
 
   // If a slipId is provided in the URL, open that slip's details/modal
@@ -446,23 +446,31 @@ const SearchRecords = () => {
   return (
     <div className="container">
       <div className="card" style={{ padding: 20 }}>
-        
 
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <Search style={{ width: 26, height: 26, color: 'var(--primary)', marginRight: 10 }} />
-            <h1 style={{ fontSize: 20, fontWeight: 700 }}>Search Violation Records</h1>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontSize: 13, color: '#374151' }}>Sort by Records:</label>
-            <select value={numberSort} onChange={(e) => setNumberSort(e.target.value)} className="form-input">
-              <option value="highest">Highest</option>
-              <option value="lowest">Lowest</option>
-              <option value="most_recent">Most recent</option>
-            </select>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              marginRight: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0, 102, 51, 0.08)',
+              borderRadius: '8px',
+              color: 'var(--primary)',
+              flexShrink: 0
+            }}>
+              <Search style={{ width: '22px', height: '22px' }} />
+            </div>
+            <h1 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>Search Violation Records</h1>
           </div>
         </div>
+
+        <p className="text-muted" style={{ marginBottom: 16, fontSize: '0.9rem' }}>
+          Look up for student records and violation reports.
+        </p>
 
         {/* Search bar */}
         <div style={{ position: 'relative', marginBottom: 14 }}>
@@ -478,61 +486,61 @@ const SearchRecords = () => {
           />
         </div>
 
-        
+
 
         {/* Results - semantic table with auto-sizing, edge-to-edge inside card */}
         <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
           <div className="records-table-container" style={{ overflowX: 'auto' }}>
             <div className="records-table-scroll">
               <table className="records-table">
-              <thead>
-                <tr>
-                  <SortHeader colKey="name"  label="Student Name"       sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-name" />
-                  <SortHeader colKey="count" label="Number of Records"  sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-count" />
-                </tr>
-              </thead>
-
-              <tbody>
-                {mergedGroupedList.length === 0 ? (
+                <thead>
                   <tr>
-                    <td colSpan={2} style={{ textAlign: 'center', padding: 20 }}>
-                      <span className="text-gray-600">No records found</span>
-                    </td>
+                    <SortHeader colKey="name" label="Student Name" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-name" />
+                    <SortHeader colKey="count" label="Number of Records" sortCol={sortCol} sortDir={sortDir} onSort={handleColSort} className="col-count" />
                   </tr>
-                ) : (
-                  mergedGroupedList.map(group => (
-                    <tr
-                      key={group.key}
-                      onClick={() => {
-                        // Open group modal and load first page
-                        setGroupViewStudent({ id: group.student_id, name: group.student_name });
-                        setGroupPage(1);
-                        setGroupFetchedAll(false);
-                        setGroupLoading(true);
-                        (() => {
-                          const params = { sort: groupSortOrder };
-                          if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
-                          return getStudentAdmissionSlips(group.student_id, 1, groupPageSize, params);
-                        })()
-                          .then(resp => {
-                            if (resp.data?.success) {
-                              setGroupSlips(resp.data.slips || []);
-                              setGroupTotal(resp.data.total || 0);
-                            } else {
+                </thead>
+
+                <tbody>
+                  {mergedGroupedList.length === 0 ? (
+                    <tr>
+                      <td colSpan={2} style={{ textAlign: 'center', padding: 20 }}>
+                        <span className="text-gray-600">No records found</span>
+                      </td>
+                    </tr>
+                  ) : (
+                    mergedGroupedList.map(group => (
+                      <tr
+                        key={group.key}
+                        onClick={() => {
+                          // Open group modal and load first page
+                          setGroupViewStudent({ id: group.student_id, name: group.student_name });
+                          setGroupPage(1);
+                          setGroupFetchedAll(false);
+                          setGroupLoading(true);
+                          (() => {
+                            const params = { sort: groupSortOrder };
+                            if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
+                            return getStudentAdmissionSlips(group.student_id, 1, groupPageSize, params);
+                          })()
+                            .then(resp => {
+                              if (resp.data?.success) {
+                                setGroupSlips(resp.data.slips || []);
+                                setGroupTotal(resp.data.total || 0);
+                              } else {
+                                setGroupSlips([]);
+                                setGroupTotal(0);
+                              }
+                            })
+                            .catch(err => {
+                              console.error('Failed to load group slips:', err);
                               setGroupSlips([]);
                               setGroupTotal(0);
-                            }
-                          })
-                          .catch(err => {
-                            console.error('Failed to load group slips:', err);
-                            setGroupSlips([]);
-                            setGroupTotal(0);
-                          })
-                          .finally(() => setGroupLoading(false));
-                      }}
-                      className={'hover:bg-gray-50 cursor-pointer'}
-                    >
-                      <td>
+                            })
+                            .finally(() => setGroupLoading(false));
+                        }}
+                        className={'hover:bg-gray-50 cursor-pointer'}
+                      >
+                        <td>
                           <div className="flex items-center">
                             <div style={{ width: 36, height: 36, borderRadius: 9999, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                               <User style={{ width: 16, height: 16, color: '#6b7280' }} />
@@ -541,96 +549,106 @@ const SearchRecords = () => {
                               <h3 className="font-medium text-gray-900">{group.student_name}</h3>
                             </div>
                           </div>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span className="text-gray-700 font-medium">{group.count + group.reports.length}</span>
-                        {group.reports.length > 0 && group.count > 0 && (
-                          <span style={{ fontSize: 11, color: '#6b7280', display: 'block' }}>
-                            {group.count} slip{group.count !== 1 ? 's' : ''}, {group.reports.length} report{group.reports.length !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {group.reports.length > 0 && group.count === 0 && (
-                          <span style={{ fontSize: 11, color: '#6b7280', display: 'block' }}>
-                            {group.reports.length} report{group.reports.length !== 1 ? 's' : ''} only
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="text-gray-700 font-medium">{group.count + group.reports.length}</span>
+                          {group.reports.length > 0 && group.count > 0 && (
+                            <span style={{ fontSize: 11, color: '#6b7280', display: 'block' }}>
+                              {group.count} slip{group.count !== 1 ? 's' : ''}, {group.reports.length} report{group.reports.length !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {group.reports.length > 0 && group.count === 0 && (
+                            <span style={{ fontSize: 11, color: '#6b7280', display: 'block' }}>
+                              {group.reports.length} report{group.reports.length !== 1 ? 's' : ''} only
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
               </table>
             </div>
           </div>
 
           {isModalOpen && selectedSlip && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
-              <div className="card" style={{ width: '100%', maxWidth: '760px', maxHeight: '90vh', overflowY: 'auto', padding: '18px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '14px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedSlip.student_name}</h3>
-                    <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>
-                      <span style={{ marginRight: 8 }}>{selectedSlip.slip_number}</span>
-                      <span style={{ marginRight: 8 }}>{[selectedSlip.year, selectedSlip.section].filter(Boolean).join(' ')}</span>
-                      {/* course removed from header as requested */}
-                    </div>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 1010, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
+              <div className="card" style={{ width: '100%', maxWidth: '760px', maxHeight: '90vh', overflowY: 'auto', padding: '32px', fontFamily: 'Arial, sans-serif' }}>
+
+                {/* Red close button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+                  <button
+                    onClick={() => { setIsModalOpen(false); setSelectedSlip(null); }}
+                    style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {/* University Header */}
+                <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+                  <h2 style={{ color: '#006400', fontFamily: 'Times New Roman, serif', margin: '0', fontSize: '24px', letterSpacing: '0.5px' }}>ISABELA STATE UNIVERSITY</h2>
+                  <h3 style={{ margin: '8px 0', fontFamily: 'Times New Roman, serif', fontSize: '16px', fontWeight: 'normal', letterSpacing: '1px' }}>GUIDANCE OFFICE</h3>
+                  <h3 style={{ textDecoration: 'underline', margin: '15px 0 5px 0', fontSize: '20px', fontWeight: 'bold', fontFamily: 'Arial, sans-serif' }}>ADMISSION SLIP REPORT</h3>
+                </div>
+
+                <hr style={{ border: 'none', borderTop: '3px double #006400', margin: '20px 0' }} />
+
+                {/* Student name + status badge */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '15px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 5px 0', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>{selectedSlip.student_name}</h3>
+                    <div style={{ color: '#555', fontSize: '15px' }}>Slip Reference: <strong style={{ color: '#000' }}>{selectedSlip.slip_number}</strong></div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ marginBottom: 6 }}>
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(selectedSlip.status)}`}>
-                          {getStatusDisplay(selectedSlip.status)}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => { setIsModalOpen(false); setSelectedSlip(null); }}
-                        className="btn"
-                        style={{
-                          padding: '6px 12px',
-                          background: 'transparent',
-                          border: '1px solid var(--primary)',
-                          color: 'var(--primary)',
-                          borderRadius: 6
-                        }}
-                      >
-                        Close
-                      </button>
-                    </div>
+                  <div style={{ border: '1px solid #333', padding: '4px 8px', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px', textTransform: 'uppercase', color: '#000' }}>
+                    {getStatusDisplay(selectedSlip.status)}
                   </div>
                 </div>
 
-                {/* Improved details layout: label / value pairs */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8, alignItems: 'start' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date Issued</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827' }}>{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</div>
-
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Last Updated</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827' }}>{(selectedSlip.updated_at && selectedSlip.updated_at !== selectedSlip.created_at) ? new Date(selectedSlip.updated_at).toLocaleString() : '-'}</div>
-
-
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Year &amp; Section</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827' }}>{[selectedSlip.year, selectedSlip.section].filter(Boolean).join(' ') || '-'}</div>
-
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Violation</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.violation_description || 'No violation specified'}</div>
-
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Description</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.description || '-'}</div>
-
-                    <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Counselor Remarks</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</div>
-
-                    {/* course row removed as requested */}
+                {/* Meta table */}
+                <div style={{ border: '1px solid #a1a1aa', borderBottom: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', marginBottom: '20px', fontFamily: 'Arial, sans-serif' }}>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', borderRight: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>DATE &amp; TIME</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{selectedSlip.created_at ? new Date(selectedSlip.created_at).toLocaleString() : '-'}</div>
+                  </div>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>LAST UPDATED</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{(selectedSlip.updated_at && selectedSlip.updated_at !== selectedSlip.created_at) ? new Date(selectedSlip.updated_at).toLocaleString() : '-'}</div>
+                  </div>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', borderRight: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>YEAR &amp; SECTION</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{[selectedSlip.year, selectedSlip.section].filter(Boolean).join(' ') || '-'}</div>
+                  </div>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>COURSE</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{selectedSlip.course || '-'}</div>
                   </div>
                 </div>
+
+                {/* Content sections */}
+                <div style={{ border: '1px solid #c1c1c1', backgroundColor: '#fff' }}>
+                  <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '13px', color: '#555', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>VIOLATION</div>
+                    <div style={{ fontSize: '15px', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.violation_description || 'No violation specified'}</div>
+                  </div>
+                  <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '13px', color: '#555', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>DESCRIPTION</div>
+                    <div style={{ fontSize: '15px', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.description || '-'}</div>
+                  </div>
+                  <div style={{ padding: '12px 16px' }}>
+                    <div style={{ fontSize: '13px', color: '#555', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>COUNSELOR REMARKS</div>
+                    <div style={{ fontSize: '15px', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedSlip.teacher_comments || selectedSlip.remarks || '-'}</div>
+                  </div>
+                </div>
+
               </div>
             </div>
           )}
 
+
           {/* Group view modal */}
           {groupViewStudent && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1.5rem 1rem' }}>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1.5rem 1rem' }}>
               {/* Modal card: flex column, hard max height, nothing overflows */}
               <div className="card" style={{ width: '100%', maxWidth: '820px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
 
@@ -670,7 +688,7 @@ const SearchRecords = () => {
 
                   {/* ── Filters row (shared layout for both tabs) ── */}
                   {(groupViewStudent.toggle !== 'reports') && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 2fr', gap: 10, marginBottom: 10 }}>
                       <input type="text" placeholder="Search slips…" value={groupSearchTerm} onChange={e => setGroupSearchTerm((e.target.value || '').slice(0, 32))} maxLength={32} className="form-input" style={{ fontSize: 13 }} />
                       <select value={groupStatusFilter} onChange={e => setGroupStatusFilter(e.target.value)} className="form-input" style={{ fontSize: 13 }}>
                         <option value="all">All Status</option>
@@ -678,26 +696,40 @@ const SearchRecords = () => {
                         <option value="form_completed">Form Completed</option>
                         <option value="approved">Approved</option>
                       </select>
-                      <input type="date" value={groupDateFilter} onChange={e => setGroupDateFilter(e.target.value)} className="form-input" style={{ fontSize: 13 }} />
-                      <select value={groupSortOrder} onChange={e => setGroupSortOrder(e.target.value)} className="form-input" style={{ fontSize: 13 }}>
-                        <option value="newest">Recently Updated</option>
-                        <option value="oldest">Oldest Issued</option>
-                      </select>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', border: '1px solid #ced4da', borderRadius: '4px', paddingLeft: '12px' }}>
+                        <Calendar className="icon" style={{ color: '#6c757d', width: '16px', height: '16px' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: 500 }}>From:</span>
+                          <input type="date" value={groupStartDate} onChange={e => setGroupStartDate(e.target.value)} className="form-input" style={{ border: 'none', background: 'transparent', padding: '6px' }} title="Start Date" />
+                        </div>
+                        <div style={{ width: '1px', height: '24px', backgroundColor: '#e9ecef' }}></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: 500 }}>To:</span>
+                          <input type="date" value={groupEndDate} onChange={e => setGroupEndDate(e.target.value)} className="form-input" style={{ border: 'none', background: 'transparent', padding: '6px', borderRadius: 0 }} title="End Date" />
+                        </div>
+                      </div>
                     </div>
                   )}
                   {groupViewStudent.toggle === 'reports' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 2fr', gap: 10, marginBottom: 10 }}>
                       <input type="text" placeholder="Search reports…" value={groupViewStudent.reportSearchTerm || ''} onChange={e => setGroupViewStudent(v => ({ ...v, reportSearchTerm: (e.target.value || '').slice(0, 32), reportPage: 1 }))} maxLength={32} className="form-input" style={{ fontSize: 13 }} />
                       <select value={groupViewStudent.reportStatusFilter || 'all'} onChange={e => setGroupViewStudent(v => ({ ...v, reportStatusFilter: e.target.value, reportPage: 1 }))} className="form-input" style={{ fontSize: 13 }}>
                         <option value="all">All Status</option>
                         <option value="reported">Reported</option>
                         <option value="resolved">Resolved</option>
                       </select>
-                      <input type="date" value={groupViewStudent.reportDateFilter || ''} onChange={e => setGroupViewStudent(v => ({ ...v, reportDateFilter: e.target.value, reportPage: 1 }))} className="form-input" style={{ fontSize: 13 }} />
-                      <select value={groupViewStudent.reportSortOrder || 'newest'} onChange={e => setGroupViewStudent(v => ({ ...v, reportSortOrder: e.target.value, reportPage: 1 }))} className="form-input" style={{ fontSize: 13 }}>
-                        <option value="newest">Recently Reported</option>
-                        <option value="oldest">Oldest Reported</option>
-                      </select>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', border: '1px solid #ced4da', borderRadius: '4px', paddingLeft: '12px' }}>
+                        <Calendar className="icon" style={{ color: '#6c757d', width: '16px', height: '16px' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: 500 }}>From:</span>
+                          <input type="date" value={groupViewStudent.reportStartDate || ''} onChange={e => setGroupViewStudent(v => ({ ...v, reportStartDate: e.target.value, reportPage: 1 }))} className="form-input" style={{ border: 'none', background: 'transparent', padding: '6px' }} title="Start Date" />
+                        </div>
+                        <div style={{ width: '1px', height: '24px', backgroundColor: '#e9ecef' }}></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: 500 }}>To:</span>
+                          <input type="date" value={groupViewStudent.reportEndDate || ''} onChange={e => setGroupViewStudent(v => ({ ...v, reportEndDate: e.target.value, reportPage: 1 }))} className="form-input" style={{ border: 'none', background: 'transparent', padding: '6px', borderRadius: 0 }} title="End Date" />
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -721,11 +753,16 @@ const SearchRecords = () => {
                           list = list.filter(s => (s.slip_number || '').toLowerCase().includes(q) || (s.violation_description || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q));
                         }
                         if (groupStatusFilter !== 'all') list = list.filter(s => s.status === groupStatusFilter);
-                        if (groupDateFilter) list = list.filter(s => new Date(s.created_at).toISOString().split('T')[0] === groupDateFilter);
+                        if (groupStartDate) list = list.filter(s => new Date(s.created_at) >= new Date(groupStartDate));
+                        if (groupEndDate) {
+                          const end = new Date(groupEndDate);
+                          end.setHours(23, 59, 59, 999);
+                          list = list.filter(s => new Date(s.created_at) <= end);
+                        }
                         list = list.sort((a, b) => {
-                          const tA = new Date(groupSortOrder === 'newest' ? (a.updated_at || a.created_at) : a.created_at).getTime() || 0;
-                          const tB = new Date(groupSortOrder === 'newest' ? (b.updated_at || b.created_at) : b.created_at).getTime() || 0;
-                          return groupSortOrder === 'newest' ? tB - tA : tA - tB;
+                          const tA = new Date(a.updated_at || a.created_at).getTime() || 0;
+                          const tB = new Date(b.updated_at || b.created_at).getTime() || 0;
+                          return tB - tA;
                         });
                         if (applyClientPagination) list = list.slice((groupPage - 1) * groupPageSize, groupPage * groupPageSize);
                         if (list.length === 0) return <div style={{ fontSize: 13, color: '#6b7280', padding: '16px 0', textAlign: 'center' }}>No slips found.</div>;
@@ -760,13 +797,18 @@ const SearchRecords = () => {
                     if (groupViewStudent.reportStatusFilter && groupViewStudent.reportStatusFilter !== 'all') {
                       list = list.filter(r => (r.status || '').toLowerCase() === groupViewStudent.reportStatusFilter);
                     }
-                    if (groupViewStudent.reportDateFilter) {
-                      list = list.filter(r => new Date(r.created_at).toISOString().split('T')[0] === groupViewStudent.reportDateFilter);
+                    if (groupViewStudent.reportStartDate) {
+                      list = list.filter(r => new Date(r.created_at) >= new Date(groupViewStudent.reportStartDate));
+                    }
+                    if (groupViewStudent.reportEndDate) {
+                      const end = new Date(groupViewStudent.reportEndDate);
+                      end.setHours(23, 59, 59, 999);
+                      list = list.filter(r => new Date(r.created_at) <= end);
                     }
                     list = list.sort((a, b) => {
                       const tA = new Date(a.created_at).getTime() || 0;
                       const tB = new Date(b.created_at).getTime() || 0;
-                      return (groupViewStudent.reportSortOrder || 'newest') === 'newest' ? tB - tA : tA - tB;
+                      return tB - tA;
                     });
                     const pageSize = groupPageSize;
                     const page = groupViewStudent.reportPage || 1;
@@ -797,7 +839,23 @@ const SearchRecords = () => {
                 <div style={{ padding: '10px 20px', borderTop: '1px solid #e6edf3', flexShrink: 0, display: 'flex', gap: 6, flexWrap: 'wrap', minHeight: 52, alignItems: 'center' }}>
                   {/* Slips pagination */}
                   {(groupViewStudent.toggle !== 'reports') && (() => {
-                    const totalPages = Math.max(1, Math.ceil((groupTotal || 0) / groupPageSize));
+                    let listCount = groupTotal || 0;
+                    if (groupFetchedAll) {
+                      let list = (groupSlips || []).slice();
+                      if (groupSearchTerm) {
+                        const q = groupSearchTerm.toLowerCase();
+                        list = list.filter(s => (s.slip_number || '').toLowerCase().includes(q) || (s.violation_description || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q));
+                      }
+                      if (groupStatusFilter !== 'all') list = list.filter(s => s.status === groupStatusFilter);
+                      if (groupStartDate) list = list.filter(s => new Date(s.created_at) >= new Date(groupStartDate));
+                      if (groupEndDate) {
+                        const end = new Date(groupEndDate);
+                        end.setHours(23, 59, 59, 999);
+                        list = list.filter(s => new Date(s.created_at) <= end);
+                      }
+                      listCount = list.length;
+                    }
+                    const totalPages = Math.max(1, Math.ceil(listCount / groupPageSize));
                     if (totalPages <= 1) return <span style={{ fontSize: 12, color: '#9ca3af' }}>Page 1 of 1</span>;
                     const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
                     return pages.map(p => (
@@ -807,7 +865,7 @@ const SearchRecords = () => {
                         if (groupFetchedAll) return;
                         setGroupLoading(true);
                         try {
-                          const params = { sort: groupSortOrder };
+                          const params = { sort: 'newest' };
                           if (groupStatusFilter !== 'all') params.status = groupStatusFilter;
                           const resp = await getStudentAdmissionSlips(groupViewStudent.id, p, groupPageSize, params);
                           if (resp.data?.success) { setGroupSlips(resp.data.slips || []); setGroupTotal(resp.data.total || 0); }
@@ -823,7 +881,12 @@ const SearchRecords = () => {
                       list = list.filter(r => (r.violation_description || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q));
                     }
                     if (groupViewStudent.reportStatusFilter && groupViewStudent.reportStatusFilter !== 'all') list = list.filter(r => (r.status || '').toLowerCase() === groupViewStudent.reportStatusFilter);
-                    if (groupViewStudent.reportDateFilter) list = list.filter(r => new Date(r.created_at).toISOString().split('T')[0] === groupViewStudent.reportDateFilter);
+                    if (groupViewStudent.reportStartDate) list = list.filter(r => new Date(r.created_at) >= new Date(groupViewStudent.reportStartDate));
+                    if (groupViewStudent.reportEndDate) {
+                      const end = new Date(groupViewStudent.reportEndDate);
+                      end.setHours(23, 59, 59, 999);
+                      list = list.filter(r => new Date(r.created_at) <= end);
+                    }
                     const totalPages = Math.max(1, Math.ceil(list.length / groupPageSize));
                     if (totalPages <= 1) return <span style={{ fontSize: 12, color: '#9ca3af' }}>Page 1 of 1</span>;
                     const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -860,7 +923,7 @@ const SearchRecords = () => {
             disabled={exportableCount === 0}
             title={exportableCount === 0
               ? 'No approved slips or resolved reports to export'
-              : `Export ${approvedCount} approved slip${approvedCount!==1?'s':''} + ${resolvedReportsCount} resolved report${resolvedReportsCount!==1?'s':''} to XLSX`}
+              : `Export ${approvedCount} approved slip${approvedCount !== 1 ? 's' : ''} + ${resolvedReportsCount} resolved report${resolvedReportsCount !== 1 ? 's' : ''} to XLSX`}
             style={{ padding: '10px 14px', borderRadius: 8, boxShadow: '0 6px 18px rgba(15,23,42,0.12)', display: 'flex', alignItems: 'center', gap: 8 }}
           >
             Export to XLSX
@@ -873,62 +936,94 @@ const SearchRecords = () => {
 
       {/* Violation Report Detail Modal */}
       {isReportModalOpen && selectedReport && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
-          <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{selectedReport.student_name}</h3>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span className={`px-2 py-1 text-xs rounded-full ${selectedReport.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                  {(selectedReport.status || '').toUpperCase()}
-                </span>
-                <span className={`px-2 py-1 text-xs rounded-full ${selectedReport.violation_category === 'major' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'}`}>
-                  {(selectedReport.violation_category || '').toUpperCase()}
-                </span>
-                <button onClick={() => { setIsReportModalOpen(false); setSelectedReport(null); }} className="btn" style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}>
-                  Close
-                </button>
-              </div>
-            </div>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1020, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.45)', padding: '1rem' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', padding: '32px', fontFamily: 'Arial, sans-serif' }}>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8, alignItems: 'start', marginBottom: 12 }}>
-              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Course</div>
-              <div style={{ fontSize: '0.95rem', color: '#111827' }}>{selectedReport.course || '-'}</div>
-
-              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Year &amp; Section</div>
-              <div style={{ fontSize: '0.95rem', color: '#111827' }}>{[selectedReport.year, selectedReport.section].filter(Boolean).join(' - ') || '-'}</div>
-
-              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Date Reported</div>
-              <div style={{ fontSize: '0.95rem', color: '#111827' }}>{selectedReport.created_at ? new Date(selectedReport.created_at).toLocaleString() : '-'}</div>
-
-              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Violation Type</div>
-              <div style={{ fontSize: '0.95rem', color: '#111827' }}>{selectedReport.violation_description || '-'}</div>
-
-              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Description</div>
-              <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedReport.description || '-'}</div>
-
-              <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>Counselor Remarks</div>
-              <div style={{ fontSize: '0.95rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedReport.remarks || '-'}</div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {selectedReport.status !== 'resolved' && (
-                <>
-                  <button onClick={() => handleResolveReport(selectedReport.id)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <CheckCircle style={{ width: 14, height: 14 }} /> Resolve
-                  </button>
-                  <button
-                    onClick={() => handleDeleteReport(selectedReport.id)}
-                    className="btn"
-                    style={{ padding: '6px 12px', background: '#ef4444', color: 'white', borderRadius: 6, border: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
-                  >
-                    <Trash2 style={{ width: 14, height: 14 }} /> Delete
-                  </button>
-                </>
-              )}
-              <button onClick={() => { setIsReportModalOpen(false); setSelectedReport(null); }} className="btn" style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: 6 }}>
+            {/* Red close button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+              <button
+                onClick={() => { setIsReportModalOpen(false); setSelectedReport(null); }}
+                style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
+              >
                 Close
               </button>
             </div>
+
+            {/* University Header */}
+            <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+              <h2 style={{ color: '#006400', fontFamily: 'Times New Roman, serif', margin: '0', fontSize: '24px', letterSpacing: '0.5px' }}>ISABELA STATE UNIVERSITY</h2>
+              <h3 style={{ margin: '8px 0', fontFamily: 'Times New Roman, serif', fontSize: '16px', fontWeight: 'normal', letterSpacing: '1px' }}>GUIDANCE OFFICE</h3>
+              <h3 style={{ textDecoration: 'underline', margin: '15px 0 5px 0', fontSize: '20px', fontWeight: 'bold', fontFamily: 'Arial, sans-serif' }}>STUDENT VIOLATION REPORT</h3>
+            </div>
+
+            <hr style={{ border: 'none', borderTop: '3px double #006400', margin: '20px 0' }} />
+
+            {/* Student name + status badge */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '15px' }}>
+              <div>
+                <h3 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 5px 0', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>{selectedReport.student_name}</h3>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <div style={{ border: '1px solid #333', padding: '4px 8px', fontWeight: 'bold', fontSize: '13px', letterSpacing: '1px', textTransform: 'uppercase', color: '#000' }}>
+                  {(selectedReport.status || '').toUpperCase()}
+                </div>
+                {selectedReport.violation_category && (
+                  <div style={{ border: '1px solid #c1c1c1', padding: '4px 8px', fontSize: '13px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: selectedReport.violation_category === 'major' ? '#b91c1c' : '#c2410c' }}>
+                    {selectedReport.violation_category.toUpperCase()}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Meta table */}
+            <div style={{ border: '1px solid #a1a1aa', borderBottom: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', marginBottom: '20px' }}>
+              <div style={{ borderBottom: '1px solid #a1a1aa', borderRight: '1px solid #a1a1aa', padding: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>DATE REPORTED</div>
+                <div style={{ fontSize: '15px', color: '#111827' }}>{selectedReport.created_at ? new Date(selectedReport.created_at).toLocaleString() : '-'}</div>
+              </div>
+              <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>COURSE</div>
+                <div style={{ fontSize: '15px', color: '#111827' }}>{selectedReport.course || '-'}</div>
+              </div>
+              <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>YEAR &amp; SECTION</div>
+                <div style={{ fontSize: '15px', color: '#111827' }}>{[selectedReport.year, selectedReport.section].filter(Boolean).join(' - ') || '-'}</div>
+              </div>
+            </div>
+
+            {/* Content sections */}
+            <div style={{ border: '1px solid #c1c1c1', backgroundColor: '#fff', marginBottom: '20px' }}>
+              <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                <div style={{ fontSize: '13px', color: '#555', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>VIOLATION TYPE</div>
+                <div style={{ fontSize: '15px', color: '#111827' }}>{selectedReport.violation_description || '-'}</div>
+              </div>
+              <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                <div style={{ fontSize: '13px', color: '#555', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>DESCRIPTION</div>
+                <div style={{ fontSize: '15px', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedReport.description || '-'}</div>
+              </div>
+              <div style={{ padding: '12px 16px' }}>
+                <div style={{ fontSize: '13px', color: '#555', fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px' }}>COUNSELOR REMARKS</div>
+                <div style={{ fontSize: '15px', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedReport.remarks || '-'}</div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            {selectedReport.status !== 'resolved' && (
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                <button
+                  onClick={() => handleResolveReport(selectedReport.id)}
+                  style={{ padding: '8px 16px', backgroundColor: '#1e7b44', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <CheckCircle style={{ width: 16, height: 16 }} /> Resolve
+                </button>
+                <button
+                  onClick={() => handleDeleteReport(selectedReport.id)}
+                  style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Trash2 style={{ width: 16, height: 16 }} /> Delete
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

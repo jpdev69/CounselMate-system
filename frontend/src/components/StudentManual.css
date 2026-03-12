@@ -167,7 +167,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  background: var(--primary, #006633);
   color: #fff;
   border: none;
   border-radius: 50px;
@@ -175,14 +175,14 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 102, 51, 0.3);
   z-index: 1000;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .chatbot-fab:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(79, 70, 229, 0.5);
+  box-shadow: 0 6px 24px rgba(0, 102, 51, 0.4);
 }
 
 .chatbot-fab-label {
@@ -330,7 +330,7 @@ mark.manual-highlight {
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  background: var(--primary, #006633);
   color: #fff;
   flex-shrink: 0;
 }
@@ -390,12 +390,12 @@ mark.manual-highlight {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #e0e7ff;
+  background: rgba(0, 102, 51, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #4f46e5;
+  color: var(--primary, #006633);
 }
 
 .chatbot-msg-bubble {
@@ -415,7 +415,7 @@ mark.manual-highlight {
 }
 
 .chatbot-msg-bubble-user {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  background: var(--primary, #006633);
   color: #fff;
   border-top-right-radius: 4px;
 }
@@ -430,7 +430,7 @@ mark.manual-highlight {
 .chatbot-typing .dot {
   width: 7px;
   height: 7px;
-  background: #a5b4fc;
+  background: #bbf7d0;
   border-radius: 50%;
   animation: typingBounce 1.2s infinite;
 }
@@ -474,8 +474,8 @@ mark.manual-highlight {
 }
 
 .chatbot-input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(0, 102, 51, 0.1);
 }
 
 .chatbot-input:disabled {
@@ -483,7 +483,7 @@ mark.manual-highlight {
 }
 
 .chatbot-send {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  background: var(--primary, #006633);
   border: none;
   border-radius: 10px;
   color: #fff;

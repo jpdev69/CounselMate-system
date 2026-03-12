@@ -24,7 +24,9 @@ const AdminPanel = () => {
   const [editCourseError, setEditCourseError] = useState('');
   const [editCourseSaving, setEditCourseSaving] = useState(false);
   const [coursePage, setCoursePage] = useState(1);
-  const COURSES_PAGE_SIZE = 8;
+  const COURSES_PAGE_SIZE = 6;
+  const YEAR_LEVELS_PAGE_SIZE = 4;
+  const SECTIONS_PAGE_SIZE = 3;
 
   // ── Year Levels ────────────────────────────────────────────────────────────
   const [yearLevels, setYearLevels] = useState([]);
@@ -105,7 +107,7 @@ const AdminPanel = () => {
     let mounted = true;
     getStudentManualInfo()
       .then(res => { if (mounted) setManualInfo(res.data?.info || null); })
-      .catch(() => {});
+      .catch(() => { });
     return () => { mounted = false; };
   }, []);
   // ── Load year levels when course changes ───────────────────────────────────
@@ -392,13 +394,26 @@ const AdminPanel = () => {
     <div className="container">
       <div className="card" style={{ padding: 20 }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-          <Settings style={{ width: 26, height: 26, color: 'var(--primary)' }} />
-          <h1 style={{ marginLeft: 10, fontSize: 20, fontWeight: 700 }}>Admin Panel</h1>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            marginRight: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 102, 51, 0.08)',
+            borderRadius: '8px',
+            color: 'var(--primary)',
+            flexShrink: 0
+          }}>
+            <Settings style={{ width: '22px', height: '22px' }} />
+          </div>
+          <h1 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>Admin Panel</h1>
         </div>
         <p className="text-muted" style={{ marginBottom: 20, fontSize: '0.9rem' }}>
-          Define the courses, year levels, and sections available when issuing admission slips.
-          Select a course to manage its year levels, then select a year level to manage its sections.
+          Set up courses, year levels, sections, and violation types used across the system.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
@@ -442,7 +457,7 @@ const AdminPanel = () => {
               <form onSubmit={handleAddCourse} style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
                 <input
                   className="form-input"
-                  placeholder="Course name (e.g. BS Information Technology)"
+                  placeholder="Course name (e.g. BS in Computer Science)"
                   value={newCourseName}
                   onChange={e => setNewCourseName(e.target.value.slice(0, 128))}
                   maxLength={128}
@@ -578,8 +593,8 @@ const AdminPanel = () => {
                 ) : yearLevels.length === 0 ? (
                   <div style={{ fontSize: 13, color: '#9ca3af' }}>No year levels yet.</div>
                 ) : (() => {
-                  const totalYlPages = Math.max(1, Math.ceil(yearLevels.length / COURSES_PAGE_SIZE));
-                  const pagedYl = yearLevels.slice((yearLevelPage - 1) * COURSES_PAGE_SIZE, yearLevelPage * COURSES_PAGE_SIZE);
+                  const totalYlPages = Math.max(1, Math.ceil(yearLevels.length / YEAR_LEVELS_PAGE_SIZE));
+                  const pagedYl = yearLevels.slice((yearLevelPage - 1) * YEAR_LEVELS_PAGE_SIZE, yearLevelPage * YEAR_LEVELS_PAGE_SIZE);
                   return (
                     <div>
                       {pagedYl.map(yl => (
@@ -686,8 +701,8 @@ const AdminPanel = () => {
                 ) : sections.length === 0 ? (
                   <div style={{ fontSize: 13, color: '#9ca3af' }}>No sections yet.</div>
                 ) : (() => {
-                  const totalSecPages = Math.max(1, Math.ceil(sections.length / COURSES_PAGE_SIZE));
-                  const pagedSec = sections.slice((sectionPage - 1) * COURSES_PAGE_SIZE, sectionPage * COURSES_PAGE_SIZE);
+                  const totalSecPages = Math.max(1, Math.ceil(sections.length / SECTIONS_PAGE_SIZE));
+                  const pagedSec = sections.slice((sectionPage - 1) * SECTIONS_PAGE_SIZE, sectionPage * SECTIONS_PAGE_SIZE);
                   return (
                     <div>
                       {pagedSec.map(sec => (
@@ -741,12 +756,12 @@ const AdminPanel = () => {
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, color: '#374151' }}>Violation Types</div>
           <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 10 }}>
             Upload a plain-text (.txt) discipline document to automatically extract and import violation types via AI.
-            Non-discipline documents will be rejected. Toggle each violation to decide where it appears.
+            Non-discipline documents will be rejected.
           </p>
 
           {/* Upload violations txt */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14, padding: '10px 14px', background: '#f3f4f6', borderRadius: 8 }}>
-            <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>Extract violations from document (.txt):</span>
+
             <input
               ref={violationsFileInputRef}
               type="file"
@@ -778,146 +793,146 @@ const AdminPanel = () => {
           {/* ── PREVIEW TABLE (shown after extraction, before saving) ── */}
           {vtPreview && (() => {
             return (
-            <div style={{ marginBottom: 18 }}>
-              {/* Existing violations reference */}
-              {vtExisting.length > 0 && (
-                <details style={{ marginBottom: 10, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                  <summary style={{ padding: '8px 14px', background: '#f9fafb', cursor: 'pointer', fontWeight: 600, fontSize: 12, color: '#374151', userSelect: 'none' }}>
-                    📋 Existing in DB ({vtExisting.length} violations) — expand to compare
-                  </summary>
-                  <div style={{ overflowX: 'auto', maxHeight: 220, overflowY: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <div style={{ marginBottom: 18 }}>
+                {/* Existing violations reference */}
+                {vtExisting.length > 0 && (
+                  <details style={{ marginBottom: 10, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                    <summary style={{ padding: '8px 14px', background: '#f9fafb', cursor: 'pointer', fontWeight: 600, fontSize: 12, color: '#374151', userSelect: 'none' }}>
+                      📋 Existing in DB ({vtExisting.length} violations) — expand to compare
+                    </summary>
+                    <div style={{ overflowX: 'auto', maxHeight: 220, overflowY: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                        <thead>
+                          <tr style={{ background: '#f3f4f6', position: 'sticky', top: 0 }}>
+                            <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Ref</th>
+                            <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Category</th>
+                            <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Description</th>
+                            <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600, fontFamily: 'monospace' }}>Code</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {vtExisting.map((v, i) => (
+                            <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: '#fff' }}>
+                              <td style={{ padding: '3px 10px', color: '#9ca3af', fontFamily: 'monospace' }}>{v.section_ref}</td>
+                              <td style={{ padding: '3px 10px' }}>
+                                <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 10, background: v.category === 'minor' ? '#fef9c3' : '#fee2e2', color: v.category === 'minor' ? '#92400e' : '#991b1b' }}>
+                                  {v.category}
+                                </span>
+                              </td>
+                              <td style={{ padding: '3px 10px', color: '#374151' }}>{v.description}</td>
+                              <td style={{ padding: '3px 10px', fontFamily: 'monospace', color: '#6b7280', fontSize: 10 }}>{v.code}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                )}
+
+                {/* Extracted preview */}
+                <div style={{ border: '1.5px solid #3b82f6', borderRadius: 8, overflow: 'hidden' }}>
+                  <div style={{ background: '#eff6ff', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>
+                        🔍 Review extracted violations ({vtPreview.length})
+                      </span>
+
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {vtPreviewError && <span style={{ color: '#ef4444', fontSize: 12 }}>{vtPreviewError}</span>}
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => { setVtPreview(null); setVtExisting([]); setVtPreviewError(''); }}
+                        style={{ fontSize: 12 }}
+                      >
+                        Discard
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={handleSaveViolations}
+                        disabled={vtPreviewSaving || vtPreview.length === 0}
+                        style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                      >
+                        {vtPreviewSaving ? 'Saving…' : `✓ Confirm & Import (${vtPreview.length})`}
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
-                        <tr style={{ background: '#f3f4f6', position: 'sticky', top: 0 }}>
-                          <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Ref</th>
-                          <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Category</th>
-                          <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Description</th>
-                          <th style={{ padding: '4px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600, fontFamily: 'monospace' }}>Code</th>
+                        <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                          <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 60 }}>Ref</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 80 }}>Category</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Description</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 160 }}>Code</th>
+                          <th style={{ padding: '6px 10px', width: 32 }}></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {vtExisting.map((v, i) => (
-                          <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: '#fff' }}>
-                            <td style={{ padding: '3px 10px', color: '#9ca3af', fontFamily: 'monospace' }}>{v.section_ref}</td>
-                            <td style={{ padding: '3px 10px' }}>
-                              <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 10, background: v.category === 'minor' ? '#fef9c3' : '#fee2e2', color: v.category === 'minor' ? '#92400e' : '#991b1b' }}>
-                                {v.category}
-                              </span>
-                            </td>
-                            <td style={{ padding: '3px 10px', color: '#374151' }}>{v.description}</td>
-                            <td style={{ padding: '3px 10px', fontFamily: 'monospace', color: '#6b7280', fontSize: 10 }}>{v.code}</td>
-                          </tr>
-                        ))}
+                        {vtPreview.map((vt, i) => {
+                          return (
+                            <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: '#fff' }}>
+                              <td style={{ padding: '4px 6px' }}>
+                                <input
+                                  value={vt.section_ref || ''}
+                                  onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, section_ref: e.target.value } : v))}
+                                  style={{ width: 52, fontSize: 12, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4 }}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 6px' }}>
+                                <select
+                                  value={vt.category}
+                                  onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, category: e.target.value } : v))}
+                                  style={{ fontSize: 12, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4 }}
+                                >
+                                  <option value="minor">Minor</option>
+                                  <option value="major">Major</option>
+                                </select>
+                              </td>
+                              <td style={{ padding: '4px 6px' }}>
+                                <input
+                                  value={vt.description || ''}
+                                  onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, description: e.target.value } : v))}
+                                  style={{ width: '100%', minWidth: 200, fontSize: 12, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4 }}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 6px' }}>
+                                <input
+                                  value={vt.code || ''}
+                                  onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, code: e.target.value.toUpperCase() } : v))}
+                                  style={{ width: 148, fontSize: 11, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4, fontFamily: 'monospace' }}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setVtPreview(prev => prev.filter((_, idx) => idx !== i))}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }}
+                                  title="Remove"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
-                </details>
-              )}
-
-              {/* Extracted preview */}
-              <div style={{ border: '1.5px solid #3b82f6', borderRadius: 8, overflow: 'hidden' }}>
-                <div style={{ background: '#eff6ff', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>
-                      🔍 Review extracted violations ({vtPreview.length})
-                    </span>
-
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    {vtPreviewError && <span style={{ color: '#ef4444', fontSize: 12 }}>{vtPreviewError}</span>}
+                  <div style={{ padding: '8px 12px', borderTop: '1px solid #e5e7eb', background: '#f9fafb' }}>
                     <button
                       type="button"
                       className="btn"
-                      onClick={() => { setVtPreview(null); setVtExisting([]); setVtPreviewError(''); }}
-                      style={{ fontSize: 12 }}
+                      onClick={() => setVtPreview(prev => [...prev, { code: '', description: '', category: 'minor', section_ref: '' }])}
+                      style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
                     >
-                      Discard
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={handleSaveViolations}
-                      disabled={vtPreviewSaving || vtPreview.length === 0}
-                      style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                    >
-                      {vtPreviewSaving ? 'Saving…' : `✓ Confirm & Import (${vtPreview.length})`}
+                      <Plus size={12} /> Add row
                     </button>
                   </div>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 60 }}>Ref</th>
-                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 80 }}>Category</th>
-                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Description</th>
-                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 160 }}>Code</th>
-                        <th style={{ padding: '6px 10px', width: 32 }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {vtPreview.map((vt, i) => {
-                        return (
-                        <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: '#fff' }}>
-                          <td style={{ padding: '4px 6px' }}>
-                            <input
-                              value={vt.section_ref || ''}
-                              onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, section_ref: e.target.value } : v))}
-                              style={{ width: 52, fontSize: 12, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4 }}
-                            />
-                          </td>
-                          <td style={{ padding: '4px 6px' }}>
-                            <select
-                              value={vt.category}
-                              onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, category: e.target.value } : v))}
-                              style={{ fontSize: 12, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4 }}
-                            >
-                              <option value="minor">Minor</option>
-                              <option value="major">Major</option>
-                            </select>
-                          </td>
-                          <td style={{ padding: '4px 6px' }}>
-                            <input
-                              value={vt.description || ''}
-                              onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, description: e.target.value } : v))}
-                              style={{ width: '100%', minWidth: 200, fontSize: 12, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4 }}
-                            />
-                          </td>
-                          <td style={{ padding: '4px 6px' }}>
-                            <input
-                              value={vt.code || ''}
-                              onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, code: e.target.value.toUpperCase() } : v))}
-                              style={{ width: 148, fontSize: 11, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4, fontFamily: 'monospace' }}
-                            />
-                          </td>
-                          <td style={{ padding: '4px 6px', textAlign: 'center' }}>
-                            <button
-                              type="button"
-                              onClick={() => setVtPreview(prev => prev.filter((_, idx) => idx !== i))}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }}
-                              title="Remove"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </td>
-                        </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div style={{ padding: '8px 12px', borderTop: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => setVtPreview(prev => [...prev, { code: '', description: '', category: 'minor', section_ref: '' }])}
-                    style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
-                  >
-                    <Plus size={12} /> Add row
-                  </button>
-                </div>
               </div>
-            </div>
             );
           })()}
 
@@ -1052,8 +1067,7 @@ const AdminPanel = () => {
             <span style={{ fontWeight: 700, fontSize: 15, color: '#374151' }}>Student Manual</span>
           </div>
           <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 14 }}>
-            Upload a plain-text (.txt) Student Manual to replace the one used by the Chatbot and the Student Manual page.
-            The new file is applied immediately — no server restart needed.
+            Upload a plain-text (.txt) Student Manual to replace the one used by the Chatbot at the Student Manual page.
           </p>
 
           {/* Current manual info */}
