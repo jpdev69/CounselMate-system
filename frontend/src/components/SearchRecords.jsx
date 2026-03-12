@@ -1009,7 +1009,7 @@ const SearchRecords = () => {
 
             {/* Action buttons */}
             {selectedReport.status !== 'resolved' && (
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '32px' }}>
                 <button
                   onClick={() => handleResolveReport(selectedReport.id)}
                   style={{ padding: '8px 16px', backgroundColor: '#1e7b44', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 600, fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}

@@ -465,7 +465,7 @@ const AdminPanel = () => {
                 <div style={{ display: 'flex', gap: 6 }}>
                   <input
                     className="form-input"
-                    placeholder="Code (e.g. BSIT)"
+                    placeholder="Code (e.g. BSCS)"
                     value={newCourseCode}
                     onChange={e => setNewCourseCode(e.target.value.slice(0, 32))}
                     maxLength={32}
