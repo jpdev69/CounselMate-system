@@ -45,7 +45,7 @@ const Layout = ({ children }) => {
             <Menu size={20} />
           </button>
           <img src="/GuidanceOS-system-logo.png" alt="ISU Logo" className="top-header-logo" />
-          <h1 className="top-header-title">GuidanceOS - Isabela State University</h1>
+          <h1 className="top-header-title">GuidanceOS</h1>
         </div>
         
         <div className="top-header-right">
@@ -67,7 +67,7 @@ const Layout = ({ children }) => {
       </header>
       
       {/* Main Layout Body */}
-      <div className="layout-body">
+      <div className={`layout-body ${collapsed ? 'sidebar-collapsed' : ''}`}>
         {/* Sidebar */}
         <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
           <nav className="sidebar-nav">

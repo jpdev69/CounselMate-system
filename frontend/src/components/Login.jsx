@@ -22,22 +22,30 @@ const Login = () => {
 
     // Client-side validation (disable native browser validation via form noValidate)
     if (!email && !password) {
-      setError('Email and password is required.');
+      setError('Email and password are required.');
       return;
     }
 
-    if (!email) {
+    if (!email.trim()) {
       setError('Email is required.');
       return;
     }
 
-    if (!password) {
+    if (!password.trim()) {
       setError('Password is required.');
       return;
     }
 
-    if (!email.includes('@')) {
-      setError("Please include an '@' in the email address.");
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    // Password length validation
+    if (password.trim().length < 1) {
+      setError('Password is required.');
       return;
     }
 
@@ -55,6 +63,13 @@ const Login = () => {
         setError(result.error);
         if (result.retryAfterMs) {
           setRetryAfterMs(result.retryAfterMs);
+        }
+        if (result.remainingAttempts !== undefined) {
+          // Show remaining attempts if available
+          const attemptsMessage = result.remainingAttempts > 0 
+            ? ` ${result.remainingAttempts} attempt${result.remainingAttempts === 1 ? '' : 's'} remaining.`
+            : ' No attempts remaining.';
+          setError(prev => prev + attemptsMessage);
         }
       }
     } catch (err) {
@@ -103,7 +118,7 @@ const Login = () => {
             <img src="/GuidanceOS-system-logo.png" alt="GuidanceOS" style={{ height: '72px', objectFit: 'contain' }} />
           </div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>GuidanceOS</h1>
-          <p className="text-muted">Guidance Portal</p>
+          <p className="text-muted">Guidance Counselor Portal</p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="" style={{ display: 'grid', gap: '0.75rem' }}>

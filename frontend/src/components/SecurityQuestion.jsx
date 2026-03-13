@@ -149,12 +149,27 @@ const SecurityQuestion = () => {
 					: (res?.error || 'Verification failed');
 				setVerifyError(errMsg);
 				if (res?.retryAfterMs) setRetryAfterMs(res.retryAfterMs);
+				if (res?.remainingAttempts !== undefined) {
+					const attemptsMessage = res.remainingAttempts > 0 
+						? ` ${res.remainingAttempts} attempt${res.remainingAttempts === 1 ? '' : 's'} remaining.`
+						: ' No attempts remaining.';
+					setVerifyError(prev => prev + attemptsMessage);
+				}
 			}
 		} catch (err) {
 			console.error('Verify error', err);
 			const r = err.response?.data?.retryAfterMs || null;
+			const remainingAttempts = err.response?.data?.remainingAttempts;
 			if (r) setRetryAfterMs(r);
-			setVerifyError('Failed to verify password');
+			const errorMsg = 'Failed to verify password';
+			if (remainingAttempts !== undefined) {
+				const attemptsMessage = remainingAttempts > 0 
+					? ` ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`
+					: ' No attempts remaining.';
+				setVerifyError(errorMsg + attemptsMessage);
+			} else {
+				setVerifyError(errorMsg);
+			}
 		}
 	};
 

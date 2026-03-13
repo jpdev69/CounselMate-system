@@ -13,6 +13,9 @@ const DEFAULT_ESCALATIONS = {
   'forgot-otp-reset': [3,5,7,9,12,15]
 };
 
+// OTP resend cooldown tracking (in-memory, per IP)
+const otpCooldownStore = new Map();
+
 // Read a global fallback escalation list if present
 const GLOBAL_ESCALATION_MINUTES_LIST = (process.env.ESCALATION_MINUTES_LIST || '').split(',').map(n => parseInt(n, 10)).filter(Boolean);
 
@@ -79,14 +82,35 @@ function precheckRateLimit(label) {
         return res.status(429).json({ success: false, error: friendlyText, retryAfterMs: remainingMs });
       }
 
-          // Reset window if firstAt is older than window
-          if (entry.firstAt && now - entry.firstAt > WINDOW_MINUTES * 60 * 1000) {
-            entry.attempts = 0;
-            entry.firstAt = null;
-            entry.blockedUntil = null;
-            // Also reset escalation after an idle window
-            entry.escalationIndex = 0;
+      // Reset window if firstAt is older than window
+      if (entry.firstAt && now - entry.firstAt > WINDOW_MINUTES * 60 * 1000) {
+        entry.attempts = 0;
+        entry.firstAt = null;
+        entry.blockedUntil = null;
+        // Also reset escalation after an idle window
+        entry.escalationIndex = 0;
         saveEntry(key, entry);
+      }
+
+      // Pre-block if this attempt would reach the limit
+      if (entry.attempts >= MAX_ATTEMPTS - 1) {
+        const list = getEscalationListForLabel(label);
+        const idx = Math.min(entry.escalationIndex || 0, list.length - 1);
+        const lockoutMinutes = list[idx] || list[list.length - 1] || 10; // fallback
+        entry.blockedUntil = now + lockoutMinutes * 60 * 1000;
+        entry.attempts = 0;
+        entry.firstAt = null;
+        entry.escalationIndex = Math.min((entry.escalationIndex || 0) + 1, list.length - 1);
+        saveEntry(key, entry);
+        
+        const remainingMs = entry.blockedUntil - now;
+        const remainingSeconds = Math.ceil(remainingMs / 1000);
+        const remainingMinutes = Math.ceil(remainingSeconds / 60);
+        res.set('Retry-After', String(remainingSeconds));
+        const friendlyText = remainingMinutes > 0
+          ? `Too many attempts. Try again after ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}.`
+          : `Too many attempts. Try again after ${remainingSeconds} second${remainingSeconds === 1 ? '' : 's'}.`;
+        return res.status(429).json({ success: false, error: friendlyText, retryAfterMs: remainingMs });
       }
 
       return next();
@@ -104,6 +128,9 @@ function recordFailedAttempt(req, label) {
 
   if (!entry.firstAt) entry.firstAt = now;
   entry.attempts = (entry.attempts || 0) + 1;
+  
+  // Calculate remaining attempts BEFORE potential reset
+  const remainingAttempts = Math.max(0, MAX_ATTEMPTS - entry.attempts);
 
   // If reached limit, set block using escalation step
   if (entry.attempts >= MAX_ATTEMPTS) {
@@ -119,12 +146,34 @@ function recordFailedAttempt(req, label) {
   }
 
   saveEntry(key, entry);
-  return entry;
+  return { ...entry, remainingAttempts };
 }
 
 function clearAttempts(req, label) {
   const key = makeKey(req, label);
-  clearEntry(key);
+  store.delete(key);
 }
 
-module.exports = { precheckRateLimit, recordFailedAttempt, clearAttempts };
+// OTP cooldown functions
+function setOtpCooldown(req, cooldownMs = 60000) {
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown-ip';
+  const key = `otp-cooldown:${ip}`;
+  otpCooldownStore.set(key, Date.now() + cooldownMs);
+}
+
+function getOtpCooldown(req) {
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown-ip';
+  const key = `otp-cooldown:${ip}`;
+  const cooldownUntil = otpCooldownStore.get(key);
+  if (!cooldownUntil) return null;
+  
+  const now = Date.now();
+  if (now >= cooldownUntil) {
+    otpCooldownStore.delete(key);
+    return null;
+  }
+  
+  return cooldownUntil - now; // Return remaining ms
+}
+
+module.exports = { precheckRateLimit, recordFailedAttempt, clearAttempts, setOtpCooldown, getOtpCooldown };

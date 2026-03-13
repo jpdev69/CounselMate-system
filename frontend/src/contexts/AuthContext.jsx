@@ -105,7 +105,8 @@ export const AuthProvider = ({ children }) => {
       return { 
         success: false, 
         error: error.response?.data?.error || 'Invalid email or password. Please check your credentials and try again.',
-        retryAfterMs
+        retryAfterMs,
+        remainingAttempts: error.response?.data?.remainingAttempts
       };
     }
   };

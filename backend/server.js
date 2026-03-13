@@ -177,7 +177,7 @@ app.get('/api/health', (req, res) => {
 // AUTHENTICATION ROUTES
 
 // Rate limiter middleware for auth
-const { precheckRateLimit, recordFailedAttempt, clearAttempts } = require('./middleware/rateLimiter');
+const { precheckRateLimit, recordFailedAttempt, clearAttempts, setOtpCooldown, getOtpCooldown } = require('./middleware/rateLimiter');
 
 // Login endpoint
 
@@ -197,17 +197,18 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
     if (!password) {
       return res.status(400).json({
         success: false,
-        error: 'password is required.'
+        error: 'Password is required.'
       });
     }
 
     // Only allow counselor@university.edu
     if (email !== 'counselor@university.edu') {
       // Record failed login for invalid email
-      try { recordFailedAttempt(req, 'login'); } catch (e) { /* no-op */ }
+      const attemptInfo = recordFailedAttempt(req, 'login');
       return res.status(401).json({ 
         success: false,
-        error: 'Invalid email or password. Please check your credentials and try again.'
+        error: 'Invalid email or password. Please check your credentials and try again.',
+        remainingAttempts: attemptInfo.remainingAttempts
       });
     }
 
@@ -219,10 +220,11 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
 
     if (userResult.rows.length === 0) {
       // Record failed attempt when user not found
-      try { recordFailedAttempt(req, 'login'); } catch (e) { /* no-op */ }
+      const attemptInfo = recordFailedAttempt(req, 'login');
       return res.status(401).json({ 
         success: false,
-        error: 'Invalid email or password. Please check your credentials and try again.' 
+        error: 'Invalid email or password. Please check your credentials and try again.',
+        remainingAttempts: attemptInfo.remainingAttempts
       });
     }
 
@@ -231,10 +233,11 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
     // Check password (in production, you should use bcrypt for hashing)
     if (password !== user.password_hash) {
       // Increment failed attempt count
-      try { recordFailedAttempt(req, 'login'); } catch (e) { /* no-op */ }
+      const attemptInfo = recordFailedAttempt(req, 'login');
       return res.status(401).json({ 
         success: false,
-        error: 'Invalid email or password. Please check your credentials and try again.' 
+        error: 'Invalid email or password. Please check your credentials and try again.',
+        remainingAttempts: attemptInfo.remainingAttempts
       });
     }
 
@@ -488,6 +491,17 @@ app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), asyn
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
 
+  // Check OTP resend cooldown first
+  const remainingCooldown = getOtpCooldown(req);
+  if (remainingCooldown) {
+    const remainingSeconds = Math.ceil(remainingCooldown / 1000);
+    return res.status(429).json({ 
+      success: false, 
+      error: `Please wait ${remainingSeconds} seconds before requesting another OTP.`,
+      retryAfterMs: remainingCooldown
+    });
+  }
+
   if (!gmailUser || !gmailPass || gmailUser === 'your_gmail@gmail.com') {
     return res.status(503).json({ success: false, error: 'OTP via Gmail is not configured on this server.' });
   }
@@ -612,6 +626,10 @@ app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), asyn
 
     // Mask the recovery email before sending it back (e.g. jo***@gmail.com)
     const masked = recoveryEmail.replace(/^(.{2})(.+?)(@.*)$/, (_, a, b, c) => a + b.replace(/./g, '*') + c);
+    
+    // Set 60-second cooldown for this IP
+    setOtpCooldown(req, 60000);
+    
     return res.json({ success: true, message: `OTP sent to ${masked}` });
   } catch (err) {
     console.error('send-otp error:', err.message || err);
@@ -629,13 +647,21 @@ app.post('/api/auth/forgot/verify-otp', precheckRateLimit('forgot-otp-verify'), 
   const stored = otpStore.get(OTP_KEY);
   if (!stored || Date.now() > stored.expiresAt) {
     otpStore.delete(OTP_KEY);
-    try { recordFailedAttempt(req, 'forgot-otp-verify'); } catch (e) { /* no-op */ }
-    return res.status(400).json({ success: false, error: 'OTP has expired. Please request a new one.' });
+    const attemptInfo = recordFailedAttempt(req, 'forgot-otp-verify');
+    return res.status(400).json({ 
+      success: false, 
+      error: 'OTP has expired. Please request a new one.',
+      remainingAttempts: attemptInfo.remainingAttempts
+    });
   }
 
   if (stored.otp !== String(otp).trim()) {
-    try { recordFailedAttempt(req, 'forgot-otp-verify'); } catch (e) { /* no-op */ }
-    return res.status(400).json({ success: false, error: 'Invalid OTP' });
+    const attemptInfo = recordFailedAttempt(req, 'forgot-otp-verify');
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Invalid OTP.',
+      remainingAttempts: attemptInfo.remainingAttempts
+    });
   }
 
   // Mark as verified and extend expiry by 5 more minutes for form completion
@@ -712,21 +738,33 @@ app.post('/api/auth/forgot/reset', precheckRateLimit('forgot-reset'), async (req
     const email = 'counselor@university.edu';
     const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userResult.rows.length === 0) {
-      try { recordFailedAttempt(req, 'forgot-reset'); } catch (e) { /* no-op */ }
-      return res.status(400).json({ success: false, error: 'Invalid answer' });
+      const attemptInfo = recordFailedAttempt(req, 'forgot-reset');
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid answer',
+        remainingAttempts: attemptInfo.remainingAttempts
+      });
     }
 
     const user = userResult.rows[0];
 
     // In production, security answers should be hashed; this app stores plaintext for demo
     if ((user.security_answer || '').toString().trim().toLowerCase() !== (answer || '').toString().trim().toLowerCase()) {
-      try { recordFailedAttempt(req, 'forgot-reset'); } catch (e) { /* no-op */ }
-      return res.status(400).json({ success: false, error: 'Invalid answer' });
+      const attemptInfo = recordFailedAttempt(req, 'forgot-reset');
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid answer',
+        remainingAttempts: attemptInfo.remainingAttempts
+      });
     }
 
+    // Validate new password: require at least one letter and one number (allow special characters)
     const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
     if (!requireLetterAndDigit.test(newPassword)) {
-      return res.status(400).json({ success: false, error: 'New password must include at least one letter and one number' });
+      return res.status(400).json({
+        success: false,
+        error: 'New password must include at least one letter and one number'
+      });
     }
 
     await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [newPassword, email]);
@@ -749,14 +787,22 @@ app.post('/api/auth/forgot/verify', precheckRateLimit('forgot-verify'), async (r
     const email = 'counselor@university.edu';
     const userResult = await pool.query('SELECT security_answer FROM users WHERE email = $1', [email]);
     if (userResult.rows.length === 0) {
-      try { recordFailedAttempt(req, 'forgot-verify'); } catch (e) { /* no-op */ }
-      return res.status(400).json({ success: false, error: 'Invalid answer' });
+      const attemptInfo = recordFailedAttempt(req, 'forgot-verify');
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid answer',
+        remainingAttempts: attemptInfo.remainingAttempts
+      });
     }
 
     const saved = (userResult.rows[0].security_answer || '').toString().trim().toLowerCase();
     if (saved !== (answer || '').toString().trim().toLowerCase()) {
-      try { recordFailedAttempt(req, 'forgot-verify'); } catch (e) { /* no-op */ }
-      return res.status(400).json({ success: false, error: 'Invalid answer' });
+      const attemptInfo = recordFailedAttempt(req, 'forgot-verify');
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid answer',
+        remainingAttempts: attemptInfo.remainingAttempts
+      });
     }
 
     // Success - clear attempts

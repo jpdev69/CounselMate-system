@@ -20,9 +20,12 @@ const ViolationAnalytics = () => {
   const [error, setError] = useState(null);
   const [hoveredBar, setHoveredBar] = useState(null);
   const [hoveredCourse, setHoveredCourse] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const violatorSvgRef = useRef(null);
   const violatorVizRef = useRef(null);
   const [violatorTooltip, setViolatorTooltip] = useState({ visible: false, left: 0, top: 0, name: '', count: 0 });
+
+  const itemsPerPage = 5;
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -92,6 +95,15 @@ const ViolationAnalytics = () => {
   const topCourses = courses?.slice(0, 5) || [];
   const topViolators = violations?.slice(0, 8) || [];
   
+  // Pagination for courses legend only
+  const totalPages = Math.ceil((courses?.length || 0) / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCourses = courses?.slice(startIndex, endIndex) || [];
+  
+  // Use all courses for the chart, but paginated courses for legend
+  const courseTotal = (courses || []).reduce((sum, course) => sum + (parseInt(course.violation_count, 10) || 0), 0);
+  
   const totalViolations = summary?.total_violations || 0;
   
   // Color palette for academic visualization
@@ -109,14 +121,13 @@ const ViolationAnalytics = () => {
   const violatorBorderColors = (violations || []).map((_, idx) => `hsl(${idx * 45}, 85%, 35%)`);
   const typeColors = (violationTypes || []).map((_, idx) => `hsl(${idx * 60}, 90%, 60%)`);
   const courseColors = (courses || []).map((_, idx) => `hsl(${idx * 80}, 85%, 55%)`);
-  const courseTotal = (courses || []).reduce((sum, course) => sum + (parseInt(course.violation_count, 10) || 0), 0);
   const circumference = 2 * Math.PI * 60;
   const courseSegments = (courses || []).reduce((acc, course, idx) => {
     const value = parseInt(course.violation_count, 10) || 0;
     const dash = courseTotal > 0 ? (value / courseTotal) * circumference : 0;
     const segment = {
       ...course,
-      color: courseColors[idx] || '#667eea',
+      color: courseColors[idx],
       dash,
       offset: acc.offset
     };
@@ -125,6 +136,17 @@ const ViolationAnalytics = () => {
     return acc;
   }, { offset: 0, list: [] }).list;
   const hoveredCourseData = (hoveredCourse != null && courseSegments[hoveredCourse]) ? courseSegments[hoveredCourse] : null;
+
+  // Helper function to get course color by code/name
+  const getCourseColor = (course) => {
+    const index = courses?.findIndex(c => 
+      (c.code && c.code === course.code) || 
+      (c.course && c.course === course.course) ||
+      (c.code === course.course) ||
+      (c.course === course.code)
+    );
+    return index >= 0 ? courseColors[index] : '#667eea';
+  };
 
   return (
     <div className="analytics-container">
@@ -136,41 +158,41 @@ const ViolationAnalytics = () => {
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="metrics-grid">
-        <div className="metric-card primary">
-          <div className="metric-icon">
-            <AlertTriangle size={24} />
+      {/* Key Metrics and Top Violators Row */}
+      <div className="metrics-violators-row">
+        {/* Key Metrics */}
+        <div className="metrics-grid">
+          <div className="metric-card primary">
+            <div className="metric-icon">
+              <AlertTriangle size={24} />
+            </div>
+            <div className="metric-content">
+              <div className="metric-value">{totalViolations}</div>
+              <div className="metric-label">Total {totalViolations === 1 ? 'Violation' : 'Violations'}</div>
+            </div>
           </div>
-          <div className="metric-content">
-            <div className="metric-value">{totalViolations}</div>
-            <div className="metric-label">Total {totalViolations === 1 ? 'Violation' : 'Violations'}</div>
+          
+          <div className="metric-card secondary">
+            <div className="metric-icon">
+              <Users size={24} />
+            </div>
+            <div className="metric-content">
+              <div className="metric-value">{summary?.students_with_violations || 0}</div>
+              <div className="metric-label">Student{summary?.students_with_violations === 1 ? '' : 's'} with Violations</div>
+            </div>
+          </div>
+          
+          <div className="metric-card success">
+            <div className="metric-icon">
+              <TrendingUp size={24} />
+            </div>
+            <div className="metric-content">
+              <div className="metric-value">{summary?.most_common_violation?.description?.length > 50 ? summary.most_common_violation.description.substring(0, 50) + '...' : summary?.most_common_violation?.description || 'N/A'}</div>
+              <div className="metric-label">Most Common Violation</div>
+            </div>
           </div>
         </div>
-        
-        <div className="metric-card secondary">
-          <div className="metric-icon">
-            <Users size={24} />
-          </div>
-          <div className="metric-content">
-            <div className="metric-value">{summary?.students_with_violations || 0}</div>
-            <div className="metric-label">Student{summary?.students_with_violations === 1 ? '' : 's'} with Violations</div>
-          </div>
-        </div>
-        
-        <div className="metric-card success">
-          <div className="metric-icon">
-            <TrendingUp size={24} />
-          </div>
-          <div className="metric-content">
-            <div className="metric-value">{summary?.most_common_violation?.description?.length > 50 ? summary.most_common_violation.description.substring(0, 50) + '...' : summary?.most_common_violation?.description || 'N/A'}</div>
-            <div className="metric-label">Most Common Violation</div>
-          </div>
-        </div>
-      </div>
 
-      {/* Compact Visualizations Grid */}
-      <div className="compact-viz-grid">
         {/* Top Violators Chart */}
         <div className="compact-viz-card">
           <div className="viz-header">
@@ -217,7 +239,10 @@ const ViolationAnalytics = () => {
             </div>
           </div>
         </div>
+      </div>
 
+      {/* Charts Grid */}
+      <div className="charts-grid">
         {/* Course Distribution Chart */}
         <div className="compact-viz-card">
           <div className="viz-header">
@@ -279,21 +304,46 @@ const ViolationAnalytics = () => {
               )}
             </svg>
             <div className="compact-legend">
-              {courseSegments.map((segment, idx) => (
-                <div key={idx} className="legend-item-small">
-                  <span className="legend-dot-small" style={{ backgroundColor: segment.color }}></span>
-                  <span className="legend-text">{segment.code || segment.course} ({segment.violation_count})</span>
-                </div>
-              ))}
+              {paginatedCourses.map((course, idx) => {
+                const courseColor = getCourseColor(course);
+                return (
+                  <div key={idx} className="legend-item-small">
+                    <span className="legend-dot-small" style={{ backgroundColor: courseColor }}></span>
+                    <span className="legend-text">{course.code || course.course} ({course.violation_count})</span>
+                  </div>
+                );
+              })}
             </div>
+            {/* Pagination for Programs */}
+            {courses.length > 5 && (
+              <div className="pagination-controls">
+                <button 
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  ← Previous
+                </button>
+                <span className="pagination-info">
+                  Showing {startIndex + 1}-{Math.min(endIndex, courses.length)} of {courses.length}
+                </span>
+                <button 
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Violation Types Distribution */}
-        <div className="compact-viz-card wide">
+        {/* Top 5 Violation Types */}
+        <div className="compact-viz-card">
           <div className="viz-header">
             <PieChart size={18} />
-            <h3>Violation Type Distribution</h3>
+            <h3>Top 5 Violation Types</h3>
           </div>
           <div className="viz-content">
             <div className="compact-horizontal-bars">

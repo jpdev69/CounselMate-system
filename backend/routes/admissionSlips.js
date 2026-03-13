@@ -220,28 +220,39 @@ router.get('/print-slip', async (req, res) => {
           <style>
             @page { size: A4; margin: 18mm; }
             html, body { height: 297mm; margin: 0; padding: 0; }
-            body { font-family: Arial, Helvetica, sans-serif; color: #111827; }
+            body { font-family: 'Times New Roman', serif; color: #111827; }
             .page { box-sizing: border-box; width: 210mm; min-height: 297mm; padding: 18mm; position: relative; }
-            .header { text-align: center; margin-bottom: 10mm; }
-            .univ { font-size: 16pt; font-weight: 700; letter-spacing: 0.5px; }
-            .sub { display: none; }
-            .meta { display: flex; justify-content: space-between; gap: 12mm; margin-bottom: 8mm; }
+            
+            /* University Header */
+            .header { text-align: center; margin-bottom: 15mm; }
+            .univ { font-size: 18pt; font-weight: 700; color: #006400; letter-spacing: 0.5px; font-family: 'Times New Roman', serif; }
+            .sub { font-size: 14pt; font-weight: normal; letter-spacing: 1px; color: #333; margin: 4px 0; font-family: 'Times New Roman', serif; }
+            .title { font-size: 16pt; font-weight: bold; text-decoration: underline; margin: 10px 0; font-family: 'Arial', sans-serif; }
+            
+            .divider { border: none; border-top: 3px double #006400; margin: 15px 0; }
+            
+            .meta { display: flex; justify-content: space-between; gap: 12mm; margin-bottom: 10mm; }
             .meta-col { flex: 1; }
-            .meta-left .meta-row, .meta-right .meta-row { margin-bottom: 6px; }
-            .label { font-weight: 700; font-size: 10pt; display: inline-block; width: 32mm; }
-            .value { font-size: 10pt; }
-            .box { border: none; padding: 8px 4px; min-height: 38mm; margin-bottom: 8mm; }
-            .box-title { font-weight: 700; margin-bottom: 6px; }
-            .box-content { min-height: 28mm; }
+            .meta-left .meta-row, .meta-right .meta-row { margin-bottom: 8px; }
+            .label { font-weight: 700; font-size: 11pt; display: inline-block; width: 35mm; color: #333; }
+            .value { font-size: 11pt; }
+            
+            .box { border: 1px solid #c1c1c1; padding: 10px; min-height: 40mm; margin-bottom: 10mm; background: #fff; }
+            .box-title { font-weight: 700; margin-bottom: 8px; font-size: 12pt; color: #333; letter-spacing: 0.5px; }
+            .box-content { min-height: 30mm; font-size: 11pt; line-height: 1.5; }
             .box-content.has-text .blank-lines { display: none; }
-            .blank-lines { margin-top: 6px; }
-            .blank-line { border-bottom: 1px solid #e5e7eb; height: 12px; margin: 8px 0; }
-            .signatures { display: flex; justify-content: space-between; gap: 12mm; margin-top: 14mm; }
+            .blank-lines { margin-top: 8px; }
+            .blank-line { border-bottom: 1px solid #e5e7eb; height: 14px; margin: 10px 0; }
+            
+            .signatures { display: flex; justify-content: space-between; gap: 15mm; margin-top: 18mm; }
             .sig { flex: 1; text-align: center; }
-            .sig-line { margin-top: 28px; border-top: 1px solid #000; width: 70%; margin-left: auto; margin-right: auto; }
-            .sig-label { margin-top: 6px; font-size: 10pt; color: #374151; text-align: center; }
-            .instructions { position: absolute; bottom: 18mm; left: 18mm; right: 18mm; font-size: 9.5pt; color: #374151; text-align: left; }
-            .footer { position: absolute; bottom: 8mm; left: 18mm; right: 18mm; text-align: center; font-size: 9pt; color: #6b7280; }
+            .sig-line { margin-top: 30px; border-top: 1px solid #000; width: 70%; margin-left: auto; margin-right: auto; }
+            .sig-label { margin-top: 8px; font-size: 11pt; color: #374151; text-align: center; font-weight: 600; }
+            .sig-sublabel { margin-top: 4px; font-size: 9pt; color: #6b7280; text-align: center; }
+            
+            .instructions { position: absolute; bottom: 20mm; left: 18mm; right: 18mm; font-size: 10pt; color: #374151; text-align: left; font-style: italic; }
+            .footer { position: absolute; bottom: 10mm; left: 18mm; right: 18mm; text-align: center; font-size: 9pt; color: #6b7280; font-family: 'Arial', sans-serif; }
+            
             @media print {
               body { -webkit-print-color-adjust: exact; }
             }
@@ -250,8 +261,12 @@ router.get('/print-slip', async (req, res) => {
         <body>
           <div class="page">
             <div class="header">
-              <div class="univ">UNIVERSITY ADMISSION SLIP</div>
+              <div class="univ">ISABELA STATE UNIVERSITY</div>
+              <div class="sub">GUIDANCE OFFICE</div>
+              <div class="title">ADMISSION SLIP</div>
             </div>
+
+            <div class="divider"></div>
 
             <div class="meta">
               <div class="meta-col meta-left">
@@ -286,12 +301,12 @@ router.get('/print-slip', async (req, res) => {
               <div class="sig">
                 <div class="sig-line"></div>
                 <div class="sig-label">Guidance Counselor</div>
-                <div style="margin-top:8px; font-size:10pt; color:#374151;">(signature over printed name)</div>
+                <div class="sig-sublabel">(Signature over printed name)</div>
               </div>
               <div class="sig">
                 <div class="sig-line"></div>
                 <div class="sig-label">Student</div>
-                <div style="margin-top:8px; font-size:10pt; color:#374151;">(signature over printed name)</div>
+                <div class="sig-sublabel">(Signature over printed name)</div>
               </div>
             </div>
 

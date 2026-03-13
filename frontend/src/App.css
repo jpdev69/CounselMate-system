@@ -113,7 +113,8 @@
 .layout-body {
   display: flex;
   flex: 1;
-  overflow: hidden;
+  height: calc(100vh - 60px);
+  margin-left: 250px;
 }
 
 /* Sidebar Styles (Traditional Flat) */
@@ -122,13 +123,20 @@
   background-color: #343a40;
   color: #fff;
   flex-shrink: 0;
-  overflow-y: auto;
   transition: width 0.2s ease;
   z-index: 900;
+  position: fixed;
+  top: 60px;
+  left: 0;
+  bottom: 0;
 }
 
 .sidebar.collapsed {
   width: 64px;
+}
+
+.layout-body.sidebar-collapsed {
+  margin-left: 64px;
 }
 
 .sidebar-nav {
@@ -190,6 +198,8 @@
   overflow-y: auto;
   background-color: #f4f6f9;
   padding: 24px;
+  height: 100%;
+  width: 100%;
 }
 
 .main-container {
@@ -198,8 +208,19 @@
 }
 
 @media (max-width: 768px) {
-  .sidebar { position: fixed; left: -250px; height: calc(100vh - 60px); }
+  .sidebar { 
+    position: fixed; 
+    left: -250px; 
+    height: calc(100vh - 60px);
+    top: 60px;
+  }
   .sidebar.mobile-open { left: 0; }
+  .layout-body {
+    margin-left: 0;
+  }
+  .main-content {
+    height: calc(100vh - 60px);
+  }
   .top-header-title { font-size: 1rem; }
   .user-profile .user-name { display: none; }
 }

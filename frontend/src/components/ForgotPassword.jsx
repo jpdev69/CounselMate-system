@@ -59,6 +59,8 @@ const ForgotPassword = () => {
   const [otpValue, setOtpValue] = useState('');
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [otpResendCooldown, setOtpResendCooldown] = useState(null);
+  const [otpResendTimeLeft, setOtpResendTimeLeft] = useState(null);
 
   // ── Shared new-password state ────────────────────────────────────
   const [newPassword, setNewPassword] = useState('');
@@ -89,6 +91,8 @@ const ForgotPassword = () => {
     setMessage(null);
     setRetryAfterMs(null);
     setTimeLeft(null);
+    setOtpResendCooldown(null);
+    setOtpResendTimeLeft(null);
     setNewPassword('');
     setConfirmPassword('');
     setPasswordFeedback({ length: false, letter: false, number: false, upper: false, special: false, strength: 'Weak', score: 0 });
@@ -154,13 +158,27 @@ const ForgotPassword = () => {
         setTimeout(() => navigate('/login'), 1400);
       } else {
         setMessage({ type: 'error', text: res.data?.error || 'Failed to reset password' });
+        if (res.data?.remainingAttempts !== undefined) {
+          const attemptsMessage = res.data.remainingAttempts > 0 
+            ? ` ${res.data.remainingAttempts} attempt${res.data.remainingAttempts === 1 ? '' : 's'} remaining.`
+            : ' No attempts remaining.';
+          setMessage(prev => ({ ...prev, text: prev.text + attemptsMessage }));
+        }
       }
     } catch (err) {
       console.error('Reset error', err);
       const errMsg = err.response?.data?.error || err.message || 'Failed to reset password';
       const r = err.response?.data?.retryAfterMs || null;
+      const remainingAttempts = err.response?.data?.remainingAttempts;
       if (r) setRetryAfterMs(r);
-      setMessage({ type: 'error', text: errMsg });
+      const messageObj = { type: 'error', text: errMsg };
+      if (remainingAttempts !== undefined) {
+        const attemptsMessage = remainingAttempts > 0 
+          ? ` ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`
+          : ' No attempts remaining.';
+        messageObj.text = errMsg + attemptsMessage;
+      }
+      setMessage(messageObj);
     } finally {
       setLoading(false);
     }
@@ -178,13 +196,27 @@ const ForgotPassword = () => {
           setTimeLeft(null);
       } else {
         setMessage({ type: 'error', text: res.data?.error || 'Invalid answer' });
+        if (res.data?.remainingAttempts !== undefined) {
+          const attemptsMessage = res.data.remainingAttempts > 0 
+            ? ` ${res.data.remainingAttempts} attempt${res.data.remainingAttempts === 1 ? '' : 's'} remaining.`
+            : ' No attempts remaining.';
+          setMessage(prev => ({ ...prev, text: prev.text + attemptsMessage }));
+        }
       }
     } catch (err) {
       console.error('Verify error', err);
       const errMsg = err.response?.data?.error || err.message || 'Failed to verify answer';
       const r = err.response?.data?.retryAfterMs || null;
+      const remainingAttempts = err.response?.data?.remainingAttempts;
       if (r) setRetryAfterMs(r);
-      setMessage({ type: 'error', text: errMsg });
+      const messageObj = { type: 'error', text: errMsg };
+      if (remainingAttempts !== undefined) {
+        const attemptsMessage = remainingAttempts > 0 
+          ? ` ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`
+          : ' No attempts remaining.';
+        messageObj.text = errMsg + attemptsMessage;
+      }
+      setMessage(messageObj);
     } finally {
       setVerifying(false);
     }
@@ -198,14 +230,27 @@ const ForgotPassword = () => {
       if (res.data && res.data.success) {
         setOtpSent(true);
         setOtpSentMsg(res.data.message || 'OTP sent. Check your email.');
+        // Start 60-second cooldown for resending (backend handles this, but we keep frontend timer for UI)
+        setOtpResendCooldown(60000); // 60 seconds in ms
       } else {
         setMessage({ type: 'error', text: res.data?.error || 'Failed to send OTP' });
+        // Handle cooldown from backend response
+        if (res.data?.retryAfterMs) {
+          setOtpResendCooldown(res.data.retryAfterMs);
+        }
       }
     } catch (err) {
       const errMsg = err.response?.data?.error || err.message || 'Failed to send OTP';
       const r = err.response?.data?.retryAfterMs || null;
-      if (r) setRetryAfterMs(r);
-      setMessage({ type: 'error', text: errMsg });
+      if (r) {
+        setRetryAfterMs(r);
+        setOtpResendCooldown(r);
+        // Show dynamic countdown in error message
+        const seconds = Math.ceil(r / 1000);
+        setMessage({ type: 'error', text: `Please wait ${seconds} seconds before requesting another OTP.` });
+      } else {
+        setMessage({ type: 'error', text: errMsg });
+      }
     } finally {
       setOtpLoading(false);
     }
@@ -223,12 +268,26 @@ const ForgotPassword = () => {
         setTimeLeft(null);
       } else {
         setMessage({ type: 'error', text: res.data?.error || 'Invalid OTP' });
+        if (res.data?.remainingAttempts !== undefined) {
+          const attemptsMessage = res.data.remainingAttempts > 0 
+            ? ` ${res.data.remainingAttempts} attempt${res.data.remainingAttempts === 1 ? '' : 's'} remaining.`
+            : ' No attempts remaining.';
+          setMessage(prev => ({ ...prev, text: prev.text + attemptsMessage }));
+        }
       }
     } catch (err) {
       const errMsg = err.response?.data?.error || err.message || 'Invalid OTP';
       const r = err.response?.data?.retryAfterMs || null;
+      const remainingAttempts = err.response?.data?.remainingAttempts;
       if (r) setRetryAfterMs(r);
-      setMessage({ type: 'error', text: errMsg });
+      const messageObj = { type: 'error', text: errMsg };
+      if (remainingAttempts !== undefined) {
+        const attemptsMessage = remainingAttempts > 0 
+          ? ` ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`
+          : ' No attempts remaining.';
+        messageObj.text = errMsg + attemptsMessage;
+      }
+      setMessage(messageObj);
     } finally {
       setOtpLoading(false);
     }
@@ -257,6 +316,43 @@ const ForgotPassword = () => {
     }, 1000);
     return () => clearInterval(t);
   }, [retryAfterMs]);
+
+  // OTP resend cooldown timer
+  useEffect(() => {
+    if (!otpResendCooldown) return undefined;
+    const end = Date.now() + otpResendCooldown;
+    const fmt = (ms) => {
+      const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+      return `${totalSeconds}s`;
+    };
+    setOtpResendTimeLeft(fmt(otpResendCooldown));
+    const t = setInterval(() => {
+      const remaining = end - Date.now();
+      if (remaining <= 0) {
+        setOtpResendCooldown(null);
+        setOtpResendTimeLeft(null);
+        // Clear cooldown error message when timer expires
+        setMessage(prev => {
+          if (prev?.text?.includes('Please wait') && prev?.text?.includes('seconds before requesting')) {
+            return null;
+          }
+          return prev;
+        });
+        clearInterval(t);
+        return;
+      }
+      setOtpResendTimeLeft(fmt(remaining));
+      // Update error message with current countdown
+      setMessage(prev => {
+        if (prev?.text?.includes('Please wait') && prev?.text?.includes('seconds before requesting')) {
+          const seconds = Math.ceil(remaining / 1000);
+          return { ...prev, text: `Please wait ${seconds} seconds before requesting another OTP.` };
+        }
+        return prev;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [otpResendCooldown]);
   return (
     <div className="login-container">
       <div className="login-card card">
@@ -309,7 +405,7 @@ const ForgotPassword = () => {
           {message && (
             <div className={`alert ${message.type === 'error' ? 'alert-error' : message.type === 'success' ? 'alert-success' : 'alert-info'}`}>
               {message.text}
-              {retryAfterMs && (
+              {retryAfterMs && !message.text.includes('Please wait') && !message.text.includes('seconds before requesting') && (
                 <div style={{ fontSize: 12, marginTop: 6 }}>Try again in {timeLeft || 'a few seconds'}.</div>
               )}
             </div>
@@ -383,8 +479,14 @@ const ForgotPassword = () => {
                           {otpLoading ? 'Verifying...' : 'Verify OTP'}
                         </button>
                       </div>
-                      <button type="button" className="btn" style={{ fontSize: '0.8rem', color: '#6b7280' }} onClick={() => { setOtpSent(false); setOtpValue(''); setMessage(null); }} disabled={otpLoading}>
-                        Resend OTP
+                      <button 
+                        type="button" 
+                        className="btn" 
+                        style={{ fontSize: '0.8rem', color: '#6b7280' }} 
+                        onClick={() => { setOtpSent(false); setOtpValue(''); setMessage(null); }} 
+                        disabled={otpLoading || !!otpResendCooldown}
+                      >
+                        {otpResendCooldown ? `Resend OTP (${otpResendTimeLeft})` : 'Resend OTP'}
                       </button>
                     </>
                   )}
