@@ -11,7 +11,7 @@ import { TrendingUp, Users, AlertTriangle, BookOpen, BarChart3, PieChart } from 
  * <ViolationAnalytics />
  */
 
-const ViolationAnalytics = () => {
+const ViolationAnalytics = ({ schoolYear, term }) => {
   const [summary, setSummary] = useState(null);
   const [violations, setViolations] = useState(null);
   const [courses, setCourses] = useState(null);
@@ -29,7 +29,7 @@ const ViolationAnalytics = () => {
 
   useEffect(() => {
     fetchAnalyticsData();
-  }, []);
+  }, [schoolYear, term]);
 
   const showViolatorTooltip = (idx) => {
     if (!violations || !violatorSvgRef.current || !violatorVizRef.current) return;
@@ -59,11 +59,17 @@ const ViolationAnalytics = () => {
 
       await api.get('/visualizations/health');
 
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      if (schoolYear) queryParams.append('schoolYear', schoolYear);
+      if (term) queryParams.append('term', term);
+      const queryString = queryParams.toString();
+
       const [summaryRes, violationsRes, coursesRes, typesRes] = await Promise.all([
-        api.get('/visualizations/violations/summary'),
-        api.get('/visualizations/violations/by-student'),
-        api.get('/visualizations/violations/by-course'),
-        api.get('/visualizations/violations/by-type')
+        api.get(`/visualizations/violations/summary${queryString ? `?${queryString}` : ''}`),
+        api.get(`/visualizations/violations/by-student${queryString ? `?${queryString}` : ''}`),
+        api.get(`/visualizations/violations/by-course${queryString ? `?${queryString}` : ''}`),
+        api.get(`/visualizations/violations/by-type${queryString ? `?${queryString}` : ''}`)
       ]);
 
       setSummary(summaryRes.data.summary);
@@ -91,18 +97,19 @@ const ViolationAnalytics = () => {
     ? (summary.total_violations / summary.students_with_violations).toFixed(2)
     : '0.00';
   
-  const topViolations = violationTypes?.slice(0, 5) || [];
-  const topCourses = courses?.slice(0, 5) || [];
-  const topViolators = violations?.slice(0, 8) || [];
+  const topViolations = violationTypes?.filter(v => v.violation_count > 0).slice(0, 5) || [];
+  const topCourses = courses?.filter(c => c.violation_count > 0).slice(0, 5) || [];
+  const topViolators = violations?.filter(v => v.violation_count > 0).slice(0, 8) || [];
   
   // Pagination for courses legend only
-  const totalPages = Math.ceil((courses?.length || 0) / itemsPerPage);
+  const totalPages = Math.ceil((courses?.filter(c => c.violation_count > 0).length || 0) / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedCourses = courses?.slice(startIndex, endIndex) || [];
+  const paginatedCourses = courses?.filter(c => c.violation_count > 0).slice(startIndex, endIndex) || [];
   
   // Use all courses for the chart, but paginated courses for legend
-  const courseTotal = (courses || []).reduce((sum, course) => sum + (parseInt(course.violation_count, 10) || 0), 0);
+  const coursesWithViolations = courses?.filter(c => c.violation_count > 0) || [];
+  const courseTotal = coursesWithViolations.reduce((sum, course) => sum + (parseInt(course.violation_count, 10) || 0), 0);
   
   const totalViolations = summary?.total_violations || 0;
   
@@ -117,12 +124,12 @@ const ViolationAnalytics = () => {
   };
 
   // Chart colors - More striking and vibrant
-  const violatorColors = (violations || []).map((_, idx) => `hsl(${idx * 45}, 85%, 55%)`);
-  const violatorBorderColors = (violations || []).map((_, idx) => `hsl(${idx * 45}, 85%, 35%)`);
-  const typeColors = (violationTypes || []).map((_, idx) => `hsl(${idx * 60}, 90%, 60%)`);
-  const courseColors = (courses || []).map((_, idx) => `hsl(${idx * 80}, 85%, 55%)`);
+  const violatorColors = (topViolators || []).map((_, idx) => `hsl(${idx * 45}, 85%, 55%)`);
+  const violatorBorderColors = (topViolators || []).map((_, idx) => `hsl(${idx * 45}, 85%, 35%)`);
+  const typeColors = (topViolations || []).map((_, idx) => `hsl(${idx * 60}, 90%, 60%)`);
+  const courseColors = (coursesWithViolations || []).map((_, idx) => `hsl(${idx * 80}, 85%, 55%)`);
   const circumference = 2 * Math.PI * 60;
-  const courseSegments = (courses || []).reduce((acc, course, idx) => {
+  const courseSegments = (coursesWithViolations || []).reduce((acc, course, idx) => {
     const value = parseInt(course.violation_count, 10) || 0;
     const dash = courseTotal > 0 ? (value / courseTotal) * circumference : 0;
     const segment = {
@@ -139,7 +146,7 @@ const ViolationAnalytics = () => {
 
   // Helper function to get course color by code/name
   const getCourseColor = (course) => {
-    const index = courses?.findIndex(c => 
+    const index = coursesWithViolations?.findIndex(c => 
       (c.code && c.code === course.code) || 
       (c.course && c.course === course.course) ||
       (c.code === course.course) ||
@@ -187,7 +194,14 @@ const ViolationAnalytics = () => {
               <TrendingUp size={24} />
             </div>
             <div className="metric-content">
-              <div className="metric-value">{summary?.most_common_violation?.description?.length > 50 ? summary.most_common_violation.description.substring(0, 50) + '...' : summary?.most_common_violation?.description || 'N/A'}</div>
+              <div className="metric-value">
+                {summary?.most_common_violation?.description ? 
+                  (summary.most_common_violation.description.length > 50 ? 
+                    summary.most_common_violation.description.substring(0, 50) + '...' : 
+                    summary.most_common_violation.description) : 
+                  'No violations found'
+                }
+              </div>
               <div className="metric-label">Most Common Violation</div>
             </div>
           </div>
@@ -200,43 +214,56 @@ const ViolationAnalytics = () => {
             <h3>Top Violators</h3>
           </div>
           <div className="viz-content" ref={violatorVizRef}>
-            <svg ref={violatorSvgRef} className="compact-bar-chart" viewBox="0 0 250 200">
-              {topViolators.map((student, idx) => {
-                const maxViolations = Math.max(...topViolators.map(s => parseInt(s.violation_count)));
-                const barHeight = (parseInt(student.violation_count) / maxViolations) * 140;
-                const x = 15 + idx * 25;
-                const y = 170 - barHeight;
-                const isHovered = hoveredBar === idx;
-                return (
-                  <g key={idx} 
-                    onMouseEnter={() => { setHoveredBar(idx); showViolatorTooltip(idx); }}
-                    onMouseLeave={() => { setHoveredBar(null); hideViolatorTooltip(); }}
-                    style={{ cursor: 'pointer' }}>
-                    <rect x={x} y={y} width="20" height={barHeight} fill={violatorColors[idx]} opacity={isHovered ? 1 : 0.8}
-                      rx={2}
-                      style={{ transition: 'all 0.2s ease' }}
-                    />
-                    <text x={x + 10} y="190" textAnchor="middle" fontSize="9" fill="#666">
-                      {idx + 1}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-            {violatorTooltip.visible && (
-              <div className="compact-tooltip" style={{ left: `${violatorTooltip.left}px`, top: `${violatorTooltip.top}px` }}>
-                <div className="tooltip-name">{violatorTooltip.name}</div>
-                <div className="tooltip-count">{violatorTooltip.count} {parseInt(violatorTooltip.count) === 1 ? 'violation' : 'violations'}</div>
+            {topViolators.length === 0 ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '40px', 
+                color: '#94a3b8',
+                fontSize: '14px'
+              }}>
+                No violators found for the selected filters
               </div>
-            )}
-            <div className="compact-legend">
-              {topViolators.map((student, idx) => (
-                <div key={idx} className="legend-item-small">
-                  <span className="legend-dot-small" style={{ backgroundColor: violatorColors[idx] }}></span>
-                  <span className="legend-text">{student.full_name.split(' ')[0]} ({student.violation_count})</span>
+            ) : (
+              <>
+                <svg ref={violatorSvgRef} className="compact-bar-chart" viewBox="0 0 250 200">
+                  {topViolators.map((student, idx) => {
+                    const maxViolations = Math.max(...topViolators.map(s => parseInt(s.violation_count)));
+                    const barHeight = (parseInt(student.violation_count) / maxViolations) * 140;
+                    const x = 15 + idx * 25;
+                    const y = 170 - barHeight;
+                    const isHovered = hoveredBar === idx;
+                    return (
+                      <g key={idx} 
+                        onMouseEnter={() => { setHoveredBar(idx); showViolatorTooltip(idx); }}
+                        onMouseLeave={() => { setHoveredBar(null); hideViolatorTooltip(); }}
+                        style={{ cursor: 'pointer' }}>
+                        <rect x={x} y={y} width="20" height={barHeight} fill={violatorColors[idx]} opacity={isHovered ? 1 : 0.8}
+                          rx={2}
+                          style={{ transition: 'all 0.2s ease' }}
+                        />
+                        <text x={x + 10} y="190" textAnchor="middle" fontSize="9" fill="#666">
+                          {idx + 1}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+                {violatorTooltip.visible && (
+                  <div className="compact-tooltip" style={{ left: `${violatorTooltip.left}px`, top: `${violatorTooltip.top}px` }}>
+                    <div className="tooltip-name">{violatorTooltip.name}</div>
+                    <div className="tooltip-count">{violatorTooltip.count} {parseInt(violatorTooltip.count) === 1 ? 'violation' : 'violations'}</div>
+                  </div>
+                )}
+                <div className="compact-legend">
+                  {topViolators.map((student, idx) => (
+                    <div key={idx} className="legend-item-small">
+                      <span className="legend-dot-small" style={{ backgroundColor: violatorColors[idx] }}></span>
+                      <span className="legend-text">{student.full_name.split(' ')[0]} ({student.violation_count})</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -250,91 +277,104 @@ const ViolationAnalytics = () => {
             <h3>Violations by Program</h3>
           </div>
           <div className="viz-content">
-            <svg className="compact-pie-chart" viewBox="0 0 200 200">
-              {courseSegments.length > 0 && courseTotal > 0 ? (
-                courseSegments.map((segment, idx) => {
-                  const isActive = hoveredCourse === idx;
-                  return (
+            {coursesWithViolations.length === 0 ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '40px', 
+                color: '#94a3b8',
+                fontSize: '14px'
+              }}>
+                No program violations found for the selected filters
+              </div>
+            ) : (
+              <>
+                <svg className="compact-pie-chart" viewBox="0 0 200 200">
+                  {courseSegments.length > 0 && courseTotal > 0 ? (
+                    courseSegments.map((segment, idx) => {
+                      const isActive = hoveredCourse === idx;
+                      return (
+                        <circle
+                          key={idx}
+                          cx="100"
+                          cy="100"
+                          r="60"
+                          fill="none"
+                          stroke={segment.color}
+                          strokeWidth={isActive ? 50 : 40}
+                          strokeDasharray={`${segment.dash} ${circumference}`}
+                          strokeDashoffset={segment.offset}
+                          opacity={isActive ? 1 : 0.85}
+                          onMouseEnter={() => setHoveredCourse(idx)}
+                          onMouseLeave={() => setHoveredCourse(null)}
+                          style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                        />
+                      );
+                    })
+                  ) : (
                     <circle
-                      key={idx}
                       cx="100"
                       cy="100"
                       r="60"
                       fill="none"
-                      stroke={segment.color}
-                      strokeWidth={isActive ? 50 : 40}
-                      strokeDasharray={`${segment.dash} ${circumference}`}
-                      strokeDashoffset={segment.offset}
-                      opacity={isActive ? 1 : 0.85}
-                      onMouseEnter={() => setHoveredCourse(idx)}
-                      onMouseLeave={() => setHoveredCourse(null)}
-                      style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                      stroke="#e2e8f0"
+                      strokeWidth="40"
+                      opacity="0.5"
                     />
-                  );
-                })
-              ) : (
-                <circle
-                  cx="100"
-                  cy="100"
-                  r="60"
-                  fill="none"
-                  stroke="#e2e8f0"
-                  strokeWidth="40"
-                  opacity="0.5"
-                />
-              )}
-              {hoveredCourseData ? (
-                <>
-                  <text x="100" y="95" textAnchor="middle" fontSize="12" fontWeight="600" fill="#333">
-                    {hoveredCourseData.code || hoveredCourseData.course}
-                  </text>
-                  <text x="100" y="110" textAnchor="middle" fontSize="11" fill="#666">
-                    {hoveredCourseData.violation_count} {parseInt(hoveredCourseData.violation_count) === 1 ? 'violation' : 'violations'}
-                  </text>
-                </>
-              ) : (
-                <>
-                  <text x="100" y="100" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#333">
-                    {courses.length}
-                  </text>
-                  <text x="100" y="115" textAnchor="middle" fontSize="10" fill="#666">
-                    Programs
-                  </text>
-                </>
-              )}
-            </svg>
-            <div className="compact-legend">
-              {paginatedCourses.map((course, idx) => {
-                const courseColor = getCourseColor(course);
-                return (
-                  <div key={idx} className="legend-item-small">
-                    <span className="legend-dot-small" style={{ backgroundColor: courseColor }}></span>
-                    <span className="legend-text">{course.code || course.course} ({course.violation_count})</span>
+                  )}
+                  {hoveredCourseData ? (
+                    <>
+                      <text x="100" y="95" textAnchor="middle" fontSize="12" fontWeight="600" fill="#333">
+                        {hoveredCourseData.code || hoveredCourseData.course}
+                      </text>
+                      <text x="100" y="110" textAnchor="middle" fontSize="11" fill="#666">
+                        {hoveredCourseData.violation_count} {parseInt(hoveredCourseData.violation_count) === 1 ? 'violation' : 'violations'}
+                      </text>
+                    </>
+                  ) : (
+                    <>
+                      <text x="100" y="100" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#333">
+                        {coursesWithViolations.length}
+                      </text>
+                      <text x="100" y="115" textAnchor="middle" fontSize="10" fill="#666">
+                        Programs
+                      </text>
+                    </>
+                  )}
+                </svg>
+                <div className="compact-legend">
+                  {paginatedCourses.map((course, idx) => {
+                    const courseColor = getCourseColor(course);
+                    return (
+                      <div key={idx} className="legend-item-small">
+                        <span className="legend-dot-small" style={{ backgroundColor: courseColor }}></span>
+                        <span className="legend-text">{course.code || course.course} ({course.violation_count})</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Pagination for Programs */}
+                {coursesWithViolations.length > 5 && (
+                  <div className="pagination-controls">
+                    <button 
+                      className="pagination-btn"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      ← Previous
+                    </button>
+                    <span className="pagination-info">
+                      Showing {startIndex + 1}-{Math.min(endIndex, coursesWithViolations.length)} of {coursesWithViolations.length}
+                    </span>
+                    <button 
+                      className="pagination-btn"
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next →
+                    </button>
                   </div>
-                );
-              })}
-            </div>
-            {/* Pagination for Programs */}
-            {courses.length > 5 && (
-              <div className="pagination-controls">
-                <button 
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                >
-                  ← Previous
-                </button>
-                <span className="pagination-info">
-                  Showing {startIndex + 1}-{Math.min(endIndex, courses.length)} of {courses.length}
-                </span>
-                <button 
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next →
-                </button>
-              </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -346,27 +386,38 @@ const ViolationAnalytics = () => {
             <h3>Top 5 Violation Types</h3>
           </div>
           <div className="viz-content">
-            <div className="compact-horizontal-bars">
-              {topViolations.map((type, idx) => {
-                const percentage = totalViolations > 0 
-                  ? ((type.violation_count / totalViolations) * 100)
-                  : 0;
-                const maxCount = Math.max(...topViolations.map(t => t.violation_count));
-                const barWidth = maxCount > 0 ? (type.violation_count / maxCount) * 100 : 0;
-                return (
-                  <div key={idx} className="horizontal-bar-item">
-                    <div className="bar-label">{type.description}</div>
-                    <div className="bar-container">
-                      <div className="horizontal-bar" style={{ width: `${barWidth}%`, background: typeColors[idx] }}></div>
+            {topViolations.length === 0 ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '40px', 
+                color: '#94a3b8',
+                fontSize: '14px'
+              }}>
+                No violations found for the selected filters
+              </div>
+            ) : (
+              <div className="compact-horizontal-bars">
+                {topViolations.map((type, idx) => {
+                  const percentage = totalViolations > 0 
+                    ? ((type.violation_count / totalViolations) * 100)
+                    : 0;
+                  const maxCount = Math.max(...topViolations.map(t => t.violation_count));
+                  const barWidth = maxCount > 0 ? (type.violation_count / maxCount) * 100 : 0;
+                  return (
+                    <div key={idx} className="horizontal-bar-item">
+                      <div className="bar-label">{type.description}</div>
+                      <div className="bar-container">
+                        <div className="horizontal-bar" style={{ width: `${barWidth}%`, background: typeColors[idx] }}></div>
+                      </div>
+                      <div className="bar-stats">
+                        <span className="bar-count">{type.violation_count}</span>
+                        <span className="bar-percentage">({percentage.toFixed(1)}%)</span>
+                      </div>
                     </div>
-                    <div className="bar-stats">
-                      <span className="bar-count">{type.violation_count}</span>
-                      <span className="bar-percentage">({percentage.toFixed(1)}%)</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

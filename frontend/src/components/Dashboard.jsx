@@ -7,6 +7,8 @@ import { useSlips } from '../contexts/SlipsContext';
 const Dashboard = () => {
   const { slips } = useSlips();
   const [recentViolations, setRecentViolations] = useState([]);
+  const [selectedSchoolYear, setSelectedSchoolYear] = useState('');
+  const [selectedTerm, setSelectedTerm] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -125,9 +127,86 @@ const Dashboard = () => {
         }
       `}</style>
 
+      {/* Filters Section */}
+      <div style={{ 
+        padding: '20px', 
+        backgroundColor: '#f8fafc', 
+        borderBottom: '1px solid #e2e8f0',
+        display: 'flex',
+        gap: '20px',
+        alignItems: 'center',
+        flexWrap: 'wrap'
+      }}>
+        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+          <div>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '5px', 
+              fontWeight: '600', 
+              color: '#374151',
+              fontSize: '14px'
+            }}>
+              School Year:
+            </label>
+            <select 
+              value={selectedSchoolYear}
+              onChange={(e) => setSelectedSchoolYear(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '14px',
+                minWidth: '120px',
+                backgroundColor: '#ffffff',
+                color: '#374151'
+              }}
+            >
+              <option value="">All Years</option>
+              <option value="2024-2025">2024-2025</option>
+              <option value="2023-2024">2023-2024</option>
+              <option value="2022-2023">2022-2023</option>
+              <option value="2021-2022">2021-2022</option>
+            </select>
+          </div>
+          
+          <div>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '5px', 
+              fontWeight: '600', 
+              color: '#374151',
+              fontSize: '14px'
+            }}>
+              Term:
+            </label>
+            <select 
+              value={selectedTerm}
+              onChange={(e) => setSelectedTerm(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '14px',
+                minWidth: '120px',
+                backgroundColor: '#ffffff',
+                color: '#374151'
+              }}
+            >
+              <option value="">All Terms</option>
+              <option value="1st">1st Semester</option>
+              <option value="2nd">2nd Semester</option>
+              <option value="Summer">Summer</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       {/* Original Dashboard Content */}
       <div style={{ padding: '20px' }}>
-        <ViolationAnalytics />
+        <ViolationAnalytics 
+          schoolYear={selectedSchoolYear} 
+          term={selectedTerm} 
+        />
       </div>
     </div>
   );
