@@ -4,6 +4,7 @@ const http    = require('http');
 const router  = express.Router();
 
 const manualStore = require('../utils/manualStore');
+const responseCache = require('../utils/responseCache');
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_URL   || 'http://localhost:11434';
 const OLLAMA_MODEL    = process.env.OLLAMA_MODEL || 'deepseek-v3.1:671b-cloud';
@@ -46,12 +47,29 @@ function isOllamaAvailable() {
   });
 }
 
-// GET /api/chatbot/manual â€” returns the raw manual text and metadata
+// GET /api/chatbot/manual — returns the raw manual text and metadata
 router.get('/manual', (req, res) => {
   res.json({
     success: true,
     text: manualStore.getRawManual(),
     info: manualStore.getManualInfo(),
+  });
+});
+
+// GET /api/chatbot/cache — returns cache stats
+router.get('/cache', (req, res) => {
+  res.json({
+    success: true,
+    stats: responseCache.getStats()
+  });
+});
+
+// DELETE /api/chatbot/cache — clears the cache
+router.delete('/cache', (req, res) => {
+  responseCache.clear();
+  res.json({
+    success: true,
+    message: 'Cache cleared'
   });
 });
 
@@ -65,22 +83,43 @@ router.post('/ask', async (req, res) => {
 
   const userMessage = message.trim();
 
+  // Check cache first
+  const cachedResponse = responseCache.get(userMessage);
+  if (cachedResponse) {
+    return res.json({ success: true, reply: cachedResponse, cached: true });
+  }
+
   // Try DeepSeek via Ollama first
   const ollamaUp = await isOllamaAvailable();
 
   if (!ollamaUp) {
     // Fallback: keyword-based response system
-    return res.json({
-      success: true,
-      reply: getFallbackResponse(userMessage)
-    });
+    const fallbackReply = getFallbackResponse(userMessage);
+    responseCache.set(userMessage, fallbackReply);
+    return res.json({ success: true, reply: fallbackReply });
   }
 
   try {
+    // Use hybrid RAG approach - get relevant context first
+    const context = manualStore.getContextForQuery(userMessage);
+    
+    let prompt;
+    
+    if (context === 'FULL_MANUAL') {
+      // Use full manual for comprehensive questions
+      prompt = manualStore.getSystemPrompt();
+    } else if (context) {
+      // Use contextual prompt with relevant chunks
+      prompt = manualStore.buildContextualPrompt(context, userMessage);
+    } else {
+      // Fallback to full system prompt for greetings/meta questions
+      prompt = manualStore.getSystemPrompt();
+    }
+
     const raw = await callOllama('/api/chat', {
       model: OLLAMA_MODEL,
       messages: [
-        { role: 'system', content: manualStore.getSystemPrompt() },
+        { role: 'system', content: prompt },
         { role: 'user', content: userMessage }
       ],
       stream: false,
@@ -100,15 +139,17 @@ router.post('/ask', async (req, res) => {
       reply = 'Sorry, I could not generate a response. Please try again.';
     }
 
+    // Cache the response
+    responseCache.set(userMessage, reply);
+
     return res.json({ success: true, reply });
   } catch (err) {
     console.error('Chatbot DeepSeek/Ollama error:', err.message || err);
 
     // If Ollama fails, use fallback
-    return res.json({
-      success: true,
-      reply: getFallbackResponse(userMessage)
-    });
+    const fallbackReply = getFallbackResponse(userMessage);
+    responseCache.set(userMessage, fallbackReply);
+    return res.json({ success: true, reply: fallbackReply });
   }
 });
 

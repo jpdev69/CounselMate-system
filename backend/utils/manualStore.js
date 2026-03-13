@@ -5,6 +5,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const searcher = require('./semanticSearch');
 
 const UPLOAD_DIR  = path.resolve(__dirname, '../uploads');
 const UPLOAD_PATH = path.join(UPLOAD_DIR, 'student-manual.txt');
@@ -35,6 +36,24 @@ RULES:
 7. If a question is clearly unrelated to this document's content (cooking, movies, trivia, etc.), politely explain your scope and suggest what you CAN help with. Do NOT just reject — always guide the user.
 8. When uncertain if a question is relevant, lean toward being helpful.
 9. Never refer to this document as "the student manual" unless that is its actual name ("${displayName}"). Always use the document's real name.`;
+}
+
+function buildContextualPrompt(context, query, manualName) {
+  const displayName = manualName || 'the uploaded manual';
+  return `You are the GuidanceOS Assistant, a helpful chatbot for **${displayName}**. 
+
+CONTEXT FROM ${displayName.toUpperCase()}:
+===BEGIN===
+${context}
+===END===
+
+User Question: ${query}
+
+RULES:
+1. Answer using ONLY the context provided above. If the context doesn't contain the answer, say "I couldn't find that information in the manual."
+2. Be helpful and conversational.
+3. Reference specific sections if possible.
+4. Keep responses concise but complete.`;
 }
 
 // ── core loader ───────────────────────────────────────────────────
@@ -73,6 +92,9 @@ function loadManual() {
       uploadedAt: stat.mtime.toISOString(),
     };
 
+    // Index for semantic search
+    searcher.indexManual(text);
+
     console.log(`✅ Manual loaded from upload (${displayName}): ${text.length} chars`);
   } catch (err) {
     console.error('❌ Failed to load Student Manual:', err.message);
@@ -87,10 +109,12 @@ loadManual();
 
 // ── public API ────────────────────────────────────────────────────
 module.exports = {
-  getRawManual:  () => _rawManual,
-  getSystemPrompt: () => _systemPrompt,
-  getManualInfo: () => _manualInfo,
-  reloadManual:  loadManual,
+  getRawManual:      () => _rawManual,
+  getSystemPrompt:   () => _systemPrompt,
+  getManualInfo:     () => _manualInfo,
+  getContextForQuery: (query) => searcher.getContext(query),
+  buildContextualPrompt: (context, query) => buildContextualPrompt(context, query, _manualInfo?.filename?.replace(/\.[^.]+$/, '') || 'the manual'),
+  reloadManual:      loadManual,
   UPLOAD_DIR,
   UPLOAD_PATH,
 };
