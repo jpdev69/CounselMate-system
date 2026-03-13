@@ -350,6 +350,27 @@ const AdminPanel = () => {
   const handleSaveViolations = async () => {
     setVtPreviewSaving(true);
     setVtPreviewError('');
+    
+    // Validate field lengths before sending to backend
+    const validationErrors = [];
+    let hasInvalidFields = false;
+    
+    vtPreview.forEach((vt, index) => {
+      if (vt.code && vt.code.length > 64) hasInvalidFields = true;
+      if (vt.description && vt.description.length > 128) hasInvalidFields = true;
+      if (vt.section_ref && vt.section_ref.length > 8) hasInvalidFields = true;
+    });
+    
+    if (hasInvalidFields) {
+      validationErrors.push('One or more inputs exceed maximum length');
+    }
+    
+    if (validationErrors.length > 0) {
+      setVtPreviewError(validationErrors.join('; '));
+      setVtPreviewSaving(false);
+      return;
+    }
+    
     try {
       const res = await saveViolationTypes({ violations: vtPreview });
       setViolationTypes(res.data?.violationTypes || []);
@@ -423,6 +444,48 @@ const AdminPanel = () => {
     } finally {
       setVtAdding(false);
     }
+  };
+
+  // ── Keyword matching for violation descriptions ─────────────────────────────
+  const findDescriptionMatches = (extractedDescription, existingViolations) => {
+    if (!extractedDescription || !existingViolations?.length) return { hasMatch: false, matches: [], matchingWords: [] };
+    
+    const extractedLower = extractedDescription.toLowerCase();
+    const matches = [];
+    let allMatchingWords = new Set();
+    
+    // Extract keywords from existing violations
+    existingViolations.forEach(existing => {
+      if (!existing.description) return;
+      
+      const existingDesc = existing.description.toLowerCase();
+      const existingWords = existingDesc.split(/\s+/).filter(word => word.length > 2); // Filter out very short words
+      
+      // Check for any word overlap (at least 1 meaningful word)
+      const matchingWords = existingWords.filter(word => 
+        word.length > 2 && extractedLower.includes(word) // Consider words longer than 2 chars
+      );
+      
+      if (matchingWords.length >= 1) {
+        matchingWords.forEach(word => allMatchingWords.add(word));
+        matches.push({
+          description: existing.description,
+          code: existing.code,
+          section_ref: existing.section_ref,
+          matchingWords: matchingWords,
+          confidence: matchingWords.length / existingWords.length
+        });
+      }
+    });
+    
+    // Sort by confidence (highest first) and return top matches
+    const sortedMatches = matches.sort((a, b) => b.confidence - a.confidence);
+    
+    return {
+      hasMatch: sortedMatches.length > 0,
+      matches: sortedMatches.slice(0, 3), // Return top 3 matches
+      matchingWords: Array.from(allMatchingWords)
+    };
   };
 
   // ── Shared styles ──────────────────────────────────────────────────────────
@@ -961,7 +1024,6 @@ const AdminPanel = () => {
                       <span style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>
                         🔍 Review extracted violations ({vtPreview.length})
                       </span>
-
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       {vtPreviewError && <span style={{ color: '#ef4444', fontSize: 12 }}>{vtPreviewError}</span>}
@@ -997,8 +1059,12 @@ const AdminPanel = () => {
                       </thead>
                       <tbody>
                         {vtPreview.map((vt, i) => {
+                          const matchInfo = findDescriptionMatches(vt.description, vtExisting);
                           return (
-                            <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: '#fff' }}>
+                            <tr key={i} style={{ 
+                              borderBottom: '1px solid #f3f4f6', 
+                              background: '#fff'
+                            }}>
                               <td style={{ padding: '4px 6px' }}>
                                 <input
                                   value={vt.section_ref || ''}
@@ -1017,11 +1083,59 @@ const AdminPanel = () => {
                                 </select>
                               </td>
                               <td style={{ padding: '4px 6px' }}>
-                                <input
-                                  value={vt.description || ''}
-                                  onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, description: e.target.value } : v))}
-                                  style={{ width: '100%', minWidth: 200, fontSize: 12, padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: 4 }}
-                                />
+                                <div style={{ position: 'relative' }}>
+                                  <input
+                                    value={vt.description || ''}
+                                    onChange={e => setVtPreview(prev => prev.map((v, idx) => idx === i ? { ...v, description: e.target.value } : v))}
+                                    style={{ 
+                                      width: '100%', 
+                                      minWidth: 200, 
+                                      fontSize: 12, 
+                                      padding: '2px 4px', 
+                                      border: '1px solid #d1d5db', 
+                                      borderRadius: 4,
+                                      background: '#fff',
+                                      paddingRight: vt.description && vt.description.length > 127 ? '35px' : '25px'
+                                    }}
+                                  />
+                                  <span style={{ 
+                                    position: 'absolute', 
+                                    right: '6px', 
+                                    top: '50%', 
+                                    transform: 'translateY(-50%)',
+                                    fontSize: 9, 
+                                    color: vt.description && vt.description.length > 127 ? '#ef4444' : '#9ca3af',
+                                    pointerEvents: 'none'
+                                  }}>
+                                    {vt.description ? vt.description.length : 0}/128
+                                  </span>
+                                </div>
+                                {matchInfo.hasMatch && (
+                                  <div style={{ 
+                                    fontSize: 10, 
+                                    color: '#374151', 
+                                    marginTop: 2,
+                                    padding: '2px 4px',
+                                    background: '#f9fafb',
+                                    borderRadius: 4,
+                                    border: '1px solid #e5e7eb'
+                                  }}>
+                                    {matchInfo.matchingWords.map((word, index) => (
+                                      <span key={index}>
+                                        {index > 0 && ', '}
+                                        <span style={{ 
+                                          background: '#fef3c7', 
+                                          padding: '1px 3px', 
+                                          borderRadius: 2, 
+                                          fontSize: 9,
+                                          fontWeight: 600
+                                        }}>
+                                          {word}
+                                        </span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </td>
                               <td style={{ padding: '4px 6px' }}>
                                 <input

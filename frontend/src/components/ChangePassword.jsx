@@ -100,10 +100,10 @@ const ChangePassword = () => {
       return;
     }
 
-    // Client-side validation: new password must include at least one letter and one number (special chars allowed)
-    const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
+    // Client-side validation
+    const requireLetterAndDigit = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
     if (!requireLetterAndDigit.test(formData.newPassword)) {
-      setError('New password must include at least one letter and one number');
+      setError('New password must include at least one letter and one number, one uppercase letter, and one special character');
       setLoading(false);
       return;
     }

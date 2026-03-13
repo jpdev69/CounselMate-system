@@ -395,12 +395,12 @@ app.put('/api/auth/change-password', authenticate, async (req, res) => {
       });
     }
 
-    // Validate new password: require at least one letter and one number (allow special characters)
-    const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
+    // Validate new password
+    const requireLetterAndDigit = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
     if (!requireLetterAndDigit.test(newPassword)) {
       return res.status(400).json({
         success: false,
-        error: 'New password must include at least one letter and one number'
+        error: 'New password must include at least one letter and one number, one uppercase letter, and one special character'
       });
     }
 
@@ -766,9 +766,9 @@ app.post('/api/auth/forgot/reset-with-otp', precheckRateLimit('forgot-otp-reset'
     return res.status(400).json({ success: false, error: 'OTP session expired. Please start over.' });
   }
 
-  const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
+  const requireLetterAndDigit = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
   if (!requireLetterAndDigit.test(newPassword)) {
-    return res.status(400).json({ success: false, error: 'New password must include at least one letter and one number' });
+    return res.status(400).json({ success: false, error: 'New password must include at least one letter and one number, one uppercase letter, and one special character' });
   }
 
   try {
@@ -847,12 +847,12 @@ app.post('/api/auth/forgot/reset', precheckRateLimit('forgot-reset'), async (req
       });
     }
 
-    // Validate new password: require at least one letter and one number (allow special characters)
-    const requireLetterAndDigit = /(?=.*[A-Za-z])(?=.*\d)/;
+    // Validate new password
+    const requireLetterAndDigit = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
     if (!requireLetterAndDigit.test(newPassword)) {
       return res.status(400).json({
         success: false,
-        error: 'New password must include at least one letter and one number'
+        error: 'New password must include at least one letter and one number, one uppercase letter, and one special character'
       });
     }
 
