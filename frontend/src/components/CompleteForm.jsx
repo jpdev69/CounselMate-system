@@ -4,6 +4,8 @@ import { useLocation } from 'react-router-dom';
 import { getViolationTypes, validateViolation } from '../services/api';
 import { useSlips } from '../contexts/SlipsContext';
 import { FileText, CheckCircle, Search, Filter, Trash2, Calendar } from 'lucide-react';
+import SchoolYearSelector from './SchoolYearSelector';
+import TermSelector from './TermSelector';
 import '../App-table-update.css';
 
 // ── Sort helper component ─────────────────────────────────────────────
@@ -47,6 +49,8 @@ const CompleteForm = () => {
     remarks: '',
     course: ''
   });
+  const [schoolYear, setSchoolYear] = useState('');
+  const [term, setTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [validationError, setValidationError] = useState(null);
   const [proceedWithError, setProceedWithError] = useState(false);
@@ -138,8 +142,6 @@ const CompleteForm = () => {
       }
     });
 
-
-
   const handleSelectSlip = (slip) => {
     console.log('📝 Selected slip:', slip);
     setSelectedSlip(slip);
@@ -149,6 +151,8 @@ const CompleteForm = () => {
       remarks: slip.teacher_comments || slip.remarks || '',
       course: slip.course || ''
     });
+    setSchoolYear(slip.school_year || '');
+    setTerm(slip.term || '');
     // Reset validation error when opening a new slip
     setValidationError(null);
     setProceedWithError(false);
@@ -169,6 +173,14 @@ const CompleteForm = () => {
     }
     if (!formData.description.trim()) {
       alert('Please provide a violation description.');
+      return;
+    }
+    if (!schoolYear) {
+      alert('Please select a school year.');
+      return;
+    }
+    if (!term) {
+      alert('Please select a term.');
       return;
     }
     setLoading(true);
@@ -214,6 +226,8 @@ const CompleteForm = () => {
         description: formData.description,
         teacher_comments: formData.remarks, // Match your API field name
         course: formData.course,
+        school_year: schoolYear,
+        term: term,
         status: 'form_completed',
         skip_validation: proceedWithError || false
       };
@@ -575,6 +589,14 @@ const CompleteForm = () => {
                     <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>COURSE</div>
                     <div style={{ fontSize: '15px', color: '#111827' }}>{selectedSlip.course || '-'}</div>
                   </div>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', borderRight: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>SCHOOL YEAR</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{selectedSlip.school_year || '-'}</div>
+                  </div>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>TERM</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{selectedSlip.term || '-'}</div>
+                  </div>
                 </div>
 
                 {/* Content */}
@@ -701,6 +723,24 @@ const CompleteForm = () => {
                             </div>
                           </div>
                         )}
+                      </div>
+
+                      <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'Arial, sans-serif' }}>SCHOOL YEAR *</label>
+                        <SchoolYearSelector
+                          value={schoolYear}
+                          onChange={setSchoolYear}
+                          required={true}
+                        />
+                      </div>
+
+                      <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'Arial, sans-serif' }}>TERM *</label>
+                        <TermSelector
+                          value={term}
+                          onChange={setTerm}
+                          required={true}
+                        />
                       </div>
 
                       <div style={{ padding: '12px 16px' }}>

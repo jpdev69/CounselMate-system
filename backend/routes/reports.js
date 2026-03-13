@@ -4,7 +4,7 @@ const db = require('../config/database');
 
 // Create a new student report (violation without admission slip)
 router.post('/', async (req, res) => {
-  const { studentName, year, section, course, student_id, violation_type_id, description, remarks } = req.body;
+  const { studentName, year, section, course, schoolYear, term, student_id, violation_type_id, description, remarks } = req.body;
 
   if (!violation_type_id) {
     return res.status(400).json({ error: 'Violation type is required' });
@@ -40,10 +40,10 @@ router.post('/', async (req, res) => {
     }
 
     const result = await db.query(
-      `INSERT INTO student_reports (student_id, violation_type_id, description, remarks, course, status)
-       VALUES ($1, $2, $3, $4, $5, 'reported')
+      `INSERT INTO student_reports (student_id, violation_type_id, description, remarks, course, school_year, term, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'reported')
        RETURNING *`,
-      [studentId, violation_type_id, description, remarks || null, course || null]
+      [studentId, violation_type_id, description, remarks || null, course || null, schoolYear || null, term || null]
     );
 
     // Return joined report

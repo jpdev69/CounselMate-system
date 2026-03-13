@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getViolationTypes, verifyStudent, createStudentReport, getAdminCourses, getCourseYearLevels, getYearLevelSections, validateViolation } from '../services/api';
 import { ClipboardList, User, Book, Users, GraduationCap } from 'lucide-react';
+import SchoolYearSelector from './SchoolYearSelector';
+import TermSelector from './TermSelector';
 
 const ReportStudent = () => {
   // Form state
@@ -12,6 +14,8 @@ const ReportStudent = () => {
     year: '',
     section: ''
   });
+  const [schoolYear, setSchoolYear] = useState('');
+  const [term, setTerm] = useState('');
   const [violationTypeId, setViolationTypeId] = useState('');
   const [description, setDescription] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -305,6 +309,18 @@ const ReportStudent = () => {
         return;
       }
 
+      if (!schoolYear) {
+        setError('School year is required');
+        setLoading(false);
+        return;
+      }
+
+      if (!term) {
+        setError('Term is required');
+        setLoading(false);
+        return;
+      }
+
       const selectedCourseObj = courses.find(c => String(c.id) === String(courseId));
       const courseName = selectedCourseObj ? selectedCourseObj.name : '';
 
@@ -313,6 +329,8 @@ const ReportStudent = () => {
         year: formData.year,
         section: formData.section,
         course: courseName,
+        schoolYear,
+        term,
         violation_type_id: parseInt(violationTypeId),
         description: description.trim(),
         remarks: remarks.trim() || null
@@ -334,6 +352,8 @@ const ReportStudent = () => {
       setViolationTypeId('');
       setDescription('');
       setRemarks('');
+      setSchoolYear('');
+      setTerm('');
       setVerified(null);
       setVerificationMessage('');
       setMatchedStudent(null);
@@ -486,6 +506,27 @@ const ReportStudent = () => {
                     ))}
                   </select>
                 </div>
+              </div>
+            </div>
+
+            {/* School Year & Term Grid */}
+            <div style={{ borderBottom: '1px solid #c1c1c1', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+              <div style={{ borderRight: '1px solid #c1c1c1', padding: '12px 16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>SCHOOL YEAR *</label>
+                <SchoolYearSelector
+                  value={schoolYear}
+                  onChange={setSchoolYear}
+                  required={true}
+                />
+              </div>
+
+              <div style={{ padding: '12px 16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', color: '#555', fontWeight: 700, letterSpacing: '0.5px' }}>TERM *</label>
+                <TermSelector
+                  value={term}
+                  onChange={setTerm}
+                  required={true}
+                />
               </div>
             </div>
 

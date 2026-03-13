@@ -51,7 +51,7 @@ router.post('/validate-violation', async (req, res) => {
 
 // Issue admission slip
 router.post('/issue', async (req, res) => {
-  const { studentName, year, section, course, student_id } = req.body;
+  const { studentName, year, section, course, schoolYear, term, student_id } = req.body;
 
   // If no existing student id is provided, validate required student fields to avoid creating blank users
   if (!student_id) {
@@ -81,10 +81,10 @@ router.post('/issue', async (req, res) => {
     }
 
     const slipResult = await db.query(
-      `INSERT INTO admission_slips (slip_number, student_id, issued_by, status, course) 
-       VALUES ($1, $2, $3, 'issued', $4) 
+      `INSERT INTO admission_slips (slip_number, student_id, issued_by, status, course, school_year, term) 
+       VALUES ($1, $2, $3, 'issued', $4, $5, $6) 
        RETURNING *`,
-      [slipNumber, studentId, 'system', course || null]
+      [slipNumber, studentId, 'system', course || null, schoolYear || null, term || null]
     );
 
     try {
@@ -407,7 +407,7 @@ router.get('/student/:studentId/slips', async (req, res) => {
 router.put('/:id/complete', async (req, res) => {
   try {
     const { id } = req.params;
-    const { violation_type_id, description, teacher_comments, course, skip_validation } = req.body;
+    const { violation_type_id, description, teacher_comments, course, school_year, term, skip_validation } = req.body;
 
     console.log(`📋 Completing form for slip ${id} with violation type ${violation_type_id}`);
 
@@ -445,14 +445,16 @@ router.put('/:id/complete', async (req, res) => {
           description = $2, 
           teacher_comments = $3, 
           course = $4,
+          school_year = $5,
+          term = $6,
           status = 'form_completed',
           form_completed_at = NOW(),
           updated_at = NOW()
-      WHERE id = $5
+      WHERE id = $7
       RETURNING *
     `;
     // Note: adjust parameter indexes to match the query above
-    const values = [violation_type_id, description, teacher_comments, course, id];
+    const values = [violation_type_id, description, teacher_comments, course, school_year, term, id];
     const result = await db.query(query, values);
 
     if (result.rows.length === 0) {

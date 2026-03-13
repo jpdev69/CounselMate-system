@@ -54,6 +54,16 @@ async function ensureRecoveryEmailColumn() {
   }
 }
 
+// Ensure admission_slips table has school year and term columns
+async function ensureAdmissionSlipsColumns() {
+  try {
+    await pool.query("ALTER TABLE admission_slips ADD COLUMN IF NOT EXISTS school_year VARCHAR(9);");
+    await pool.query("ALTER TABLE admission_slips ADD COLUMN IF NOT EXISTS term VARCHAR(10);");
+  } catch (err) {
+    console.warn('ensureAdmissionSlipsColumns warning:', err.message || err);
+  }
+}
+
 // Ensure student_reports table and Student Manual violation types exist
 async function ensureStudentReportsTable() {
   try {
@@ -65,11 +75,17 @@ async function ensureStudentReportsTable() {
         description TEXT,
         remarks TEXT,
         course VARCHAR(256),
+        school_year VARCHAR(9),
+        term VARCHAR(10),
         status VARCHAR(32) DEFAULT 'reported',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    
+    // Add school_year and term columns if they don't exist
+    await pool.query("ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS school_year VARCHAR(9);");
+    await pool.query("ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS term VARCHAR(10);");
   } catch (err) {
     console.warn('ensureStudentReportsTable warning:', err.message || err);
   }
@@ -703,6 +719,7 @@ app.post('/api/auth/forgot/reset-with-otp', precheckRateLimit('forgot-otp-reset'
 (async () => {
   try {
     await ensureStudentReportsTable();
+    await ensureAdmissionSlipsColumns();
     await seedStudentManualViolationTypes();
     await ensureRecoveryEmailColumn();
   } catch (err) {

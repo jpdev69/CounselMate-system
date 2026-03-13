@@ -156,13 +156,10 @@ const SearchRecords = () => {
   const filterSlips = () => {
     let filtered = slips;
 
-    // Search filter
+    // Search filter - only search by student name
     if (searchTerm) {
       filtered = filtered.filter(slip =>
-        slip.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        slip.slip_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        slip.year?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        slip.section?.toLowerCase().includes(searchTerm.toLowerCase())
+        slip.student_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -341,6 +338,9 @@ const SearchRecords = () => {
         StudentId: s.student_id || '',
         Year: s.year || '',
         Section: s.section || '',
+        Course: s.course || '',
+        SchoolYear: s.school_year || '',
+        Term: s.term || '',
         Status: (s.status || '').toString().toUpperCase(),
         DateIssued: s.created_at || '',
         LastUpdated: s.updated_at || '',
@@ -360,6 +360,8 @@ const SearchRecords = () => {
         Course: r.course || '',
         Year: r.year || '',
         Section: r.section || '',
+        SchoolYear: r.school_year || '',
+        Term: r.term || '',
         ViolationCategory: (r.violation_category || '').toUpperCase(),
         ViolationType: r.violation_description || '',
         Description: r.description || '',
@@ -622,6 +624,14 @@ const SearchRecords = () => {
                   <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
                     <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>COURSE</div>
                     <div style={{ fontSize: '15px', color: '#111827' }}>{selectedSlip.course || '-'}</div>
+                  </div>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', borderRight: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>SCHOOL YEAR</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{selectedSlip.school_year || '-'}</div>
+                  </div>
+                  <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>TERM</div>
+                    <div style={{ fontSize: '15px', color: '#111827' }}>{selectedSlip.term || '-'}</div>
                   </div>
                 </div>
 
@@ -976,21 +986,35 @@ const SearchRecords = () => {
             </div>
 
             {/* Meta table */}
-            <div style={{ border: '1px solid #a1a1aa', borderBottom: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', marginBottom: '20px' }}>
-              <div style={{ borderBottom: '1px solid #a1a1aa', borderRight: '1px solid #a1a1aa', padding: '12px' }}>
-                <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>DATE REPORTED</div>
-                <div style={{ fontSize: '15px', color: '#111827' }}>{selectedReport.created_at ? new Date(selectedReport.created_at).toLocaleString() : '-'}</div>
+            <div style={{ border: '1px solid #a1a1aa', borderBottom: 'none', marginBottom: '20px' }}>
+              {/* Row 1: DATE REPORTED | COURSE */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #a1a1aa' }}>
+                <div style={{ borderRight: '1px solid #a1a1aa', padding: '12px' }}>
+                  <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>DATE REPORTED</div>
+                  <div style={{ fontSize: '15px', color: '#111827' }}>{selectedReport.created_at ? new Date(selectedReport.created_at).toLocaleString() : '-'}</div>
+                </div>
+                <div style={{ padding: '12px' }}>
+                  <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>COURSE</div>
+                  <div style={{ fontSize: '15px', color: '#111827' }}>{selectedReport.course || '-'}</div>
+                </div>
               </div>
-              <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
-                <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>COURSE</div>
-                <div style={{ fontSize: '15px', color: '#111827' }}>{selectedReport.course || '-'}</div>
-              </div>
+              
+              {/* Row 2: YEAR & SECTION (spans full width) */}
               <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
                 <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>YEAR &amp; SECTION</div>
                 <div style={{ fontSize: '15px', color: '#111827' }}>{[selectedReport.year, selectedReport.section].filter(Boolean).join(' - ') || '-'}</div>
               </div>
-              <div style={{ borderBottom: '1px solid #a1a1aa', padding: '12px' }}>
-                {/* Empty cell to complete the grid */}
+              
+              {/* Row 3: SCHOOL YEAR | TERM (with vertical divider) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #a1a1aa' }}>
+                <div style={{ borderRight: '1px solid #a1a1aa', padding: '12px' }}>
+                  <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>SCHOOL YEAR</div>
+                  <div style={{ fontSize: '15px', color: '#111827' }}>{selectedReport.school_year || '-'}</div>
+                </div>
+                <div style={{ padding: '12px' }}>
+                  <div style={{ fontSize: '12px', color: '#555', fontWeight: 700, marginBottom: '6px', letterSpacing: '0.5px' }}>TERM</div>
+                  <div style={{ fontSize: '15px', color: '#111827' }}>{selectedReport.term || '-'}</div>
+                </div>
               </div>
             </div>
 
