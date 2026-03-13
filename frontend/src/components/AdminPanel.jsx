@@ -5,7 +5,7 @@ import {
   getAdminCourses, createAdminCourse, updateAdminCourse, deleteAdminCourse,
   getCourseYearLevels, addCourseYearLevel, updateYearLevel, deleteYearLevel,
   getYearLevelSections, addYearLevelSection, updateSection, deleteSection,
-  getAdminViolationTypes, updateViolationTypeSlip, deleteViolationType, extractViolationTypes, saveViolationTypes,
+  getAdminViolationTypes, updateViolationTypeSlip, deleteViolationType, createViolationType, extractViolationTypes, saveViolationTypes,
   getStudentManualInfo, uploadStudentManual,
 } from '../services/api';
 
@@ -62,6 +62,14 @@ const AdminPanel = () => {
   const [vtDeletingId, setVtDeletingId] = useState(null);
   const [vtPage, setVtPage] = useState(1);
   const VT_PAGE_SIZE = 10;
+
+  // Manual addition form state
+  const [newVtCode, setNewVtCode] = useState('');
+  const [newVtDescription, setNewVtDescription] = useState('');
+  const [newVtCategory, setNewVtCategory] = useState('minor');
+  const [newVtSectionRef, setNewVtSectionRef] = useState('');
+  const [vtAdding, setVtAdding] = useState(false);
+  const [vtAddError, setVtAddError] = useState('');
 
   // ── Student Manual ──────────────────────────────────────────────────────
   const [manualInfo, setManualInfo] = useState(null);
@@ -385,6 +393,35 @@ const AdminPanel = () => {
       alert(err.response?.data?.error || 'Failed to delete violation type');
     } finally {
       setVtDeletingId(null);
+    }
+  };
+
+  const handleAddViolationType = async (e) => {
+    e.preventDefault();
+    setVtAddError('');
+    if (!newVtCode.trim()) return setVtAddError('Violation code is required');
+    if (!newVtDescription.trim()) return setVtAddError('Violation description is required');
+    if (!newVtSectionRef.trim()) return setVtAddError('Section reference is required');
+    
+    setVtAdding(true);
+    try {
+      const res = await createViolationType({
+        code: newVtCode.trim(),
+        description: newVtDescription.trim(),
+        category: newVtCategory,
+        section_ref: newVtSectionRef.trim()
+      });
+      setViolationTypes(prev => [...prev, res.data.violationType]);
+      // Reset form
+      setNewVtCode('');
+      setNewVtDescription('');
+      setNewVtCategory('minor');
+      setNewVtSectionRef('');
+      setVtPage(1); // Go to first page to see new entry
+    } catch (err) {
+      setVtAddError(err.response?.data?.error || 'Failed to add violation type');
+    } finally {
+      setVtAdding(false);
     }
   };
 
@@ -806,6 +843,75 @@ const AdminPanel = () => {
             )}
             {violationsUploadError && (
               <span style={{ color: '#ef4444', fontSize: 13 }}>{violationsUploadError}</span>
+            )}
+          </div>
+
+          {/* Manual Add Violation Form */}
+          <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: '#374151' }}>
+              ➕ Add Violation Manually
+            </div>
+            <form onSubmit={handleAddViolationType} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
+              <div>
+                <label style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>Section Ref</label>
+                <input
+                  className="form-input"
+                  placeholder="e.g. 1.1"
+                  value={newVtSectionRef}
+                  onChange={e => setNewVtSectionRef(e.target.value.slice(0, 16))}
+                  maxLength={16}
+                  style={{ fontSize: 12 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>Violation Description</label>
+                <input
+                  className="form-input"
+                  placeholder="Enter violation description"
+                  value={newVtDescription}
+                  onChange={e => setNewVtDescription(e.target.value.slice(0, 256))}
+                  maxLength={256}
+                  style={{ fontSize: 12 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>Category</label>
+                <select
+                  className="form-input"
+                  value={newVtCategory}
+                  onChange={e => setNewVtCategory(e.target.value)}
+                  style={{ fontSize: 12 }}
+                >
+                  <option value="minor">Minor</option>
+                  <option value="major">Major</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>Code</label>
+                <input
+                  className="form-input"
+                  placeholder="e.g. LATE_COMING"
+                  value={newVtCode}
+                  onChange={e => setNewVtCode(e.target.value.toUpperCase().slice(0, 128))}
+                  maxLength={128}
+                  style={{ fontSize: 12, fontFamily: 'monospace' }}
+                />
+              </div>
+              <div>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={vtAdding || !newVtCode.trim() || !newVtDescription.trim() || !newVtSectionRef.trim()}
+                  style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                >
+                  {vtAdding ? 'Adding…' : 'Add'}
+                </button>
+              </div>
+            </form>
+            {vtAddError && (
+              <div className="alert alert-error" style={{ fontSize: 12, marginTop: 6 }}>
+                {vtAddError}
+              </div>
             )}
           </div>
 

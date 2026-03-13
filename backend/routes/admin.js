@@ -323,6 +323,36 @@ router.delete('/violation-types/:id', async (req, res) => {
   }
 });
 
+// POST /api/admin/violation-types
+router.post('/violation-types', async (req, res) => {
+  const { code, description, category, section_ref } = req.body;
+  
+  // Validation
+  if (!code || !code.trim()) return res.status(400).json({ error: 'Violation code is required' });
+  if (!description || !description.trim()) return res.status(400).json({ error: 'Violation description is required' });
+  if (!category || !['minor', 'major'].includes(category)) return res.status(400).json({ error: 'Category must be either "minor" or "major"' });
+  if (!section_ref || !section_ref.trim()) return res.status(400).json({ error: 'Section reference is required' });
+  
+  try {
+    const result = await db.query(
+      `INSERT INTO violation_types (code, description, category, section_ref, requires_admission_slip)
+       VALUES ($1, $2, $3, $4, false)
+       RETURNING *`,
+      [
+        code.toString().trim().toUpperCase().slice(0, 128),
+        description.toString().trim().slice(0, 256),
+        category,
+        section_ref.toString().trim().slice(0, 16)
+      ]
+    );
+    res.json({ success: true, violationType: result.rows[0] });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'A violation type with this code already exists' });
+    console.error('Create violation type error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── VIOLATIONS UPLOAD (txt → LLM extraction) ─────────────────────────────────
 
 const http = require('http');

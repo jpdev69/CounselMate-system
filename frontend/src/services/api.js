@@ -177,6 +177,9 @@ export const deleteSection = (id) =>
 export const getAdminViolationTypes = () =>
   api.get('/admin/violation-types');
 
+export const createViolationType = (data) =>
+  api.post('/admin/violation-types', data);
+
 export const updateViolationTypeSlip = (id, data) =>
   api.put(`/admin/violation-types/${encodeURIComponent(id)}`, data);
 
