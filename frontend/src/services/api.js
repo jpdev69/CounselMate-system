@@ -180,6 +180,9 @@ export const getAdminViolationTypes = () =>
 export const updateViolationTypeSlip = (id, data) =>
   api.put(`/admin/violation-types/${encodeURIComponent(id)}`, data);
 
+export const deleteViolationType = (id) =>
+  api.delete(`/admin/violation-types/${encodeURIComponent(id)}`);
+
 export const extractViolationTypes = (formData) =>
   api.post('/admin/violations/extract', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

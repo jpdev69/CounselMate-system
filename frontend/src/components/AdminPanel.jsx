@@ -5,7 +5,7 @@ import {
   getAdminCourses, createAdminCourse, updateAdminCourse, deleteAdminCourse,
   getCourseYearLevels, addCourseYearLevel, updateYearLevel, deleteYearLevel,
   getYearLevelSections, addYearLevelSection, updateSection, deleteSection,
-  getAdminViolationTypes, updateViolationTypeSlip, extractViolationTypes, saveViolationTypes,
+  getAdminViolationTypes, updateViolationTypeSlip, deleteViolationType, extractViolationTypes, saveViolationTypes,
   getStudentManualInfo, uploadStudentManual,
 } from '../services/api';
 
@@ -59,6 +59,7 @@ const AdminPanel = () => {
   const [violationTypes, setViolationTypes] = useState([]);
   const [violationTypesLoading, setViolationTypesLoading] = useState(true);
   const [vtTogglingId, setVtTogglingId] = useState(null);
+  const [vtDeletingId, setVtDeletingId] = useState(null);
   const [vtPage, setVtPage] = useState(1);
   const VT_PAGE_SIZE = 10;
 
@@ -366,6 +367,24 @@ const AdminPanel = () => {
       alert(err.response?.data?.error || 'Failed to update violation type');
     } finally {
       setVtTogglingId(null);
+    }
+  };
+
+  const handleDeleteViolationType = async (vt) => {
+    if (!window.confirm(`Delete violation type "${vt.description}"? This action cannot be undone.`)) return;
+    setVtDeletingId(vt.id);
+    try {
+      await deleteViolationType(vt.id);
+      setViolationTypes(prev => prev.filter(v => v.id !== vt.id));
+      // Adjust page if necessary
+      const totalPages = Math.ceil((violationTypes.length - 1) / VT_PAGE_SIZE);
+      if (vtPage > totalPages) {
+        setVtPage(totalPages);
+      }
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete violation type');
+    } finally {
+      setVtDeletingId(null);
     }
   };
 
@@ -966,6 +985,7 @@ const AdminPanel = () => {
                         <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#374151', width: 72 }}>Category</th>
                         <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Violation</th>
                         <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: '#374151', width: 180 }}>Form Requirement</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: '#374151', width: 60 }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1006,6 +1026,25 @@ const AdminPanel = () => {
                               }}
                             >
                               {vt.requires_admission_slip ? '✓ Requires Slip' : 'Report Only'}
+                            </button>
+                          </td>
+                          <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              disabled={vtDeletingId === vt.id}
+                              onClick={() => handleDeleteViolationType(vt)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: vtDeletingId === vt.id ? 'not-allowed' : 'pointer',
+                                color: '#ef4444',
+                                padding: '4px',
+                                opacity: vtDeletingId === vt.id ? 0.6 : 1,
+                                transition: 'opacity 0.15s',
+                              }}
+                              title="Delete violation type"
+                            >
+                              <Trash2 size={14} />
                             </button>
                           </td>
                         </tr>

@@ -299,6 +299,30 @@ router.put('/violation-types/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/admin/violation-types/:id
+router.delete('/violation-types/:id', async (req, res) => {
+  try {
+    // Check if violation type is referenced by student reports
+    const referenceCheck = await db.query(
+      `SELECT COUNT(*) as count FROM student_reports WHERE violation_type_id = $1`,
+      [req.params.id]
+    );
+    
+    if (parseInt(referenceCheck.rows[0].count) > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete violation type: it is referenced by ${referenceCheck.rows[0].count} student report(s). Please remove or update these reports first.` 
+      });
+    }
+    
+    const result = await db.query(`DELETE FROM violation_types WHERE id = $1 RETURNING id`, [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Violation type not found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete violation type error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── VIOLATIONS UPLOAD (txt → LLM extraction) ─────────────────────────────────
 
 const http = require('http');
