@@ -41,6 +41,11 @@
   align-items: start;
 }
 
+/* Trends Chart Section */
+.trends-chart-section {
+  margin-bottom: var(--space-lg);
+}
+
 /* Key Metrics Grid */
 .metrics-grid {
   display: grid;

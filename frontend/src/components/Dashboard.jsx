@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ViolationAnalytics from './ViolationAnalytics';
 import { useSlips } from '../contexts/SlipsContext';
+import SchoolYearSelector from './SchoolYearSelector';
 
 const Dashboard = () => {
   const { slips } = useSlips();
@@ -148,25 +149,12 @@ const Dashboard = () => {
             }}>
               School Year:
             </label>
-            <select 
+            <SchoolYearSelector
               value={selectedSchoolYear}
-              onChange={(e) => setSelectedSchoolYear(e.target.value)}
-              style={{
-                padding: '8px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '14px',
-                minWidth: '120px',
-                backgroundColor: '#ffffff',
-                color: '#374151'
-              }}
-            >
-              <option value="">All Years</option>
-              <option value="2024-2025">2024-2025</option>
-              <option value="2023-2024">2023-2024</option>
-              <option value="2022-2023">2022-2023</option>
-              <option value="2021-2022">2021-2022</option>
-            </select>
+              onChange={setSelectedSchoolYear}
+              required={false}
+              placeholder="All Years"
+            />
           </div>
           
           <div>

@@ -33,6 +33,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const requestUrl = error.config?.url || '';
       const isLoginRequest = requestUrl.includes('/auth/login');
+      const isSecurityRecoveryRequest = requestUrl.includes('/auth/security-recovery-verify');
 
       // Clear session data for any 401
       sessionStorage.removeItem('authToken');
@@ -41,7 +42,8 @@ api.interceptors.response.use(
 
       // Notify the AuthContext via a custom event so React Router handles
       // the redirect (avoids a full page reload that would restart the loop).
-      if (!isLoginRequest) {
+      // Don't redirect for security recovery verification - let the component handle the error
+      if (!isLoginRequest && !isSecurityRecoveryRequest) {
         window.dispatchEvent(new CustomEvent('guidanceos:unauthenticated'));
       }
     }
@@ -85,6 +87,9 @@ export const getGmailSettings = () =>
 
 export const updateGmailSettings = (payload) =>
   api.put('/auth/me/gmail-settings', payload);
+
+export const verifySecurityRecovery = (password) =>
+  api.post('/auth/security-recovery-verify', { password });
 
 // Admission Slips API
 export const issueAdmissionSlip = (data) => 

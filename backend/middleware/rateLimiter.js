@@ -10,7 +10,8 @@ const DEFAULT_ESCALATIONS = {
   'me-security-question': [3,5,7,9,12,15],
   'forgot-otp-send': [3,5,7,9,12,15],
   'forgot-otp-verify': [3,5,7,9,12,15],
-  'forgot-otp-reset': [3,5,7,9,12,15]
+  'forgot-otp-reset': [3,5,7,9,12,15],
+  'security-recovery-verify': [3,5,7,9,12,15]
 };
 
 // OTP resend cooldown tracking (in-memory, per IP)
@@ -44,8 +45,19 @@ const store = new Map();
 
 function makeKey(req, label) {
   // Use IP + label, and email from body if provided
+  // For security-recovery-verify, don't include email to avoid conflicts with login rate limiting
   const ip = req.ip || req.connection?.remoteAddress || 'unknown-ip';
-  const email = (req.body && (req.body.email || req.body.username || req.body.email_address)) || '';
+  let email = '';
+  
+  if (label === 'security-recovery-verify') {
+    email = '';
+  } else if (label && label.startsWith('forgot-')) {
+    // For forgot password endpoints, use the hardcoded counselor email since that's what the endpoints use internally
+    email = 'counselor@university.edu';
+  } else {
+    email = (req.body && (req.body.email || req.body.username || req.body.email_address)) || '';
+  }
+  
   return `${label}:${ip}:${(email || '').toString().toLowerCase()}`;
 }
 

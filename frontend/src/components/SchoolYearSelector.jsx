@@ -1,11 +1,11 @@
 import React from 'react';
 
-const SchoolYearSelector = ({ value, onChange, required = false, disabled = false }) => {
-  // Generate school years dynamically - exactly 5 years behind to 5 years ahead
+const SchoolYearSelector = ({ value, onChange, required = false, disabled = false, placeholder = "Select school year" }) => {
+  // Generate school years dynamically - exactly 2 years behind to 2 years ahead
   const currentYear = new Date().getFullYear();
   const schoolYears = [];
   
-  for (let year = currentYear - 5; year <= currentYear + 5; year++) {
+  for (let year = currentYear - 2; year <= currentYear + 2; year++) {
     schoolYears.push(`${year}-${year + 1}`);
   }
 
@@ -26,7 +26,7 @@ const SchoolYearSelector = ({ value, onChange, required = false, disabled = fals
       }}
     >
       <option value="">
-        Select school year
+        {placeholder}
       </option>
       {schoolYears.map(year => (
         <option key={year} value={year}>{year}</option>

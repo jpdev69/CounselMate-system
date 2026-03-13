@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './ViolationAnalytics.css';
 import api from '../services/api';
 import { TrendingUp, Users, AlertTriangle, BookOpen, BarChart3, PieChart } from 'lucide-react';
+import ViolationTrendsChart from './ViolationTrendsChart';
 
 /**
  * ViolationAnalytics Component
@@ -266,6 +267,11 @@ const ViolationAnalytics = ({ schoolYear, term }) => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Violation Trends Chart */}
+      <div className="trends-chart-section">
+        <ViolationTrendsChart schoolYear={schoolYear} term={term} />
       </div>
 
       {/* Charts Grid */}

@@ -1,7 +1,7 @@
 // src/components/SecurityQuestion.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMySecurityQuestion, updateMySecurityQuestion, getGmailSettings, updateGmailSettings } from '../services/api';
+import { getMySecurityQuestion, updateMySecurityQuestion, getGmailSettings, updateGmailSettings, verifySecurityRecovery } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
@@ -33,7 +33,7 @@ const SecurityQuestion = () => {
 	const [gmailFeedback, setGmailFeedback] = useState(null);
 	const [savingGmail, setSavingGmail] = useState(false);
 	const navigate = useNavigate();
-	const { user, login } = useAuth();
+	const { user } = useAuth();
 
 
 	useEffect(() => {
@@ -134,24 +134,20 @@ const SecurityQuestion = () => {
 	const handleVerify = async (e) => {
 		e.preventDefault();
 		setVerifyError(null);
-		const email = (user && user.email) || 'counselor@university.edu';
 		try {
-			const res = await login(email, password);
-			if (res && res.success) {
+			const res = await verifySecurityRecovery(password);
+			if (res.data && res.data.success) {
 				sessionStorage.setItem('verifiedSecurityQuestion', '1');
 				setVerified(true);
 				setRetryAfterMs(null);
 				setTimeLeft(null);
 			} else {
-				// Avoid showing the login page's verbose message here; show a generic verification failure
-				const errMsg = (res && res.error && res.error.includes('Invalid email or password'))
-					? 'Verification failed'
-					: (res?.error || 'Verification failed');
+				const errMsg = res.data?.error || 'Verification failed';
 				setVerifyError(errMsg);
-				if (res?.retryAfterMs) setRetryAfterMs(res.retryAfterMs);
-				if (res?.remainingAttempts !== undefined) {
-					const attemptsMessage = res.remainingAttempts > 0 
-						? ` ${res.remainingAttempts} attempt${res.remainingAttempts === 1 ? '' : 's'} remaining.`
+				if (res.data?.retryAfterMs) setRetryAfterMs(res.data.retryAfterMs);
+				if (res.data?.remainingAttempts !== undefined) {
+					const attemptsMessage = res.data.remainingAttempts > 0 
+						? ` ${res.data.remainingAttempts} attempt${res.data.remainingAttempts === 1 ? '' : 's'} remaining.`
 						: ' No attempts remaining.';
 					setVerifyError(prev => prev + attemptsMessage);
 				}
@@ -161,14 +157,14 @@ const SecurityQuestion = () => {
 			const r = err.response?.data?.retryAfterMs || null;
 			const remainingAttempts = err.response?.data?.remainingAttempts;
 			if (r) setRetryAfterMs(r);
-			const errorMsg = 'Failed to verify password';
+			const errorMsg = 'Failed to verify password.';
 			if (remainingAttempts !== undefined) {
 				const attemptsMessage = remainingAttempts > 0 
 					? ` ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`
 					: ' No attempts remaining.';
 				setVerifyError(errorMsg + attemptsMessage);
 			} else {
-				setVerifyError(errorMsg);
+				setVerifyError('Failed to verify password.');
 			}
 		}
 	};

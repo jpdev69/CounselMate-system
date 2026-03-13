@@ -314,17 +314,19 @@ const SearchRecords = () => {
     }
   };
 
-  // Count of approved slips and resolved reports in current filtered results
+  // Count of approved slips and resolved/reported reports in current filtered results
   const approvedCount = filteredSlips.filter(s => s.status === 'approved').length;
   const resolvedReportsCount = allReports.filter(r => r.status === 'resolved').length;
-  const exportableCount = approvedCount + resolvedReportsCount;
+  const reportedReportsCount = allReports.filter(r => r.status === 'reported').length;
+  const exportableCount = approvedCount + resolvedReportsCount + reportedReportsCount;
 
   const exportApprovedToXLSX = () => {
     const approved = filteredSlips.filter(s => s.status === 'approved');
     const resolved = allReports.filter(r => r.status === 'resolved');
+    const reported = allReports.filter(r => r.status === 'reported');
 
-    if (approved.length === 0 && resolved.length === 0) {
-      alert('No APPROVED slips or RESOLVED reports to export');
+    if (approved.length === 0 && resolved.length === 0 && reported.length === 0) {
+      alert('No APPROVED slips or RESOLVED/REPORTED reports to export');
       return;
     }
 
@@ -372,6 +374,28 @@ const SearchRecords = () => {
       }));
       const ws2 = XLSX.utils.json_to_sheet(reportRows);
       XLSX.utils.book_append_sheet(wb, ws2, 'Resolved Reports');
+    }
+
+    // Sheet 3 – Reported Violation Reports
+    if (reported.length > 0) {
+      const reportRows = reported.map(r => ({
+        StudentName: r.student_name || '',
+        StudentId: r.student_id || '',
+        Course: r.course || '',
+        Year: r.year || '',
+        Section: r.section || '',
+        SchoolYear: r.school_year || '',
+        Term: r.term || '',
+        ViolationCategory: (r.violation_category || '').toUpperCase(),
+        ViolationType: r.violation_description || '',
+        Description: r.description || '',
+        CounselorRemarks: r.remarks || '',
+        Status: (r.status || '').toString().toUpperCase(),
+        DateReported: r.created_at || '',
+        LastUpdated: r.updated_at || ''
+      }));
+      const ws3 = XLSX.utils.json_to_sheet(reportRows);
+      XLSX.utils.book_append_sheet(wb, ws3, 'Reported Reports');
     }
 
     XLSX.writeFile(wb, `records_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -602,8 +626,15 @@ const SearchRecords = () => {
                     <h3 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 5px 0', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>{selectedSlip.student_name}</h3>
                     <div style={{ color: '#555', fontSize: '15px' }}>Slip Reference: <strong style={{ color: '#000' }}>{selectedSlip.slip_number}</strong></div>
                   </div>
-                  <div style={{ border: '1px solid #333', padding: '4px 8px', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px', textTransform: 'uppercase', color: '#000' }}>
-                    {getStatusDisplay(selectedSlip.status)}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <div style={{ border: '1px solid #333', padding: '4px 8px', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px', textTransform: 'uppercase', color: '#000' }}>
+                      {getStatusDisplay(selectedSlip.status)}
+                    </div>
+                    {selectedSlip.violation_category && (
+                      <div style={{ border: '1px solid #c1c1c1', padding: '4px 8px', fontSize: '13px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: selectedSlip.violation_category === 'major' ? '#b91c1c' : '#c2410c' }}>
+                        {selectedSlip.violation_category.toUpperCase()}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -932,8 +963,8 @@ const SearchRecords = () => {
             className="btn btn-primary"
             disabled={exportableCount === 0}
             title={exportableCount === 0
-              ? 'No approved slips or resolved reports to export'
-              : `Export ${approvedCount} approved slip${approvedCount !== 1 ? 's' : ''} + ${resolvedReportsCount} resolved report${resolvedReportsCount !== 1 ? 's' : ''} to XLSX`}
+              ? 'No approved slips or resolved/reported reports to export'
+              : `Export ${approvedCount} approved slip${approvedCount !== 1 ? 's' : ''} + ${resolvedReportsCount} resolved report${resolvedReportsCount !== 1 ? 's' : ''} + ${reportedReportsCount} reported report${reportedReportsCount !== 1 ? 's' : ''} to XLSX`}
             style={{ padding: '10px 14px', borderRadius: 8, boxShadow: '0 6px 18px rgba(15,23,42,0.12)', display: 'flex', alignItems: 'center', gap: 8 }}
           >
             Export to XLSX

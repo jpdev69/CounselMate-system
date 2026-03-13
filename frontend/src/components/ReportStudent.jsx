@@ -549,14 +549,14 @@ const ReportStudent = () => {
               >
                 <option value="">Select violation type</option>
                 {minorOffenses.length > 0 && (
-                  <optgroup label="Minor Offenses (Section 2.1)">
+                  <optgroup label="Minor Offenses">
                     {minorOffenses.map(vt => (
                       <option key={vt.id} value={vt.id}>{vt.description}</option>
                     ))}
                   </optgroup>
                 )}
                 {majorOffenses.length > 0 && (
-                  <optgroup label="Major Offenses (Section 2.2)">
+                  <optgroup label="Major Offenses">
                     {majorOffenses.map(vt => (
                       <option key={vt.id} value={vt.id}>{vt.description}</option>
                     ))}

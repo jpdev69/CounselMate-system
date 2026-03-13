@@ -566,8 +566,15 @@ const CompleteForm = () => {
                     <h3 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 5px 0', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>{selectedSlip.student_name}</h3>
                     <div style={{ color: '#555', fontSize: '15px' }}>Slip Reference: <strong style={{ color: '#000' }}>{selectedSlip.slip_number}</strong></div>
                   </div>
-                  <div style={{ border: '1px solid #333', padding: '4px 8px', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px', textTransform: 'uppercase', color: '#000' }}>
-                    {getStatusDisplay(selectedSlip.status)}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <div style={{ border: '1px solid #333', padding: '4px 8px', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px', textTransform: 'uppercase', color: '#000' }}>
+                      {getStatusDisplay(selectedSlip.status)}
+                    </div>
+                    {selectedSlip.violation_category && (
+                      <div style={{ border: '1px solid #c1c1c1', padding: '4px 8px', fontSize: '13px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: selectedSlip.violation_category === 'major' ? '#b91c1c' : '#c2410c' }}>
+                        {selectedSlip.violation_category.toUpperCase()}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -665,7 +672,7 @@ const CompleteForm = () => {
                             return (
                               <>
                                 {minor.length > 0 && (
-                                  <optgroup label="Minor Offenses (Section 2.1)">
+                                  <optgroup label="Minor Offenses">
                                     {minor.map(type => (
                                       <option key={type.id} value={type.id}>
                                         {type.description}
@@ -674,7 +681,7 @@ const CompleteForm = () => {
                                   </optgroup>
                                 )}
                                 {major.length > 0 && (
-                                  <optgroup label="Major Offenses (Section 2.2)">
+                                  <optgroup label="Major Offenses">
                                     {major.map(type => (
                                       <option key={type.id} value={type.id}>
                                         {type.description}

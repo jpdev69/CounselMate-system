@@ -710,4 +710,99 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/visualizations/violations/daily-trends
+ * Returns daily violation counts for stock market style chart
+ * Query params: schoolYear, term, days (default: 30)
+ */
+router.get('/violations/daily-trends', async (req, res) => {
+  try {
+    const { schoolYear, term, days = 30 } = req.query;
+    const daysLimit = Math.min(parseInt(days) || 30, 365); // Limit to 1 year max
+    
+    // Build WHERE conditions for filtering
+    let whereConditions = ['asl.status = \'approved\''];
+    let queryParams = [];
+    let paramIndex = 1;
+    
+    if (schoolYear) {
+      whereConditions.push(`asl.school_year = $${paramIndex++}`);
+      queryParams.push(schoolYear);
+    }
+    
+    if (term) {
+      whereConditions.push(`asl.term = $${paramIndex++}`);
+      queryParams.push(term);
+    }
+    
+    const whereClause = whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : '';
+    
+    // Get daily violation counts for the last N days
+    const result = await db.query(`
+      SELECT 
+        DATE(asl.created_at) as date,
+        COUNT(asl.id) as violation_count,
+        COUNT(DISTINCT asl.student_id) as student_count
+      FROM admission_slips asl
+      WHERE asl.created_at >= CURRENT_DATE - INTERVAL '${daysLimit} days' ${whereClause}
+      GROUP BY DATE(asl.created_at)
+      ORDER BY date ASC
+    `, queryParams);
+    
+    // Fill in missing dates with zero counts for continuous chart
+    const dailyData = [];
+    const today = new Date();
+    
+    for (let i = daysLimit - 1; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const dayData = result.rows.find(row => row.date === dateStr);
+      dailyData.push({
+        date: dateStr,
+        violation_count: dayData ? parseInt(dayData.violation_count) : 0,
+        student_count: dayData ? parseInt(dayData.student_count) : 0
+      });
+    }
+    
+    // Calculate moving averages for stock market style
+    const movingAverages = dailyData.map((day, index) => {
+      const window = Math.min(7, index + 1); // 7-day moving average
+      const startIdx = Math.max(0, index - window + 1);
+      const sum = dailyData.slice(startIdx, index + 1).reduce((acc, d) => acc + d.violation_count, 0);
+      return {
+        ...day,
+        moving_average_7d: sum / window
+      };
+    });
+    
+    // Generate appropriate period label
+    let periodLabel;
+    if (daysLimit === 1) {
+      periodLabel = 'Today';
+    } else if (daysLimit === 7) {
+      periodLabel = 'Last 7 days (Weekly)';
+    } else if (daysLimit === 30) {
+      periodLabel = 'Last 30 days (Monthly)';
+    } else if (daysLimit === 120) {
+      periodLabel = 'Last 4 months';
+    } else if (daysLimit === 365) {
+      periodLabel = 'Last 1 year';
+    } else {
+      periodLabel = `Last ${daysLimit} days`;
+    }
+    
+    res.json({
+      success: true,
+      data: movingAverages,
+      period: periodLabel,
+      total_violations: movingAverages.reduce((sum, day) => sum + day.violation_count, 0)
+    });
+  } catch (error) {
+    console.error('Daily trends error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

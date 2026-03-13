@@ -339,7 +339,8 @@ router.get('/', async (req, res) => {
         s.year,
         s.section,
         vt.code as violation_code,
-        vt.description as violation_description
+        vt.description as violation_description,
+        vt.category as violation_category
       FROM admission_slips asl
       LEFT JOIN students s ON asl.student_id = s.id
       LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
@@ -378,7 +379,7 @@ router.get('/student/:studentId/slips', async (req, res) => {
 
     // Build query dynamically to include status filter when provided
     const queryParts = [
-      `SELECT asl.*, vt.code as violation_code, vt.description as violation_description`,
+      `SELECT asl.*, vt.code as violation_code, vt.description as violation_description, vt.category as violation_category`,
       `FROM admission_slips asl`,
       `LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id`,
       `WHERE asl.student_id = $1`

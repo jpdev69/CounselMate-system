@@ -289,6 +289,74 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
   }
 });
 
+// Security & Recovery password verification endpoint (separate from login)
+app.post('/api/auth/security-recovery-verify', precheckRateLimit('security-recovery-verify'), async (req, res) => {
+  const { password } = req.body;
+
+  try {
+    // Require password field
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password is required.'
+      });
+    }
+
+    // Get user from database (only counselor account)
+    const email = 'counselor@university.edu';
+    const userResult = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (userResult.rows.length === 0) {
+      // Record failed attempt when user not found
+      const attemptInfo = recordFailedAttempt(req, 'security-recovery-verify');
+      return res.status(401).json({ 
+        success: false,
+        error: 'Verification failed.',
+        remainingAttempts: attemptInfo.remainingAttempts
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Check password
+    if (password !== user.password_hash) {
+      // Increment failed attempt count
+      const attemptInfo = recordFailedAttempt(req, 'security-recovery-verify');
+      return res.status(401).json({ 
+        success: false,
+        error: 'Verification failed.',
+        remainingAttempts: attemptInfo.remainingAttempts
+      });
+    }
+
+    // Clear attempts on successful verification
+    try { clearAttempts(req, 'security-recovery-verify'); } catch (e) { /* no-op */ }
+    
+    // Return user data (without password) - similar to login but without token
+    const userResponse = {
+      id: user.id,
+      email: user.email,
+      name: user.full_name,
+      role: user.role
+    };
+
+    res.json({
+      success: true,
+      user: userResponse
+    });
+
+  } catch (error) {
+    console.error('Security recovery verify error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error' 
+    });
+  }
+});
+
 // Change password endpoint
 app.put('/api/auth/change-password', authenticate, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
@@ -707,7 +775,11 @@ app.post('/api/auth/forgot/reset-with-otp', precheckRateLimit('forgot-otp-reset'
     const email = 'counselor@university.edu';
     await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [newPassword, email]);
     otpStore.delete(OTP_KEY);
-    try { clearAttempts(req, 'forgot-otp-reset'); } catch (e) { /* no-op */ }
+    try { 
+      clearAttempts(req, 'forgot-otp-reset'); 
+      // Also clear login attempts since password was successfully reset
+      clearAttempts(req, 'login'); 
+    } catch (e) { /* no-op */ }
     return res.json({ success: true, message: 'Password reset successfully' });
   } catch (err) {
     console.error('reset-with-otp error:', err.message || err);
@@ -786,7 +858,11 @@ app.post('/api/auth/forgot/reset', precheckRateLimit('forgot-reset'), async (req
 
     await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [newPassword, email]);
     // Clear attempts when the answer is correct and reset occurs
-    try { clearAttempts(req, 'forgot-reset'); } catch (e) { /* no-op */ }
+    try { 
+      clearAttempts(req, 'forgot-reset'); 
+      // Also clear login attempts since password was successfully reset
+      clearAttempts(req, 'login'); 
+    } catch (e) { /* no-op */ }
     return res.json({ success: true, message: 'Password reset successfully' });
   } catch (err) {
     console.error('Forgot password (reset) error:', err.message || err);

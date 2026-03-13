@@ -119,9 +119,15 @@ export const AuthProvider = ({ children }) => {
       });
       return { success: true };
     } catch (error) {
+      console.error('Change password error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
       return { 
         success: false, 
-        error: 'Failed to change password. Please try again.' 
+        error: error.response?.data?.error || 'Failed to change password. Please try again.',
+        remainingAttempts: error.response?.data?.remainingAttempts
       };
     }
   };
