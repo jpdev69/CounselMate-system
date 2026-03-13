@@ -672,4 +672,166 @@ router.post('/student-manual', (req, res) => {
   });
 });
 
+// ── BACKUP & RESTORE ─────────────────────────────────────────────────────────
+
+// GET /api/admin/backup - Export all system data as JSON
+router.get('/backup', async (req, res) => {
+  try {
+    const backup = {
+      timestamp: new Date().toISOString(),
+      version: '1.0',
+      data: {}
+    };
+
+    // Backup courses
+    const coursesResult = await db.query('SELECT * FROM courses ORDER BY id');
+    backup.data.courses = coursesResult.rows;
+
+    // Backup year levels
+    const yearLevelsResult = await db.query('SELECT * FROM course_year_levels ORDER BY id');
+    backup.data.yearLevels = yearLevelsResult.rows;
+
+    // Backup sections
+    const sectionsResult = await db.query('SELECT * FROM course_sections ORDER BY id');
+    backup.data.sections = sectionsResult.rows;
+
+    // Backup violation types
+    const violationTypesResult = await db.query(`
+      SELECT id, code, description, category, section_ref, requires_admission_slip
+      FROM violation_types 
+      WHERE section_ref IS NOT NULL 
+      ORDER BY id
+    `);
+    backup.data.violationTypes = violationTypesResult.rows;
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="guidanceOS-backup-${new Date().toISOString().split('T')[0]}.json"`);
+    res.json(backup);
+  } catch (err) {
+    console.error('Backup error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/restore - Restore system data from JSON backup
+router.post('/restore', async (req, res) => {
+  try {
+    const backup = req.body;
+    
+    if (!backup || !backup.data || !backup.version) {
+      return res.status(400).json({ error: 'Invalid backup file format' });
+    }
+
+    // Validate backup version
+    if (backup.version !== '1.0') {
+      return res.status(400).json({ error: 'Unsupported backup version' });
+    }
+
+    await db.query('BEGIN');
+
+    try {
+      // Clear only configuration data (preserve student records)
+      await db.query('DELETE FROM course_sections');
+      await db.query('DELETE FROM course_year_levels');
+      await db.query('DELETE FROM courses');
+      await db.query('DELETE FROM violation_types WHERE section_ref IS NOT NULL');
+
+      // Restore courses
+      if (backup.data.courses && Array.isArray(backup.data.courses)) {
+        for (const course of backup.data.courses) {
+          await db.query(
+            'INSERT INTO courses (id, name, code, created_at) VALUES ($1, $2, $3, $4)',
+            [course.id, course.name?.toString().trim().slice(0, 128) || '', course.code?.toString().trim().slice(0, 32) || '', course.created_at]
+          );
+        }
+      }
+
+      // Restore year levels
+      if (backup.data.yearLevels && Array.isArray(backup.data.yearLevels)) {
+        for (const yl of backup.data.yearLevels) {
+          await db.query(
+            'INSERT INTO course_year_levels (id, course_id, year_level, sort_order, created_at) VALUES ($1, $2, $3, $4, $5)',
+            [yl.id, yl.course_id, yl.year_level?.toString().trim().slice(0, 32) || '', yl.sort_order || 0, yl.created_at]
+          );
+        }
+      }
+
+      // Restore sections
+      if (backup.data.sections && Array.isArray(backup.data.sections)) {
+        for (const section of backup.data.sections) {
+          await db.query(
+            'INSERT INTO course_sections (id, year_level_id, name, created_at) VALUES ($1, $2, $3, $4)',
+            [section.id, section.year_level_id, section.name?.toString().trim().slice(0, 32) || '', section.created_at]
+          );
+        }
+      }
+
+      // Restore violation types
+      if (backup.data.violationTypes && Array.isArray(backup.data.violationTypes)) {
+        for (const vt of backup.data.violationTypes) {
+          await db.query(
+            `INSERT INTO violation_types (id, code, description, category, section_ref, requires_admission_slip)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              vt.id,
+              vt.code?.toString().trim().slice(0, 128) || '',
+              vt.description?.toString().trim().slice(0, 256) || '',
+              vt.category || 'major',
+              vt.section_ref?.toString().trim().slice(0, 16) || '',
+              vt.requires_admission_slip || false
+            ]
+          );
+        }
+      }
+
+      await db.query('COMMIT');
+
+      res.json({ 
+        success: true, 
+        message: 'System data restored successfully',
+        restoredAt: new Date().toISOString()
+      });
+
+    } catch (restoreErr) {
+      await db.query('ROLLBACK');
+      throw restoreErr;
+    }
+
+  } catch (err) {
+    console.error('Restore error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/reset - Delete all system data (factory reset)
+router.delete('/reset', async (req, res) => {
+  try {
+    await db.query('BEGIN');
+
+    try {
+      // Delete all data in reverse order of dependencies
+      await db.query('DELETE FROM course_sections');
+      await db.query('DELETE FROM course_year_levels');
+      await db.query('DELETE FROM courses');
+      await db.query('DELETE FROM violation_types WHERE section_ref IS NOT NULL');
+
+      await db.query('COMMIT');
+
+      res.json({ 
+        success: true, 
+        message: 'All system data has been deleted. System is now fresh.',
+        resetAt: new Date().toISOString()
+      });
+
+    } catch (deleteErr) {
+      await db.query('ROLLBACK');
+      throw deleteErr;
+    }
+
+  } catch (err) {
+    console.error('Reset error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

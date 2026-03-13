@@ -1,12 +1,13 @@
 // src/components/AdminPanel.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Plus, Trash2, ChevronRight, Upload, BookOpen } from 'lucide-react';
+import { Settings, Plus, Trash2, ChevronRight, Upload, BookOpen, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 import {
   getAdminCourses, createAdminCourse, updateAdminCourse, deleteAdminCourse,
   getCourseYearLevels, addCourseYearLevel, updateYearLevel, deleteYearLevel,
   getYearLevelSections, addYearLevelSection, updateSection, deleteSection,
   getAdminViolationTypes, updateViolationTypeSlip, deleteViolationType, createViolationType, extractViolationTypes, saveViolationTypes,
   getStudentManualInfo, uploadStudentManual,
+  createBackup, restoreBackup, resetSystem,
 } from '../services/api';
 
 const AdminPanel = () => {
@@ -90,6 +91,96 @@ const AdminPanel = () => {
   const [vtPreviewSaving, setVtPreviewSaving] = useState(false);
   const [vtPreviewSaveSuccess, setVtPreviewSaveSuccess] = useState(false);
   const [vtPreviewError, setVtPreviewError] = useState('');
+
+  // ── Backup & Restore ─────────────────────────────────────────────────────
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [restoreFile, setRestoreFile] = useState(null);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [restoreSuccess, setRestoreSuccess] = useState(false);
+  const [restoreError, setRestoreError] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const restoreFileInputRef = useRef(null);
+
+  const handleBackup = async () => {
+    setBackupLoading(true);
+    try {
+      const response = await createBackup();
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `guidanceOS-backup-${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Backup failed: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!restoreFile) return;
+    
+    if (!window.confirm('WARNING: This will completely replace all current courses, year levels, sections, and violation types with backup data. This action cannot be undone. Continue?')) {
+      return;
+    }
+
+    setRestoreLoading(true);
+    setRestoreError('');
+    setRestoreSuccess(false);
+    
+    try {
+      const text = await restoreFile.text();
+      const backupData = JSON.parse(text);
+      
+      const response = await restoreBackup(backupData);
+      if (response.data.success) {
+        setRestoreSuccess(true);
+        setRestoreFile(null);
+        if (restoreFileInputRef.current) restoreFileInputRef.current.value = '';
+        
+        // Reload page after showing success message
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }
+    } catch (err) {
+      setRestoreError(err.response?.data?.error || err.message || 'Invalid backup file');
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!window.confirm('CRITICAL WARNING: This will permanently delete ALL system data including courses, year levels, sections, violation types, admission slips, student reports, even audit logs. This action cannot be undone and will leave your system completely empty. Are you absolutely sure you want to continue?')) {
+      return;
+    }
+
+    setResetLoading(true);
+    setResetError('');
+    setResetSuccess(false);
+    
+    try {
+      const response = await resetSystem();
+      if (response.data.success) {
+        setResetSuccess(true);
+        
+        // Reload page to show empty state
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }
+    } catch (err) {
+      setResetError(err.response?.data?.error || err.message || 'Reset failed');
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   // ── Load courses on mount ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1317,6 +1408,199 @@ const AdminPanel = () => {
               </>
             );
           })()}
+        </div>
+
+        {/* ── BACKUP & RESTORE ─────────────────────────────────────────── */}
+        <div style={{ marginTop: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <RefreshCw size={18} color="var(--primary)" />
+            <span style={{ fontWeight: 700, fontSize: 15, color: '#374151' }}>Backup & Restore</span>
+          </div>
+          <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 14 }}>
+            Export all system data (courses, year levels, sections, violation types) to a backup file, or restore from a previous backup.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            {/* Backup Section */}
+            <div style={{ 
+              padding: '16px', 
+              background: '#f8fafc', 
+              border: '1px solid #e5e7eb', 
+              borderRadius: 8 
+            }}>
+              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, color: '#374151' }}>
+                📤 Export Backup
+              </div>
+              <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, lineHeight: 1.4 }}>
+                Download a complete backup of all system data including courses, year levels, sections, and violation types.
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={handleBackup}
+                disabled={backupLoading}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: 6, 
+                  whiteSpace: 'nowrap', 
+                  fontSize: 13,
+                  width: '100%',
+                  minHeight: '40px',
+                  height: '40px',
+                  marginTop: '38px'
+                }}
+              >
+                <Download size={14} />
+                {backupLoading ? 'Creating backup…' : 'Download Backup'}
+              </button>
+            </div>
+
+            {/* Restore Section */}
+            <div style={{ 
+              padding: '16px', 
+              background: '#fef2f2', 
+              border: '1px solid #fecaca', 
+              borderRadius: 8 
+            }}>
+              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, color: '#991b1b' }}>
+                📥 Restore Backup
+              </div>
+              <p style={{ fontSize: 12, color: '#7f1d1d', marginBottom: 12, lineHeight: 1.4 }}>
+                <strong>Warning:</strong> This will completely replace all current data. This action cannot be undone.
+              </p>
+              
+              <div style={{ marginBottom: 12 }}>
+                <input
+                  ref={restoreFileInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={e => {
+                    setRestoreFile(e.target.files?.[0] || null);
+                    setRestoreError('');
+                    setRestoreSuccess(false);
+                  }}
+                  style={{ fontSize: 13, marginBottom: 8 }}
+                />
+              </div>
+
+              <button
+                className="btn"
+                onClick={handleRestore}
+                disabled={!restoreFile || restoreLoading}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: 6, 
+                  whiteSpace: 'nowrap', 
+                  fontSize: 13,
+                  background: '#dc2626',
+                  borderColor: '#dc2626',
+                  color: '#fff',
+                  width: '100%',
+                  minHeight: '40px',
+                  height: '40px'
+                }}
+              >
+                <RefreshCw size={14} />
+                {restoreLoading ? 'Restoring…' : 'Restore Data'}
+              </button>
+
+              {restoreSuccess && (
+                <div style={{ 
+                  marginTop: 8, 
+                  padding: '6px 10px', 
+                  background: '#d1fae5', 
+                  color: '#065f46', 
+                  borderRadius: 4, 
+                  fontSize: 12,
+                  fontWeight: 600 
+                }}>
+                  ✅ Backup restored successfully! Page reloading...
+                </div>
+              )}
+
+              {restoreError && (
+                <div style={{ 
+                  marginTop: 8, 
+                  padding: '6px 10px', 
+                  background: '#fee2e2', 
+                  color: '#991b1b', 
+                  borderRadius: 4, 
+                  fontSize: 12 
+                }}>
+                  ❌ {restoreError}
+                </div>
+              )}
+            </div>
+
+            {/* Reset Section */}
+            <div style={{ 
+              padding: '16px', 
+              background: '#fef2f2', 
+              border: '1px solid #fca5a5', 
+              borderRadius: 8 
+            }}>
+              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, color: '#dc2626' }}>
+                🚨 Factory Reset
+              </div>
+              <p style={{ fontSize: 12, color: '#7f1d1d', marginBottom: 12, lineHeight: 1.4 }}>
+                <strong>Critical:</strong> This will permanently delete ALL system data and cannot be undone. Use with extreme caution.
+              </p>
+              
+              <button
+                className="btn"
+                onClick={handleReset}
+                disabled={resetLoading}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: 6, 
+                  whiteSpace: 'nowrap', 
+                  fontSize: 13,
+                  background: '#dc2626',
+                  borderColor: '#dc2626',
+                  color: '#fff',
+                  width: '100%',
+                  minHeight: '40px',
+                  height: '40px',
+                  marginTop: '38px'
+                }}
+              >
+                <AlertTriangle size={14} />
+                {resetLoading ? 'Resetting…' : 'Delete Everything'}
+              </button>
+
+              {resetSuccess && (
+                <div style={{ 
+                  marginTop: 8, 
+                  padding: '6px 10px', 
+                  background: '#d1fae5', 
+                  color: '#065f46', 
+                  borderRadius: 4, 
+                  fontSize: 12,
+                  fontWeight: 600 
+                }}>
+                  ✅ System reset successfully! Page reloading...
+                </div>
+              )}
+
+              {resetError && (
+                <div style={{ 
+                  marginTop: 8, 
+                  padding: '6px 10px', 
+                  background: '#fee2e2', 
+                  color: '#991b1b', 
+                  borderRadius: 4, 
+                  fontSize: 12 
+                }}>
+                  ❌ {resetError}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── STUDENT MANUAL ─────────────────────────────────────────── */}

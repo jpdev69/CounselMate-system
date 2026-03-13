@@ -29,6 +29,12 @@ function findTooLong(value, path = '', getMaxForPath) {
 
 module.exports = (req, res, next) => {
   try {
+    // Bypass validation entirely for restore endpoint since it handles large JSON files
+    const restoreMatch = req.path && req.path.match(/^\/api\/admin\/restore$/);
+    if (restoreMatch && String(req.method).toUpperCase() === 'POST') {
+      return next();
+    }
+
     const offenders = [];
 
     // Determine per-field max overrides based on the incoming route

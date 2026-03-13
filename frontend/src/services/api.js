@@ -209,6 +209,18 @@ export const uploadStudentManual = (formData) =>
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
+// Admin API — Backup & Restore
+export const createBackup = () =>
+  api.get('/admin/backup', {
+    responseType: 'blob'
+  });
+
+export const restoreBackup = (backupData) =>
+  api.post('/admin/restore', backupData);
+
+export const resetSystem = () =>
+  api.delete('/admin/reset');
+
 // Chatbot API — fetch raw manual text
 export const getStudentManual = () =>
   api.get('/chatbot/manual');
