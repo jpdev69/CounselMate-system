@@ -217,8 +217,8 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
       });
     }
 
-    // Only allow counselor@university.edu
-    if (email !== 'counselor@university.edu') {
+    // Only allow counselor@university.edu or admin@university.edu
+    if (email !== 'counselor@university.edu' && email !== 'admin@university.edu') {
       // Record failed login for invalid email
       const attemptInfo = recordFailedAttempt(req, 'login');
       return res.status(401).json({ 
@@ -258,16 +258,17 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
     }
 
     // Return user data (without password)
+    const userRole = email === 'admin@university.edu' ? 'admin' : 'counselor';
     const userResponse = {
       id: user.id,
       email: user.email,
       name: user.full_name,
-      role: user.role
+      role: userRole
     };
 
     // Sign a JWT with user info (expires in 30 minutes)
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: userRole },
       process.env.JWT_SECRET,
       { expiresIn: '30m' }
     );

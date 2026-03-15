@@ -72,8 +72,17 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Attempting login with:', email);
       
-      // Only allow counselor@university.edu
-      if (email !== 'counselor@university.edu') {
+      // Determine role based on email
+      let userRole = 'counselor';
+      let allowedEmail = 'counselor@university.edu';
+      
+      if (email === 'admin@university.edu') {
+        userRole = 'admin';
+        allowedEmail = 'admin@university.edu';
+      }
+      
+      // Only allow the specific email for the role
+      if (email !== allowedEmail) {
         return {
           success: false,
           error: 'Invalid email or password. Please check your credentials and try again.'
@@ -85,10 +94,13 @@ export const AuthProvider = ({ children }) => {
       
       const { token, user } = response.data;
       
+      // Add role to user object
+      const userWithRole = { ...user, role: userRole };
+      
       // Store session data in sessionStorage so it does not persist across browser restarts
       sessionStorage.setItem('authToken', token);
-      sessionStorage.setItem('userData', JSON.stringify(user));
-      setUser(user);
+      sessionStorage.setItem('userData', JSON.stringify(userWithRole));
+      setUser(userWithRole);
       
       return { success: true, retryAfterMs: null };
     } catch (error) {

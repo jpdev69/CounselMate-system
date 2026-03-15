@@ -14,6 +14,8 @@ import ChangePassword from './components/ChangePassword';
 import SecurityQuestion from './components/SecurityQuestion';
 import StudentManual from './components/StudentManual';
 import AdminPanel from './components/AdminPanel';
+import AdminLogin from './components/AdminLogin';
+import AdminLayout from './components/AdminLayout';
 import ReportStudent from './components/ReportStudent';
 import './App.css';
 
@@ -32,9 +34,43 @@ const ProtectedRoute = ({ children }) => {
   return user ? children : <Navigate to="/login" />;
 };
 
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p className="loading-text">Loading...</p>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/admin/login" />;
+  }
+  
+  if (user.role !== 'admin') {
+    return <Navigate to="/login" />;
+  }
+  
+  return children;
+};
+
 const PublicRoute = ({ children }) => {
   const { user } = useAuth();
   return !user ? children : <Navigate to="/" />;
+};
+
+const AdminPublicRoute = ({ children }) => {
+  const { user } = useAuth();
+  if (!user) {
+    return children;
+  }
+  if (user.role === 'admin') {
+    return <Navigate to="/admin" />;
+  }
+  return <Navigate to="/" />;
 };
 
 function App() {
@@ -60,6 +96,27 @@ function App() {
               }
             />
             <Route 
+              path="/admin/login" 
+              element={
+                <AdminPublicRoute>
+                  <AdminLogin />
+                </AdminPublicRoute>
+              } 
+            />
+            <Route 
+              path="/admin/*" 
+              element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <Routes>
+                      <Route path="/" element={<AdminPanel />} />
+                      <Route path="*" element={<Navigate to="/admin" />} />
+                    </Routes>
+                  </AdminLayout>
+                </AdminRoute>
+              } 
+            />
+            <Route 
               path="/*" 
               element={
                 <ProtectedRoute>
@@ -72,7 +129,6 @@ function App() {
                       <Route path="/report-student" element={<ReportStudent />} />
                       <Route path="/search" element={<SearchRecords />} />
                       <Route path="/student-manual" element={<StudentManual />} />
-                      <Route path="/admin" element={<AdminPanel />} />
                       <Route path="/change-password" element={<ChangePassword />} />
                       <Route path="/security-question" element={<SecurityQuestion />} />
                       <Route path="*" element={<Navigate to="/" />} />
