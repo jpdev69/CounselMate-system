@@ -70,32 +70,12 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      console.log('Attempting login with:', email);
-      
-      // Determine role based on email
-      let userRole = 'counselor';
-      let allowedEmail = 'counselor@university.edu';
-      
-      if (email === 'admin@university.edu') {
-        userRole = 'admin';
-        allowedEmail = 'admin@university.edu';
-      }
-      
-      // Only allow the specific email for the role
-      if (email !== allowedEmail) {
-        return {
-          success: false,
-          error: 'Invalid email or password. Please check your credentials and try again.'
-        };
-      }
-      
       const response = await apiLogin(email, password);
-      console.log('Login response:', response.data);
       
       const { token, user } = response.data;
       
-      // Add role to user object
-      const userWithRole = { ...user, role: userRole };
+      // Use the role from the backend response
+      const userWithRole = { ...user };
       
       // Store session data in sessionStorage so it does not persist across browser restarts
       sessionStorage.setItem('authToken', token);

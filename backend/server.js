@@ -64,6 +64,39 @@ async function ensureAdmissionSlipsColumns() {
   }
 }
 
+// Ensure admin user has correct role
+async function ensureAdminRole() {
+  try {
+    const result = await pool.query('SELECT role FROM users WHERE email = $1', ['admin@university.edu']);
+    if (result.rows.length > 0 && result.rows[0].role !== 'admin') {
+      await pool.query('UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', ['admin', 'admin@university.edu']);
+      console.log('✓ Fixed admin user role to "admin"');
+    }
+  } catch (err) {
+    console.warn('ensureAdminRole warning:', err.message || err);
+  }
+}
+
+// Ensure signup_requests table exists
+async function ensureSignupRequestsTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS signup_requests (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(256) UNIQUE NOT NULL,
+        full_name VARCHAR(256) NOT NULL,
+        reason TEXT NOT NULL,
+        status VARCHAR(32) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✓ signup_requests table ensured');
+  } catch (err) {
+    console.warn('ensureSignupRequestsTable warning:', err.message || err);
+  }
+}
+
 // Ensure student_reports table and Student Manual violation types exist
 async function ensureStudentReportsTable() {
   try {
@@ -170,6 +203,337 @@ async function seedStudentManualViolationTypes() {
   }
 }
 
+// Signup request endpoint - allows Gmail users to request access
+app.post('/api/auth/signup-request', async (req, res) => {
+  const { email, fullName, reason } = req.body;
+
+  try {
+    // Validate required fields
+    if (!email || !fullName || !reason) {
+      return res.status(400).json({
+        success: false,
+        error: 'All fields are required: email, full name, and reason for access'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please enter a valid email address'
+      });
+    }
+
+    // Only allow Gmail addresses
+    if (!email.trim().toLowerCase().endsWith('@gmail.com')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Only Gmail addresses are allowed for signup requests'
+      });
+    }
+
+    // Check if email already exists in users table
+    const existingUser = await pool.query(
+      'SELECT email FROM users WHERE email = $1',
+      [email.trim().toLowerCase()]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        error: 'This email is already registered in the system'
+      });
+    }
+
+    // Check if there's already a pending signup request
+    const existingRequest = await pool.query(
+      'SELECT email FROM signup_requests WHERE email = $1 AND status = $2',
+      [email.trim().toLowerCase(), 'pending']
+    );
+
+    if (existingRequest.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        error: 'A signup request for this email is already pending'
+      });
+    }
+
+    // Ensure signup_requests table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS signup_requests (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(256) UNIQUE NOT NULL,
+        full_name VARCHAR(256) NOT NULL,
+        reason TEXT NOT NULL,
+        status VARCHAR(32) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Insert signup request
+    await pool.query(
+      'INSERT INTO signup_requests (email, full_name, reason) VALUES ($1, $2, $3)',
+      [email.trim().toLowerCase(), fullName.trim(), reason.trim()]
+    );
+
+    console.log(`New signup request from: ${email} (${fullName})`);
+
+    return res.json({
+      success: true,
+      message: 'Signup request submitted successfully. Your request will be reviewed by the administrator.'
+    });
+
+  } catch (error) {
+    console.error('Signup request error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to submit signup request'
+    });
+  }
+});
+
+// Get all users (admin only)
+app.get('/api/admin/users', authenticate, async (req, res) => {
+  try {
+    // Only allow admin to view users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const result = await pool.query(
+      'SELECT id, email, full_name, role, created_at, updated_at FROM users ORDER BY created_at DESC'
+    );
+
+    return res.json({
+      success: true,
+      users: result.rows // Use roles from database, don't override them
+    });
+
+  } catch (error) {
+    console.error('Get users error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve users'
+    });
+  }
+});
+
+// Delete user account (admin only)
+app.delete('/api/admin/users/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Only allow admin to delete users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    // Get the user to delete
+    const userResult = await pool.query(
+      'SELECT email, role FROM users WHERE id = $1',
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Prevent deleting the main admin account
+    if (user.email === 'admin@university.edu') {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete the main administrator account'
+      });
+    }
+
+    // Delete the user
+    await pool.query('DELETE FROM users WHERE id = $1', [id]);
+
+    console.log(`User account deleted: ${user.email} (${user.full_name || 'N/A'})`);
+
+    return res.json({
+      success: true,
+      message: `User account for ${user.email} has been deleted successfully`
+    });
+
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete user account'
+    });
+  }
+});
+
+// Update user password (admin only)
+app.put('/api/admin/users/:id/reset-password', authenticate, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Only allow admin to reset passwords
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    // Get the user
+    const userResult = await pool.query(
+      'SELECT email FROM users WHERE id = $1',
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Reset password to default
+    const defaultPassword = 'changeme123';
+    await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [defaultPassword, id]
+    );
+
+    console.log(`Password reset for user ID: ${id}`);
+
+    return res.json({
+      success: true,
+      message: 'Password has been reset to the default value'
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to reset password'
+    });
+  }
+});
+
+// Get all signup requests (admin only)
+app.get('/api/admin/signup-requests', authenticate, async (req, res) => {
+  try {
+    // Only allow admin to view signup requests
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const result = await pool.query(
+      'SELECT * FROM signup_requests ORDER BY created_at DESC'
+    );
+
+    return res.json({
+      success: true,
+      requests: result.rows
+    });
+
+  } catch (error) {
+    console.error('Get signup requests error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve signup requests'
+    });
+  }
+});
+
+// Update signup request status (admin only)
+app.put('/api/admin/signup-requests/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    // Only allow admin to update signup requests
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Status must be either "approved" or "rejected"'
+      });
+    }
+
+    // Get the signup request
+    const requestResult = await pool.query(
+      'SELECT * FROM signup_requests WHERE id = $1',
+      [id]
+    );
+
+    if (requestResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Signup request not found'
+      });
+    }
+
+    const request = requestResult.rows[0];
+
+    // Update request status
+    await pool.query(
+      'UPDATE signup_requests SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [status, id]
+    );
+
+    // If approved, create user account
+    if (status === 'approved') {
+      // Check if user already exists (double-check)
+      const existingUser = await pool.query(
+        'SELECT email FROM users WHERE email = $1',
+        [request.email]
+      );
+
+      if (existingUser.rows.length === 0) {
+        // Create new user with default password (they'll need to reset it)
+        const defaultPassword = 'changeme123';
+        await pool.query(
+          'INSERT INTO users (email, full_name, password_hash, role) VALUES ($1, $2, $3, $4)',
+          [request.email, request.full_name, defaultPassword, 'counselor']
+        );
+
+        console.log(`Created new user account for: ${request.email}`);
+      }
+    }
+
+    console.log(`Signup request ${id} ${status} for email: ${request.email}`);
+
+    return res.json({
+      success: true,
+      message: `Signup request ${status} successfully`
+    });
+
+  } catch (error) {
+    console.error('Update signup request error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to update signup request'
+    });
+  }
+});
+
 // Test database connection (best-effort)
 pool.connect((err, client, release) => {
   if (err) {
@@ -217,22 +581,13 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
       });
     }
 
-    // Only allow counselor@university.edu or admin@university.edu
-    if (email !== 'counselor@university.edu' && email !== 'admin@university.edu') {
-      // Record failed login for invalid email
-      const attemptInfo = recordFailedAttempt(req, 'login');
-      return res.status(401).json({ 
-        success: false,
-        error: 'Invalid email or password. Please check your credentials and try again.',
-        remainingAttempts: attemptInfo.remainingAttempts
-      });
-    }
-
     // Get user from database
     const userResult = await pool.query(
       'SELECT * FROM users WHERE email = $1',
       [email]
     );
+
+    console.log('Login attempt:', { email, usersFound: userResult.rows.length });
 
     if (userResult.rows.length === 0) {
       // Record failed attempt when user not found
@@ -245,6 +600,7 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
     }
 
     const user = userResult.rows[0];
+    console.log('User found:', { id: user.id, email: user.email, storedPassword: user.password_hash, providedPassword: password });
 
     // Check password (in production, you should use bcrypt for hashing)
     if (password !== user.password_hash) {
@@ -258,7 +614,8 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
     }
 
     // Return user data (without password)
-    const userRole = email === 'admin@university.edu' ? 'admin' : 'counselor';
+    // Ensure admin@university.edu always has admin role
+    const userRole = user.email === 'admin@university.edu' ? 'admin' : user.role;
     const userResponse = {
       id: user.id,
       email: user.email,
@@ -363,7 +720,8 @@ app.put('/api/auth/change-password', authenticate, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
   try {
-    const email = 'counselor@university.edu'; // Only user for now
+    // Get current user from authenticated token
+    const email = req.user.email;
 
     // Get current user data
     const userResult = await pool.query(
@@ -459,10 +817,50 @@ app.use('/api/visualizations', authenticate, visualizationsRouter);
 // Mount router for chatbot (Student Manual violation assistant)
 const chatbotRouter = require('./routes/chatbot');
 app.use('/api/chatbot', authenticate, chatbotRouter);
-
 // Mount admin router (courses, year levels, sections management)
 const adminRouter = require('./routes/admin');
 app.use('/api/admin', authenticate, adminRouter);
+
+// Update user role (admin only)
+app.put('/api/admin/users/:id/role', authenticate, async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Access denied. Admin privileges required.' });
+    }
+
+    if (!['admin', 'counselor'].includes(role)) {
+      return res.status(400).json({ success: false, error: 'Invalid role specified.' });
+    }
+
+    // Get user to check if it's the main admin account
+    const userResult = await pool.query('SELECT email FROM users WHERE id = $1', [id]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User not found.' });
+    }
+
+    const userEmail = userResult.rows[0].email;
+    
+    // Prevent changing the main admin account's role
+    if (userEmail === 'admin@university.edu') {
+      return res.status(400).json({ success: false, error: 'Cannot change the role of the main administrator account.' });
+    }
+
+    const result = await pool.query(
+      'UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, email, role',
+      [role, id]
+    );
+
+    console.log(`User ${result.rows[0].email} role updated to ${result.rows[0].role}`);
+    res.json({ success: true, user: result.rows[0] });
+
+  } catch (error) {
+    console.error('Update user role error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update user role.' });
+  }
+});
 
 // Get current user's saved security question (for counselor user)
 app.get('/api/auth/me/security-question', authenticate, precheckRateLimit('me-security-question'), async (req, res) => {
@@ -791,6 +1189,8 @@ app.post('/api/auth/forgot/reset-with-otp', precheckRateLimit('forgot-otp-reset'
 // Run DB migrations on startup, then start server
 (async () => {
   try {
+    await ensureAdminRole();
+    await ensureSignupRequestsTable();
     await ensureStudentReportsTable();
     await ensureAdmissionSlipsColumns();
     await seedStudentManualViolationTypes();

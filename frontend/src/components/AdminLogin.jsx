@@ -1,6 +1,7 @@
 // src/components/AdminLogin.jsx
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { LogIn, Shield, AlertCircle } from 'lucide-react';
 
 const AdminLogin = () => {
@@ -9,6 +10,7 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,7 +22,10 @@ const AdminLogin = () => {
       const adminEmail = 'admin@university.edu';
       const result = await login(adminEmail, password);
       
-      if (!result.success) {
+      if (result.success) {
+        // Explicitly redirect to admin panel after successful login
+        navigate('/admin');
+      } else {
         setError(result.error || 'Admin login failed');
       }
     } catch (err) {

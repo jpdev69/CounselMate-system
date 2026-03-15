@@ -91,6 +91,28 @@ export const updateGmailSettings = (payload) =>
 export const verifySecurityRecovery = (password) =>
   api.post('/auth/security-recovery-verify', { password });
 
+export const submitSignupRequest = (data) =>
+  api.post('/auth/signup-request', data);
+
+export const getSignupRequests = () =>
+  api.get('/admin/signup-requests');
+
+export const updateSignupRequest = (id, data) =>
+  api.put(`/admin/signup-requests/${id}`, data);
+
+// User Management API
+export const getUsers = () =>
+  api.get('/admin/users');
+
+export const deleteUser = (id) =>
+  api.delete(`/admin/users/${id}`);
+
+export const resetUserPassword = (id) =>
+  api.put(`/admin/users/${id}/reset-password`);
+
+export const updateUserRole = (id, role) =>
+  api.put(`/admin/users/${id}/role`, { role });
+
 // Admission Slips API
 export const issueAdmissionSlip = (data) => 
   api.post('/admission-slips/issue', data);

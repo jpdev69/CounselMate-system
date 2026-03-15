@@ -1,6 +1,6 @@
 // src/components/AdminPanel.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Plus, Trash2, ChevronRight, Upload, BookOpen, Download, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Settings, Plus, Trash2, ChevronRight, Upload, BookOpen, Download, RefreshCw, AlertTriangle, Mail, CheckCircle, XCircle, Clock, Users, Key, Shield } from 'lucide-react';
 import {
   getAdminCourses, createAdminCourse, updateAdminCourse, deleteAdminCourse,
   getCourseYearLevels, addCourseYearLevel, updateYearLevel, deleteYearLevel,
@@ -8,6 +8,8 @@ import {
   getAdminViolationTypes, updateViolationTypeSlip, deleteViolationType, createViolationType, extractViolationTypes, saveViolationTypes,
   getStudentManualInfo, uploadStudentManual,
   createBackup, restoreBackup, resetSystem,
+  getSignupRequests, updateSignupRequest,
+  getUsers, deleteUser, resetUserPassword,
 } from '../services/api';
 
 const AdminPanel = () => {
@@ -102,6 +104,21 @@ const AdminPanel = () => {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetError, setResetError] = useState('');
   const restoreFileInputRef = useRef(null);
+
+  // ── Signup Requests ─────────────────────────────────────────────────────
+  const [signupRequests, setSignupRequests] = useState([]);
+  const [signupRequestsLoading, setSignupRequestsLoading] = useState(true);
+  const [updatingRequestId, setUpdatingRequestId] = useState(null);
+  const [signupRequestPage, setSignupRequestPage] = useState(1);
+  const SIGNUP_REQUESTS_PAGE_SIZE = 5;
+
+  // ── User Management ─────────────────────────────────────────────────────
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [deletingUserId, setDeletingUserId] = useState(null);
+  const [resettingUserId, setResettingUserId] = useState(null);
+  const [userPage, setUserPage] = useState(1);
+  const USERS_PAGE_SIZE = 8;
 
   const handleBackup = async () => {
     setBackupLoading(true);
@@ -208,6 +225,28 @@ const AdminPanel = () => {
     getStudentManualInfo()
       .then(res => { if (mounted) setManualInfo(res.data?.info || null); })
       .catch(() => { });
+    return () => { mounted = false; };
+  }, []);
+
+  // ── Load signup requests on mount ────────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    setSignupRequestsLoading(true);
+    getSignupRequests()
+      .then(res => { if (mounted) setSignupRequests(res.data?.requests || []); })
+      .catch(err => console.error('Failed to load signup requests', err))
+      .finally(() => { if (mounted) setSignupRequestsLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  // ── Load users on mount ────────────────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    setUsersLoading(true);
+    getUsers()
+      .then(res => { if (mounted) setUsers(res.data?.users || []); })
+      .catch(err => console.error('Failed to load users', err))
+      .finally(() => { if (mounted) setUsersLoading(false); });
     return () => { mounted = false; };
   }, []);
   // ── Load year levels when course changes ───────────────────────────────────
@@ -537,6 +576,79 @@ const AdminPanel = () => {
     }
   };
 
+  // ── Signup Request handlers ────────────────────────────────────────────
+  const handleUpdateSignupRequest = async (requestId, status) => {
+    setUpdatingRequestId(requestId);
+    try {
+      const res = await updateSignupRequest(requestId, { status });
+      if (res.data.success) {
+        // Update the request in the local state
+        setSignupRequests(prev => 
+          prev.map(req => 
+            req.id === requestId 
+              ? { ...req, status, updated_at: new Date().toISOString() }
+              : req
+          )
+        );
+        
+        // Refresh users list if a new user was created
+        if (status === 'approved') {
+          const usersRes = await getUsers();
+          setUsers(usersRes.data?.users || []);
+        }
+        
+        // Show success message
+        const message = status === 'approved' 
+          ? 'Request approved and user account created successfully!'
+          : 'Request rejected successfully.';
+        alert(message);
+      }
+    } catch (err) {
+      alert(err.response?.data?.error || `Failed to ${status} request`);
+    } finally {
+      setUpdatingRequestId(null);
+    }
+  };
+
+  // ── User Management handlers ────────────────────────────────────────────
+  const handleDeleteUser = async (userId, userEmail) => {
+    if (!window.confirm(`Delete user account for ${userEmail}?\n\nThis action cannot be undone and will permanently remove all access to the system.`)) {
+      return;
+    }
+
+    setDeletingUserId(userId);
+    try {
+      const res = await deleteUser(userId);
+      if (res.data.success) {
+        // Remove user from local state
+        setUsers(prev => prev.filter(user => user.id !== userId));
+        alert(res.data.message || 'User account deleted successfully');
+      }
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete user account');
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
+  const handleResetPassword = async (userId, userEmail) => {
+    if (!window.confirm(`Reset password for ${userEmail}?\n\nThe password will be reset to 'changeme123' and the user will need to change it on next login.`)) {
+      return;
+    }
+
+    setResettingUserId(userId);
+    try {
+      const res = await resetUserPassword(userId);
+      if (res.data.success) {
+        alert(res.data.message || 'Password reset successfully');
+      }
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to reset password');
+    } finally {
+      setResettingUserId(null);
+    }
+  };
+
   // ── Keyword matching for violation descriptions ─────────────────────────────
   const findDescriptionMatches = (extractedDescription, existingViolations) => {
     if (!extractedDescription || !existingViolations?.length) return { hasMatch: false, matches: [], matchingWords: [] };
@@ -623,10 +735,10 @@ const AdminPanel = () => {
           <h1 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>Admin Panel</h1>
         </div>
         <p className="text-muted" style={{ marginBottom: 20, fontSize: '0.9rem' }}>
-          Set up courses, year levels, sections, and violation types used across the system.
+          Set up courses, year levels, sections, and violation types used across the system. Manage signup requests and counselor accounts.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
 
           {/* ── COURSES ─────────────────────────────────────────────────────── */}
           <div style={panelCard}>
@@ -1408,6 +1520,523 @@ const AdminPanel = () => {
               </>
             );
           })()}
+        </div>
+
+        {/* ── USER MANAGEMENT & SIGNUP REQUESTS ─────────────────────────── */}
+        <div style={{ marginTop: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <Mail size={18} color="var(--primary)" />
+            <span style={{ fontWeight: 700, fontSize: 15, color: '#374151' }}>User Management</span>
+          </div>
+          <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 14 }}>
+            Review signup requests and manage counselor accounts.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+            {/* ── SIGNUP REQUESTS ─────────────────────────────────────────── */}
+            <div style={panelCard}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: '#374151' }}>
+                Pending Requests
+              </div>
+
+              {signupRequestsLoading ? (
+                <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading signup requests…</div>
+              ) : signupRequests.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#9ca3af' }}>No signup requests at this time.</div>
+              ) : (() => {
+                const pendingRequests = signupRequests.filter(req => req.status === 'pending');
+                const totalPendingPages = Math.max(1, Math.ceil(pendingRequests.length / SIGNUP_REQUESTS_PAGE_SIZE));
+                const pagedRequests = pendingRequests.slice(
+                  (signupRequestPage - 1) * SIGNUP_REQUESTS_PAGE_SIZE, 
+                  signupRequestPage * SIGNUP_REQUESTS_PAGE_SIZE
+                );
+
+                if (pendingRequests.length === 0) {
+                  return (
+                    <div style={{ fontSize: 13, color: '#9ca3af' }}>
+                      No pending requests. {signupRequests.length > 0 && `${signupRequests.length} request(s) have been processed.`}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div>
+                    {pagedRequests.map(request => (
+                      <div key={request.id} style={{
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 8,
+                        padding: 12,
+                        marginBottom: 8,
+                        backgroundColor: '#fff'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            backgroundColor: '#f0f9ff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <Mail size={16} style={{ color: '#1e40af' }} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 2 }}>
+                              {request.full_name}
+                            </div>
+                            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                              {request.email}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                              Requested {new Date(request.created_at).toLocaleDateString()} at {new Date(request.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
+                          </div>
+                          <div style={{
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            backgroundColor: '#fef3c7',
+                            color: '#92400e',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}>
+                            <Clock size={10} />
+                            PENDING
+                          </div>
+                        </div>
+                        
+                        <div style={{ 
+                          fontSize: 12, 
+                          color: '#4b5563', 
+                          marginBottom: 12, 
+                          padding: 8, 
+                          backgroundColor: '#f9fafb', 
+                          borderRadius: 6,
+                          borderLeft: '3px solid #fbbf24'
+                        }}>
+                          <strong>Reason:</strong> {request.reason}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Reject signup request from ${request.full_name} (${request.email})?`)) {
+                                handleUpdateSignupRequest(request.id, 'rejected');
+                              }
+                            }}
+                            disabled={updatingRequestId === request.id}
+                            style={{
+                              padding: '6px 12px',
+                              border: '1px solid #ef4444',
+                              backgroundColor: '#fff',
+                              color: '#ef4444',
+                              borderRadius: 6,
+                              fontSize: 12,
+                              fontWeight: 500,
+                              cursor: updatingRequestId === request.id ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseOver={(e) => {
+                              if (updatingRequestId !== request.id) {
+                                e.target.style.backgroundColor = '#ef4444';
+                                e.target.style.color = '#fff';
+                              }
+                            }}
+                            onMouseOut={(e) => {
+                              if (updatingRequestId !== request.id) {
+                                e.target.style.backgroundColor = '#fff';
+                                e.target.style.color = '#ef4444';
+                              }
+                            }}
+                          >
+                            {updatingRequestId === request.id ? (
+                              <>
+                                <div style={{
+                                  width: '12px',
+                                  height: '12px',
+                                  border: '2px solid #ef4444',
+                                  borderTop: '2px solid transparent',
+                                  borderRadius: '50%',
+                                  animation: 'spin 1s linear infinite'
+                                }}></div>
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <XCircle size={14} />
+                                Reject
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Approve signup request from ${request.full_name} (${request.email})?\n\nThis will create a new counselor account with default password 'changeme123'.`)) {
+                                handleUpdateSignupRequest(request.id, 'approved');
+                              }
+                            }}
+                            disabled={updatingRequestId === request.id}
+                            style={{
+                              padding: '6px 12px',
+                              border: '1px solid #10b981',
+                              backgroundColor: '#fff',
+                              color: '#10b981',
+                              borderRadius: 6,
+                              fontSize: 12,
+                              fontWeight: 500,
+                              cursor: updatingRequestId === request.id ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseOver={(e) => {
+                              if (updatingRequestId !== request.id) {
+                                e.target.style.backgroundColor = '#10b981';
+                                e.target.style.color = '#fff';
+                              }
+                            }}
+                            onMouseOut={(e) => {
+                              if (updatingRequestId !== request.id) {
+                                e.target.style.backgroundColor = '#fff';
+                                e.target.style.color = '#10b981';
+                              }
+                            }}
+                          >
+                            {updatingRequestId === request.id ? (
+                              <>
+                                <div style={{
+                                  width: '12px',
+                                  height: '12px',
+                                  border: '2px solid #10b981',
+                                  borderTop: '2px solid transparent',
+                                  borderRadius: '50%',
+                                  animation: 'spin 1s linear infinite'
+                                }}></div>
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle size={14} />
+                                Approve
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Pagination for pending requests */}
+                    {totalPendingPages > 1 && (
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        alignItems: 'center', 
+                        gap: 8, 
+                        marginTop: 12,
+                        fontSize: 12
+                      }}>
+                        <button
+                          onClick={() => setSignupRequestPage(prev => Math.max(1, prev - 1))}
+                          disabled={signupRequestPage === 1}
+                          style={{
+                            padding: '4px 8px',
+                            border: '1px solid #d1d5db',
+                            backgroundColor: '#fff',
+                            borderRadius: 4,
+                            cursor: signupRequestPage === 1 ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          ‹
+                        </button>
+                        <span style={{ color: '#6b7280' }}>
+                          Page {signupRequestPage} of {totalPendingPages}
+                        </span>
+                        <button
+                          onClick={() => setSignupRequestPage(prev => Math.min(totalPendingPages, prev + 1))}
+                          disabled={signupRequestPage === totalPendingPages}
+                          style={{
+                            padding: '4px 8px',
+                            border: '1px solid #d1d5db',
+                            backgroundColor: '#fff',
+                            borderRadius: 4,
+                            cursor: signupRequestPage === totalPendingPages ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          ›
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Summary stats */}
+                    <div style={{ 
+                      marginTop: 12, 
+                      padding: 8, 
+                      backgroundColor: '#f8fafc', 
+                      borderRadius: 6, 
+                      fontSize: 11, 
+                      color: '#6b7280',
+                      textAlign: 'center'
+                    }}>
+                      {pendingRequests.length} pending • {signupRequests.filter(r => r.status === 'approved').length} approved • {signupRequests.filter(r => r.status === 'rejected').length} rejected
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* ── USER ACCOUNTS ────────────────────────────────────────────── */}
+            <div style={panelCard}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: '#374151' }}>
+                User Accounts
+              </div>
+
+              {usersLoading ? (
+                <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading users…</div>
+              ) : users.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#9ca3af' }}>No users found.</div>
+              ) : (() => {
+                const totalUserPages = Math.max(1, Math.ceil(users.length / USERS_PAGE_SIZE));
+                const pagedUsers = users.slice((userPage - 1) * USERS_PAGE_SIZE, userPage * USERS_PAGE_SIZE);
+
+                return (
+                  <div>
+                    {pagedUsers.map(user => (
+                      <div key={user.id} style={{
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 8,
+                        padding: 10,
+                        marginBottom: 8,
+                        backgroundColor: '#fff',
+                        position: 'relative'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                          <div style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            backgroundColor: user.role === 'admin' ? '#fef3c7' : '#f0f9ff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            {user.role === 'admin' ? (
+                              <Shield size={14} style={{ color: '#f59e0b' }} />
+                            ) : (
+                              <Users size={14} style={{ color: '#1e40af' }} />
+                            )}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: 12, color: '#374151', marginBottom: 2 }}>
+                              {user.full_name || 'N/A'}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>
+                              {user.email}
+                            </div>
+                            <div style={{ fontSize: 10, color: '#9ca3af' }}>
+                              Joined {new Date(user.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div style={{
+                            padding: '2px 6px',
+                            borderRadius: '10px',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            backgroundColor: user.role === 'admin' ? '#fef3c7' : '#f0f9ff',
+                            color: user.role === 'admin' ? '#92400e' : '#1e40af',
+                            textTransform: 'uppercase'
+                          }}>
+                            {user.role}
+                          </div>
+                        </div>
+
+                        {/* Action buttons for non-admin users */}
+                        {user.role !== 'admin' && (
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={() => handleResetPassword(user.id, user.email)}
+                              disabled={resettingUserId === user.id}
+                              style={{
+                                padding: '4px 8px',
+                                border: '1px solid #f59e0b',
+                                backgroundColor: '#fff',
+                                color: '#f59e0b',
+                                borderRadius: 4,
+                                fontSize: 10,
+                                fontWeight: 500,
+                                cursor: resettingUserId === user.id ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 3,
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseOver={(e) => {
+                                if (resettingUserId !== user.id) {
+                                  e.target.style.backgroundColor = '#f59e0b';
+                                  e.target.style.color = '#fff';
+                                }
+                              }}
+                              onMouseOut={(e) => {
+                                if (resettingUserId !== user.id) {
+                                  e.target.style.backgroundColor = '#fff';
+                                  e.target.style.color = '#f59e0b';
+                                }
+                              }}
+                            >
+                              {resettingUserId === user.id ? (
+                                <>
+                                  <div style={{
+                                    width: '10px',
+                                    height: '10px',
+                                    border: '2px solid #f59e0b',
+                                    borderTop: '2px solid transparent',
+                                    borderRadius: '50%',
+                                    animation: 'spin 1s linear infinite'
+                                  }}></div>
+                                  Resetting...
+                                </>
+                              ) : (
+                                <>
+                                  <Key size={10} />
+                                  Reset
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(user.id, user.email)}
+                              disabled={deletingUserId === user.id}
+                              style={{
+                                padding: '4px 8px',
+                                border: '1px solid #ef4444',
+                                backgroundColor: '#fff',
+                                color: '#ef4444',
+                                borderRadius: 4,
+                                fontSize: 10,
+                                fontWeight: 500,
+                                cursor: deletingUserId === user.id ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 3,
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseOver={(e) => {
+                                if (deletingUserId !== user.id) {
+                                  e.target.style.backgroundColor = '#ef4444';
+                                  e.target.style.color = '#fff';
+                                }
+                              }}
+                              onMouseOut={(e) => {
+                                if (deletingUserId !== user.id) {
+                                  e.target.style.backgroundColor = '#fff';
+                                  e.target.style.color = '#ef4444';
+                                }
+                              }}
+                            >
+                              {deletingUserId === user.id ? (
+                                <>
+                                  <div style={{
+                                    width: '10px',
+                                    height: '10px',
+                                    border: '2px solid #ef4444',
+                                    borderTop: '2px solid transparent',
+                                    borderRadius: '50%',
+                                    animation: 'spin 1s linear infinite'
+                                  }}></div>
+                                  Deleting...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 size={10} />
+                                  Delete
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Admin protection indicator */}
+                        {user.role === 'admin' && (
+                          <div style={{ 
+                            fontSize: 9, 
+                            color: '#92400e', 
+                            textAlign: 'center',
+                            fontStyle: 'italic',
+                            marginTop: 4
+                          }}>
+                            Protected admin account
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Pagination for users */}
+                    {totalUserPages > 1 && (
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        alignItems: 'center', 
+                        gap: 6, 
+                        marginTop: 8,
+                        fontSize: 11
+                      }}>
+                        <button
+                          onClick={() => setUserPage(prev => Math.max(1, prev - 1))}
+                          disabled={userPage === 1}
+                          style={{
+                            padding: '3px 6px',
+                            border: '1px solid #d1d5db',
+                            backgroundColor: '#fff',
+                            borderRadius: 3,
+                            cursor: userPage === 1 ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          ‹
+                        </button>
+                        <span style={{ color: '#6b7280' }}>
+                          {userPage}/{totalUserPages}
+                        </span>
+                        <button
+                          onClick={() => setUserPage(prev => Math.min(totalUserPages, prev + 1))}
+                          disabled={userPage === totalUserPages}
+                          style={{
+                            padding: '3px 6px',
+                            border: '1px solid #d1d5db',
+                            backgroundColor: '#fff',
+                            borderRadius: 3,
+                            cursor: userPage === totalUserPages ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          ›
+                        </button>
+                      </div>
+                    )}
+
+                    {/* User summary */}
+                    <div style={{ 
+                      marginTop: 8, 
+                      padding: 6, 
+                      backgroundColor: '#f8fafc', 
+                      borderRadius: 4, 
+                      fontSize: 10, 
+                      color: '#6b7280',
+                      textAlign: 'center'
+                    }}>
+                      {users.filter(u => u.role === 'admin').length} admin(s) • {users.filter(u => u.role === 'counselor').length} counselor(s)
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+          </div>
         </div>
 
         {/* ── BACKUP & RESTORE ─────────────────────────────────────────── */}

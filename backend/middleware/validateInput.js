@@ -111,6 +111,15 @@ module.exports = (req, res, next) => {
       overrides.set('body.newPassword', 32);
     }
 
+    // Allow longer fields for signup request endpoint
+    // Endpoint: POST /api/auth/signup-request
+    const signupRequestMatch = req.path && req.path.match(/^\/api\/auth\/signup-request$/);
+    if (signupRequestMatch && String(req.method).toUpperCase() === 'POST') {
+      overrides.set('body.email', 64); // Standard email max length
+      overrides.set('body.fullName', 128); // Allow longer full names
+      overrides.set('body.reason', 128); // Allow detailed reasons for access
+    }
+
     // Allow getting/updating my security question
     const mySecMatch = req.path && req.path.match(/^\/api\/auth\/me\/security-question$/);
     if (mySecMatch) {

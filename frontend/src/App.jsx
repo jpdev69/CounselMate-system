@@ -51,7 +51,7 @@ const AdminRoute = ({ children }) => {
   }
   
   if (user.role !== 'admin') {
-    return <Navigate to="/login" />;
+    return <Navigate to="/" />; // Redirect counselors to main dashboard, not login
   }
   
   return children;

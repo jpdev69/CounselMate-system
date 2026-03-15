@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, MailPlus } from 'lucide-react';
+import SignupRequest from './SignupRequest';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ const Login = () => {
   const [retryAfterMs, setRetryAfterMs] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showSignupModal, setShowSignupModal] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -184,6 +186,41 @@ const Login = () => {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+        
+        {/* Signup Request Button */}
+        <div style={{ margin: '1rem 0', textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setShowSignupModal(true)}
+            className="btn btn-outline"
+            style={{
+              backgroundColor: 'transparent',
+              color: '#1e40af',
+              border: '2px solid #1e40af',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              fontSize: '0.9rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.backgroundColor = '#1e40af';
+              e.target.style.color = 'white';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.backgroundColor = 'transparent';
+              e.target.style.color = '#1e40af';
+            }}
+          >
+            <MailPlus size={16} />
+            Request Access
+          </button>
+        </div>
+        
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem' }}>
           <div style={{ fontSize: '0.9rem' }}>
             <Link to="/forgot-password" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>Forgot password?</Link>
@@ -193,6 +230,15 @@ const Login = () => {
           </div>
         </div>
       </div>
+      
+      {/* Signup Request Modal */}
+      <SignupRequest 
+        isOpen={showSignupModal}
+        onClose={() => setShowSignupModal(false)}
+        onSuccess={() => {
+          // Optional: Show success message or redirect
+        }}
+      />
     </div>
   );
 };
