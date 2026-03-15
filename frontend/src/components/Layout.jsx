@@ -2,7 +2,7 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Home, FileText, Search, User, Key, Menu, Printer, BookOpen, Settings, ClipboardList } from 'lucide-react';
+import { LogOut, Home, FileText, Search, User, Key, Menu, Printer, BookOpen, Settings, ClipboardList, Mail } from 'lucide-react';
 import { useState } from 'react';
 import '../App.css';
 
@@ -20,7 +20,7 @@ const Layout = ({ children }) => {
     { name: 'Search Violation Records', href: '/search', icon: Search },
     { name: 'Student Manual', href: '/student-manual', icon: BookOpen },
     { name: 'Change Password', href: '/change-password', icon: Key },
-    { name: 'Security & Recovery', href: '/security-question', icon: User },
+    { name: 'Recovery Email', href: '/recovery-email', icon: Mail },
   ];
 
   const handleSidebarToggle = () => {

@@ -5,6 +5,7 @@ const MAX_ATTEMPTS = parseInt(process.env.MAX_ATTEMPTS || '3', 10);
 // Default escalation steps (minutes) used for successive lockouts: 3,5,7,9,12,15
 const DEFAULT_ESCALATIONS = {
   login: [3,5,7,9,12,15],
+  'verify-password': [3,5,7,9,12,15],
   'forgot-verify': [3,5,7,9,12,15],
   'forgot-reset': [3,5,7,9,12,15],
   'me-security-question': [3,5,7,9,12,15],

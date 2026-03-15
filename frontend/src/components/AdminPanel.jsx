@@ -1555,7 +1555,7 @@ const AdminPanel = () => {
                 if (pendingRequests.length === 0) {
                   return (
                     <div style={{ fontSize: 13, color: '#9ca3af' }}>
-                      No pending requests. {signupRequests.length > 0 && `${signupRequests.length} request(s) have been processed.`}
+                      No pending signup requests.
                     </div>
                   );
                 }

@@ -11,7 +11,7 @@ import PrintAdmissionSlip from './components/PrintAdmissionSlip';
 import CompleteForm from './components/CompleteForm';
 import SearchRecords from './components/SearchRecords';
 import ChangePassword from './components/ChangePassword';
-import SecurityQuestion from './components/SecurityQuestion';
+import RecoveryEmail from './components/RecoveryEmail';
 import StudentManual from './components/StudentManual';
 import AdminPanel from './components/AdminPanel';
 import AdminLogin from './components/AdminLogin';
@@ -130,7 +130,7 @@ function App() {
                       <Route path="/search" element={<SearchRecords />} />
                       <Route path="/student-manual" element={<StudentManual />} />
                       <Route path="/change-password" element={<ChangePassword />} />
-                      <Route path="/security-question" element={<SecurityQuestion />} />
+                      <Route path="/recovery-email" element={<RecoveryEmail />} />
                       <Route path="*" element={<Navigate to="/" />} />
                       
                     </Routes>

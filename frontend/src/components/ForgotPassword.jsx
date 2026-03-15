@@ -1,15 +1,9 @@
 // src/components/ForgotPassword.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSecurityQuestion, resetPasswordWithSecurity, verifySecurityAnswer, sendOtp, verifyOtp, resetPasswordWithOtp } from '../services/api';
-
-// Preset questions (keep in sync with SecurityQuestion component)
-const PRESET = [
-  { id: 1, question: 'What was the first school event you disliked?' },
-  { id: 2, question: 'What was the first video game level you got stuck on?' },
-  { id: 3, question: 'What was the first internet username you made up?' }
-];
-import { Eye, EyeOff } from 'lucide-react';
+import { sendOtp, verifyOtp, resetPasswordWithOtp } from '../services/api';
+import api from '../services/api';
+import { Eye, EyeOff, Mail } from 'lucide-react';
 
 // Small badge used by password intellisense to show pass/fail for rules
 const Badge = ({ ok, text }) => (
@@ -44,15 +38,11 @@ const evaluatePassword = (pwd) => {
 };
 
 const ForgotPassword = () => {
-  // 'security' | 'otp'
-  const [activeTab, setActiveTab] = useState('security');
-
-  // ── Security-question state ──────────────────────────────────────
-  const [question, setQuestion] = useState(null);
-  const [answer, setAnswer] = useState('');
-  const [answerVerified, setAnswerVerified] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-
+  // ── Email identification state ─────────────────────────────────────
+  const [email, setEmail] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  
   // ── OTP state ────────────────────────────────────────────────────
   const [otpSent, setOtpSent] = useState(false);
   const [otpSentMsg, setOtpSentMsg] = useState('');
@@ -82,75 +72,22 @@ const ForgotPassword = () => {
   const [timeLeft, setTimeLeft] = useState(null);
   const navigate = useNavigate();
 
-  // Derived: whether the current tab's identity step is complete
-  const isVerified = activeTab === 'security' ? answerVerified : otpVerified;
-
-  // Switch tabs: clear messages and per-tab state
-  const switchTab = (tab) => {
-    setActiveTab(tab);
-    setMessage(null);
-    setRetryAfterMs(null);
-    setTimeLeft(null);
-    setOtpResendCooldown(null);
-    setOtpResendTimeLeft(null);
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordFeedback({ length: false, letter: false, number: false, upper: false, special: false, strength: 'Weak', score: 0 });
-    setShowNewPassword(false);
-    setShowConfirmPassword(false);
-  };
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await getSecurityQuestion();
-        if (!mounted) return;
-        if (res.data && res.data.securityQuestion) {
-          // The server stores a truncated (32-char) value. If it matches the start
-          // of a preset question, display the full preset text so users see the
-          // complete question on the forgot-password page.
-          const stored = (res.data.securityQuestion || '').toString();
-          const matched = PRESET.find(p => (p.question || '').toString().slice(0, 32) === stored.slice(0, 32));
-          if (matched) {
-            setQuestion(matched.question);
-          } else {
-            setQuestion(stored || null);
-          }
-        } else {
-          setQuestion(null);
-          setMessage({ type: 'info', text: 'No security question configured.' });
-        }
-      } catch (err) {
-        console.error('Lookup error', err);
-        setMessage({ type: 'error', text: 'Failed to load security question. Try again later.' });
-      } finally {
-        setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
   const handleReset = async (e) => {
     e.preventDefault();
     setMessage(null);
     if (!newPassword || newPassword !== confirmPassword) return setMessage({ type: 'error', text: 'Passwords do not match' });
-    if (!/(?=.*[A-Za-z])(?=.*\d)/.test(newPassword)) {
-      return setMessage({ type: 'error', text: 'Password must include at least one letter and one number' });
+    if (!/(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>])/.test(newPassword)) {
+      return setMessage({ type: 'error', text: 'Password must include at least one letter, one number, one uppercase letter, and one special character' });
     }
 
     setLoading(true);
     try {
-      let res;
-      if (activeTab === 'security') {
-        if (!answer.trim()) { setLoading(false); return setMessage({ type: 'error', text: 'Please enter your answer' }); }
-        if (!answerVerified) { setLoading(false); return setMessage({ type: 'error', text: 'Verification failed' }); }
-        res = await resetPasswordWithSecurity({ answer, newPassword });
-      } else {
-        if (!otpVerified) { setLoading(false); return setMessage({ type: 'error', text: 'OTP not verified' }); }
-        res = await resetPasswordWithOtp({ newPassword });
+      if (!otpVerified) { 
+        setLoading(false); 
+        return setMessage({ type: 'error', text: 'OTP not verified' }); 
       }
+      
+      const res = await resetPasswordWithOtp({ newPassword, email: email.trim() });
       if (res.data && res.data.success) {
         setMessage({ type: 'success', text: 'Password reset successfully. Please sign in.' });
         setRetryAfterMs(null);
@@ -184,41 +121,27 @@ const ForgotPassword = () => {
     }
   };
 
-  const handleVerifyAnswer = async () => {
+  const handleVerifyEmail = async (e) => {
+    e.preventDefault();
     setMessage(null);
-    if (!answer.trim()) return setMessage({ type: 'error', text: 'Please enter your answer' });
-    setVerifying(true);
+    if (!email.trim()) return setMessage({ type: 'error', text: 'Email is required' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setMessage({ type: 'error', text: 'Invalid email address' });
+
+    setEmailLoading(true);
     try {
-      const res = await verifySecurityAnswer({ answer });
-        if (res.data && res.data.success) {
-          setAnswerVerified(true);
-          setRetryAfterMs(null);
-          setTimeLeft(null);
+      // Check if email exists in the system and has recovery email configured
+      const res = await api.post('/auth/forgot/check-email', { email: email.trim() });
+      if (res.data && res.data.success) {
+        setEmailVerified(true);
+        setMessage({ type: 'success', text: res.data.message || 'Email verified. You can now send OTP.' });
       } else {
-        setMessage({ type: 'error', text: res.data?.error || 'Invalid answer' });
-        if (res.data?.remainingAttempts !== undefined) {
-          const attemptsMessage = res.data.remainingAttempts > 0 
-            ? ` ${res.data.remainingAttempts} attempt${res.data.remainingAttempts === 1 ? '' : 's'} remaining.`
-            : ' No attempts remaining.';
-          setMessage(prev => ({ ...prev, text: prev.text + attemptsMessage }));
-        }
+        setMessage({ type: 'error', text: res.data?.error || 'Email not found or no recovery email configured' });
       }
     } catch (err) {
-      console.error('Verify error', err);
-      const errMsg = err.response?.data?.error || err.message || 'Failed to verify answer';
-      const r = err.response?.data?.retryAfterMs || null;
-      const remainingAttempts = err.response?.data?.remainingAttempts;
-      if (r) setRetryAfterMs(r);
-      const messageObj = { type: 'error', text: errMsg };
-      if (remainingAttempts !== undefined) {
-        const attemptsMessage = remainingAttempts > 0 
-          ? ` ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`
-          : ' No attempts remaining.';
-        messageObj.text = errMsg + attemptsMessage;
-      }
-      setMessage(messageObj);
+      const errMsg = err.response?.data?.error || err.message || 'Failed to verify email';
+      setMessage({ type: 'error', text: errMsg });
     } finally {
-      setVerifying(false);
+      setEmailLoading(false);
     }
   };
 
@@ -226,7 +149,7 @@ const ForgotPassword = () => {
     setMessage(null);
     setOtpLoading(true);
     try {
-      const res = await sendOtp();
+      const res = await sendOtp({ email: email.trim() });
       if (res.data && res.data.success) {
         setOtpSent(true);
         setOtpSentMsg(res.data.message || 'OTP sent. Check your email.');
@@ -353,52 +276,16 @@ const ForgotPassword = () => {
     }, 1000);
     return () => clearInterval(t);
   }, [otpResendCooldown]);
+
   return (
     <div className="login-container">
       <div className="login-card card">
         <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-          <h2 style={{ margin: 0 }}>Forgot Password</h2>
-          <p className="text-muted">Use your security question or a Gmail OTP to reset the counselor account password.</p>
-        </div>
-
-        {/* Tab switcher */}
-        <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', marginBottom: '1rem' }}>
-          <button
-            type="button"
-            onClick={() => switchTab('security')}
-            style={{
-              flex: 1,
-              padding: '0.5rem 0',
-              background: 'none',
-              border: 'none',
-              borderBottom: activeTab === 'security' ? '2px solid #1e3a5f' : '2px solid transparent',
-              marginBottom: '-2px',
-              fontWeight: activeTab === 'security' ? 700 : 400,
-              color: activeTab === 'security' ? '#1e3a5f' : '#6b7280',
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            Security Question
-          </button>
-          <button
-            type="button"
-            onClick={() => switchTab('otp')}
-            style={{
-              flex: 1,
-              padding: '0.5rem 0',
-              background: 'none',
-              border: 'none',
-              borderBottom: activeTab === 'otp' ? '2px solid #1e3a5f' : '2px solid transparent',
-              marginBottom: '-2px',
-              fontWeight: activeTab === 'otp' ? 700 : 400,
-              color: activeTab === 'otp' ? '#1e3a5f' : '#6b7280',
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            Gmail OTP
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.5rem' }}>
+            <Mail style={{ width: '24px', height: '24px', color: '#1e3a5f', marginRight: '8px' }} />
+            <h2 style={{ margin: 0 }}>Forgot Password</h2>
+          </div>
+          <p className="text-muted">Use Gmail OTP to reset your password. You must have a recovery email configured.</p>
         </div>
 
         <form onSubmit={handleReset} style={{ display: 'grid', gap: '0.75rem' }}>
@@ -411,94 +298,87 @@ const ForgotPassword = () => {
             </div>
           )}
 
-          {/* ── Security Question tab ── */}
-          {activeTab === 'security' && (
-            <div>
-              {!answerVerified ? (
-                <>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '6px' }}>Security Question</div>
-                  <div style={{ marginBottom: '8px' }}>{loading ? 'Loading...' : (question || 'No security question configured.')}</div>
-                  {question && (
+          {/* ── Email Verification & OTP Section ── */}
+          <div style={{ display: 'grid', gap: '0.5rem' }}>
+            {!emailVerified ? (
+              <>
+                <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>
+                  Enter your email address to start the password recovery process.
+                </p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value.trim())}
+                    className="form-input"
+                    placeholder="Enter your email address"
+                    type="email"
+                    style={{ flex: 1 }}
+                  />
+                  <button 
+                    type="button" 
+                    className="btn btn-primary" 
+                    onClick={handleVerifyEmail}
+                    disabled={emailLoading || !email.trim()}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    {emailLoading ? 'Verifying...' : 'Verify Email'}
+                  </button>
+                </div>
+              </>
+            ) : !otpVerified ? (
+              <>
+                <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>
+                  A 6-digit one-time password will be sent to your configured recovery email address.
+                </p>
+                <div style={{ fontSize: 12, color: '#065f46', marginBottom: 8 }}>
+                  ✓ Email verified: {email}
+                </div>
+                {!otpSent ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleSendOtp}
+                    disabled={otpLoading || !!retryAfterMs}
+                  >
+                    {otpLoading ? 'Sending...' : 'Send OTP'}
+                  </button>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 12, color: '#065f46' }}>{otpSentMsg}</div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <input
-                        value={answer}
-                        onChange={(e) => { setAnswer((e.target.value || '').toString().slice(0, 32)); if (answerVerified) setAnswerVerified(false); }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            if (!answerVerified && answer.trim()) handleVerifyAnswer();
-                          }
-                        }}
+                        value={otpValue}
+                        onChange={(e) => setOtpValue((e.target.value || '').replace(/\D/g, '').slice(0, 6))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (otpValue.length === 6) handleVerifyOtp(); } }}
                         className="form-input"
-                        placeholder="Your answer"
+                        placeholder="Enter 6-digit OTP"
+                        maxLength={6}
+                        inputMode="numeric"
+                        style={{ letterSpacing: '0.2em', fontWeight: 700 }}
                       />
-                      <button type="button" className="btn btn-primary" onClick={handleVerifyAnswer} disabled={verifying || !answer.trim() || !!retryAfterMs} style={{ whiteSpace: 'nowrap' }}>
-                        {verifying ? 'Verifying...' : 'Verify Answer'}
+                      <button type="button" className="btn btn-primary" onClick={handleVerifyOtp} disabled={otpLoading || otpValue.length < 6 || !!retryAfterMs} style={{ whiteSpace: 'nowrap' }}>
+                        {otpLoading ? 'Verifying...' : 'Verify OTP'}
                       </button>
                     </div>
-                  )}
-                </>
-              ) : (
-                <div style={{ fontSize: 12, color: '#065f46', marginTop: 6 }}>Answer verified — you may now choose a new password.</div>
-              )}
-            </div>
-          )}
-
-          {/* ── Gmail OTP tab ── */}
-          {activeTab === 'otp' && (
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {!otpVerified ? (
-                <>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>
-                    A 6-digit one-time password will be sent to your configured recovery Gmail address.
-                  </p>
-                  {!otpSent ? (
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={handleSendOtp}
-                      disabled={otpLoading || !!retryAfterMs}
+                    <button 
+                      type="button" 
+                      className="btn" 
+                      style={{ fontSize: '0.8rem', color: '#6b7280' }} 
+                      onClick={() => { setOtpSent(false); setOtpValue(''); setMessage(null); }} 
+                      disabled={otpLoading || !!otpResendCooldown}
                     >
-                      {otpLoading ? 'Sending...' : 'Send OTP to Gmail'}
+                      {otpResendCooldown ? `Resend OTP (${otpResendTimeLeft})` : 'Resend OTP'}
                     </button>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 12, color: '#065f46' }}>{otpSentMsg}</div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <input
-                          value={otpValue}
-                          onChange={(e) => setOtpValue((e.target.value || '').replace(/\D/g, '').slice(0, 6))}
-                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (otpValue.length === 6) handleVerifyOtp(); } }}
-                          className="form-input"
-                          placeholder="Enter 6-digit OTP"
-                          maxLength={6}
-                          inputMode="numeric"
-                          style={{ letterSpacing: '0.2em', fontWeight: 700 }}
-                        />
-                        <button type="button" className="btn btn-primary" onClick={handleVerifyOtp} disabled={otpLoading || otpValue.length < 6 || !!retryAfterMs} style={{ whiteSpace: 'nowrap' }}>
-                          {otpLoading ? 'Verifying...' : 'Verify OTP'}
-                        </button>
-                      </div>
-                      <button 
-                        type="button" 
-                        className="btn" 
-                        style={{ fontSize: '0.8rem', color: '#6b7280' }} 
-                        onClick={() => { setOtpSent(false); setOtpValue(''); setMessage(null); }} 
-                        disabled={otpLoading || !!otpResendCooldown}
-                      >
-                        {otpResendCooldown ? `Resend OTP (${otpResendTimeLeft})` : 'Resend OTP'}
-                      </button>
-                    </>
-                  )}
-                </>
-              ) : (
-                <div style={{ fontSize: 12, color: '#065f46' }}>OTP verified — you may now choose a new password.</div>
-              )}
-            </div>
-          )}
+                  </>
+                )}
+              </>
+            ) : (
+              <div style={{ fontSize: 12, color: '#065f46' }}>✓ OTP verified — you may now choose a new password.</div>
+            )}
+          </div>
 
-          {/* ── Shared new-password fields (shown once identity is verified) ── */}
-          {isVerified && (
+          {/* ── New-password fields (shown once OTP is verified) ── */}
+          {otpVerified && (
             <>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px' }}>New Password</label>
@@ -576,7 +456,7 @@ const ForgotPassword = () => {
             </>
           )}
 
-          {!isVerified && (
+          {!otpVerified && (
             <div style={{ textAlign: 'center' }}>
               <button type="button" className="btn" onClick={() => navigate('/login')} style={{ fontSize: '0.875rem' }}>Back to Login</button>
             </div>

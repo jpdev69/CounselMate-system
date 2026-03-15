@@ -33,17 +33,14 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const requestUrl = error.config?.url || '';
       const isLoginRequest = requestUrl.includes('/auth/login');
-      const isSecurityRecoveryRequest = requestUrl.includes('/auth/security-recovery-verify');
 
       // Clear session data for any 401
       sessionStorage.removeItem('authToken');
       sessionStorage.removeItem('userData');
-      sessionStorage.removeItem('verifiedSecurityQuestion');
 
       // Notify the AuthContext via a custom event so React Router handles
       // the redirect (avoids a full page reload that would restart the loop).
-      // Don't redirect for security recovery verification - let the component handle the error
-      if (!isLoginRequest && !isSecurityRecoveryRequest) {
+      if (!isLoginRequest) {
         window.dispatchEvent(new CustomEvent('guidanceos:unauthenticated'));
       }
     }
@@ -58,17 +55,12 @@ export const login = (email, password) =>
 export const changePassword = (data) => 
   api.put('/auth/change-password', data);
 
-export const getSecurityQuestion = () =>
-  api.get('/auth/forgot');
+export const verifyCurrentPassword = (currentPassword) =>
+  api.post('/auth/verify-current-password', { currentPassword });
 
-export const resetPasswordWithSecurity = (payload) =>
-  api.post('/auth/forgot/reset', payload);
-
-export const verifySecurityAnswer = (payload) =>
-  api.post('/auth/forgot/verify', payload);
-
-export const sendOtp = () =>
-  api.post('/auth/forgot/send-otp');
+// OTP Recovery API (replaces security questions)
+export const sendOtp = ({ email }) =>
+  api.post('/auth/forgot/send-otp', { email });
 
 export const verifyOtp = (payload) =>
   api.post('/auth/forgot/verify-otp', payload);
@@ -76,20 +68,11 @@ export const verifyOtp = (payload) =>
 export const resetPasswordWithOtp = (payload) =>
   api.post('/auth/forgot/reset-with-otp', payload);
 
-export const getMySecurityQuestion = () =>
-  api.get('/auth/me/security-question');
-
-export const updateMySecurityQuestion = (payload) =>
-  api.put('/auth/me/security-question', payload);
-
 export const getGmailSettings = () =>
   api.get('/auth/me/gmail-settings');
 
 export const updateGmailSettings = (payload) =>
   api.put('/auth/me/gmail-settings', payload);
-
-export const verifySecurityRecovery = (password) =>
-  api.post('/auth/security-recovery-verify', { password });
 
 export const submitSignupRequest = (data) =>
   api.post('/auth/signup-request', data);
@@ -109,9 +92,6 @@ export const deleteUser = (id) =>
 
 export const resetUserPassword = (id) =>
   api.put(`/admin/users/${id}/reset-password`);
-
-export const updateUserRole = (id, role) =>
-  api.put(`/admin/users/${id}/role`, { role });
 
 // Admission Slips API
 export const issueAdmissionSlip = (data) => 

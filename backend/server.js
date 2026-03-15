@@ -34,17 +34,6 @@ app.use(validateInput);
 // Database pool (created in config/database.js)
 const pool = require('./config/database');
 
-// Ensure security columns exist (safe to call repeatedly)
-async function ensureSecurityColumns() {
-  try {
-    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question VARCHAR(256);");
-    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer VARCHAR(256);");
-  } catch (err) {
-    // Non-fatal: log and continue — queries below will surface errors if necessary
-    console.warn('ensureSecurityColumns warning:', err.message || err);
-  }
-}
-
 // Ensure recovery_email column exists (safe to call repeatedly)
 async function ensureRecoveryEmailColumn() {
   try {
@@ -70,7 +59,6 @@ async function ensureAdminRole() {
     const result = await pool.query('SELECT role FROM users WHERE email = $1', ['admin@university.edu']);
     if (result.rows.length > 0 && result.rows[0].role !== 'admin') {
       await pool.query('UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', ['admin', 'admin@university.edu']);
-      console.log('✓ Fixed admin user role to "admin"');
     }
   } catch (err) {
     console.warn('ensureAdminRole warning:', err.message || err);
@@ -91,8 +79,7 @@ async function ensureSignupRequestsTable() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log('✓ signup_requests table ensured');
-  } catch (err) {
+      } catch (err) {
     console.warn('ensureSignupRequestsTable warning:', err.message || err);
   }
 }
@@ -246,17 +233,44 @@ app.post('/api/auth/signup-request', async (req, res) => {
       });
     }
 
-    // Check if there's already a pending signup request
+    // Check if there's already any signup request with this email (regardless of status)
     const existingRequest = await pool.query(
-      'SELECT email FROM signup_requests WHERE email = $1 AND status = $2',
-      [email.trim().toLowerCase(), 'pending']
+      'SELECT email, status FROM signup_requests WHERE email = $1',
+      [email.trim().toLowerCase()]
     );
 
     if (existingRequest.rows.length > 0) {
-      return res.status(409).json({
-        success: false,
-        error: 'A signup request for this email is already pending'
-      });
+      const existingStatus = existingRequest.rows[0].status;
+      if (existingStatus === 'pending') {
+        return res.status(409).json({
+          success: false,
+          error: 'A signup request for this email is already pending'
+        });
+      } else {
+        // For approved/rejected requests, check if user account exists
+        // If user was deleted, allow resubmission by cleaning up the old request
+        if (existingStatus === 'approved') {
+          const userExists = await pool.query(
+            'SELECT email FROM users WHERE email = $1',
+            [email.trim().toLowerCase()]
+          );
+          
+          if (userExists.rows.length === 0) {
+            // User was deleted, clean up the old signup request and allow resubmission
+            await pool.query('DELETE FROM signup_requests WHERE email = $1', [email.trim().toLowerCase()]);
+            console.log(`Cleaned up old approved signup request for deleted user: ${email}`);
+          } else {
+            return res.status(409).json({
+              success: false,
+              error: 'This email is already registered in the system'
+            });
+          }
+        } else {
+          // For rejected requests, allow resubmission by cleaning up the old request
+          await pool.query('DELETE FROM signup_requests WHERE email = $1', [email.trim().toLowerCase()]);
+          console.log(`Cleaned up old rejected signup request: ${email}`);
+        }
+      }
     }
 
     // Ensure signup_requests table exists
@@ -534,12 +548,59 @@ app.put('/api/admin/signup-requests/:id', authenticate, async (req, res) => {
   }
 });
 
+// Delete signup request (admin only)
+app.delete('/api/admin/signup-requests/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Only allow admin to delete signup requests
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    // Get the signup request to delete
+    const requestResult = await pool.query(
+      'SELECT * FROM signup_requests WHERE id = $1',
+      [id]
+    );
+
+    if (requestResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Signup request not found'
+      });
+    }
+
+    const request = requestResult.rows[0];
+
+    // Delete the signup request
+    await pool.query('DELETE FROM signup_requests WHERE id = $1', [id]);
+
+    console.log(`Signup request deleted: ${request.email} (${request.full_name})`);
+
+    return res.json({
+      success: true,
+      message: `Signup request for ${request.email} has been deleted successfully`
+    });
+
+  } catch (error) {
+    console.error('Delete signup request error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete signup request'
+    });
+  }
+});
+
 // Test database connection (best-effort)
 pool.connect((err, client, release) => {
   if (err) {
     console.error('❌ Database connection error:', err.message);
   } else {
-    console.log('✅ Database connected successfully');
+    console.log('Database connected successfully');
     release();
   }
 });
@@ -587,7 +648,6 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
       [email]
     );
 
-    console.log('Login attempt:', { email, usersFound: userResult.rows.length });
 
     if (userResult.rows.length === 0) {
       // Record failed attempt when user not found
@@ -600,7 +660,6 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
     }
 
     const user = userResult.rows[0];
-    console.log('User found:', { id: user.id, email: user.email, storedPassword: user.password_hash, providedPassword: password });
 
     // Check password (in production, you should use bcrypt for hashing)
     if (password !== user.password_hash) {
@@ -647,70 +706,53 @@ app.post('/api/auth/login', precheckRateLimit('login'), async (req, res) => {
   }
 });
 
-// Security & Recovery password verification endpoint (separate from login)
-app.post('/api/auth/security-recovery-verify', precheckRateLimit('security-recovery-verify'), async (req, res) => {
-  const { password } = req.body;
+// POST /api/auth/verify-current-password
+// Verifies the current password for accessing sensitive settings
+app.post('/api/auth/verify-current-password', authenticate, precheckRateLimit('verify-password'), async (req, res) => {
+  const { currentPassword } = req.body || {};
+  
+  if (!currentPassword) {
+    return res.status(400).json({ success: false, error: 'Current password is required' });
+  }
 
   try {
-    // Require password field
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Password is required.'
-      });
-    }
+    // Get current user from authenticated token
+    const email = req.user.email;
 
-    // Get user from database (only counselor account)
-    const email = 'counselor@university.edu';
+    // Get current user data
     const userResult = await pool.query(
       'SELECT * FROM users WHERE email = $1',
       [email]
     );
 
     if (userResult.rows.length === 0) {
-      // Record failed attempt when user not found
-      const attemptInfo = recordFailedAttempt(req, 'security-recovery-verify');
-      return res.status(401).json({ 
+      return res.status(404).json({ 
         success: false,
-        error: 'Verification failed.',
-        remainingAttempts: attemptInfo.remainingAttempts
+        error: 'User not found' 
       });
     }
 
     const user = userResult.rows[0];
 
-    // Check password
-    if (password !== user.password_hash) {
-      // Increment failed attempt count
-      const attemptInfo = recordFailedAttempt(req, 'security-recovery-verify');
-      return res.status(401).json({ 
-        success: false,
-        error: 'Verification failed.',
+    // Verify current password
+    if (currentPassword !== user.password_hash) {
+      const attemptInfo = recordFailedAttempt(req, 'verify-password');
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid password',
         remainingAttempts: attemptInfo.remainingAttempts
       });
     }
 
     // Clear attempts on successful verification
-    try { clearAttempts(req, 'security-recovery-verify'); } catch (e) { /* no-op */ }
-    
-    // Return user data (without password) - similar to login but without token
-    const userResponse = {
-      id: user.id,
-      email: user.email,
-      name: user.full_name,
-      role: user.role
-    };
-
-    res.json({
-      success: true,
-      user: userResponse
-    });
+    try { clearAttempts(req, 'verify-password'); } catch (e) { /* no-op */ }
+    return res.json({ success: true, message: 'Password verified successfully' });
 
   } catch (error) {
-    console.error('Security recovery verify error:', error);
-    res.status(500).json({ 
+    console.error('Verify password error:', error);
+    return res.status(500).json({ 
       success: false,
-      error: 'Internal server error' 
+      error: 'Failed to verify password' 
     });
   }
 });
@@ -802,6 +844,7 @@ app.get('/api/violation-types', authenticate, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 // Mount router for admission slips (consolidated routes in router module)
 const admissionSlipsRouter = require('./routes/admissionSlips');
 app.use('/api/admission-slips', authenticate, admissionSlipsRouter);
@@ -817,87 +860,13 @@ app.use('/api/visualizations', authenticate, visualizationsRouter);
 // Mount router for chatbot (Student Manual violation assistant)
 const chatbotRouter = require('./routes/chatbot');
 app.use('/api/chatbot', authenticate, chatbotRouter);
-// Mount admin router (courses, year levels, sections management)
 const adminRouter = require('./routes/admin');
 app.use('/api/admin', authenticate, adminRouter);
-
-// Update user role (admin only)
-app.put('/api/admin/users/:id/role', authenticate, async (req, res) => {
-  const { id } = req.params;
-  const { role } = req.body;
-
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, error: 'Access denied. Admin privileges required.' });
-    }
-
-    if (!['admin', 'counselor'].includes(role)) {
-      return res.status(400).json({ success: false, error: 'Invalid role specified.' });
-    }
-
-    // Get user to check if it's the main admin account
-    const userResult = await pool.query('SELECT email FROM users WHERE id = $1', [id]);
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'User not found.' });
-    }
-
-    const userEmail = userResult.rows[0].email;
-    
-    // Prevent changing the main admin account's role
-    if (userEmail === 'admin@university.edu') {
-      return res.status(400).json({ success: false, error: 'Cannot change the role of the main administrator account.' });
-    }
-
-    const result = await pool.query(
-      'UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, email, role',
-      [role, id]
-    );
-
-    console.log(`User ${result.rows[0].email} role updated to ${result.rows[0].role}`);
-    res.json({ success: true, user: result.rows[0] });
-
-  } catch (error) {
-    console.error('Update user role error:', error);
-    res.status(500).json({ success: false, error: 'Failed to update user role.' });
-  }
-});
-
-// Get current user's saved security question (for counselor user)
-app.get('/api/auth/me/security-question', authenticate, precheckRateLimit('me-security-question'), async (req, res) => {
-  try {
-    await ensureSecurityColumns();
-    const email = 'counselor@university.edu';
-    const userResult = await pool.query('SELECT security_question FROM users WHERE email = $1', [email]);
-    if (userResult.rows.length === 0) return res.status(404).json({ success: false, error: 'User not found' });
-    return res.json({ success: true, securityQuestion: userResult.rows[0].security_question || null });
-  } catch (err) {
-    console.error('Get my security question error:', err.message || err);
-    return res.status(500).json({ success: false, error: 'Failed to get security question' });
-  }
-});
-
-// Update current user's security question and answer (for counselor user)
-app.put('/api/auth/me/security-question', authenticate, precheckRateLimit('me-security-question'), async (req, res) => {
-  try {
-    const { security_question, security_answer } = req.body || {};
-    if (!security_question || !security_answer) return res.status(400).json({ success: false, error: 'security_question and security_answer are required' });
-    const email = 'counselor@university.edu';
-    // Ensure columns exist before updating
-    await ensureSecurityColumns();
-    // In production, security answers should be hashed and stored securely
-    await pool.query('UPDATE users SET security_question = $1, security_answer = $2, updated_at = CURRENT_TIMESTAMP WHERE email = $3', [security_question, security_answer, email]);
-    return res.json({ success: true, message: 'Security question saved' });
-  } catch (err) {
-    console.error('Update my security question error:', err.message || err);
-    return res.status(500).json({ success: false, error: 'Failed to update security question' });
-  }
-});
 
 // GET /api/auth/me/gmail-settings — returns Gmail readiness + recovery email
 app.get('/api/auth/me/gmail-settings', authenticate, async (req, res) => {
   try {
-    await ensureRecoveryEmailColumn();
-    const email = 'counselor@university.edu';
+    const email = req.user.email;
     const result = await pool.query('SELECT recovery_email FROM users WHERE email = $1', [email]);
     const dbRecoveryEmail = result.rows[0]?.recovery_email || null;
     const gmailUser = process.env.GMAIL_USER;
@@ -927,8 +896,7 @@ app.put('/api/auth/me/gmail-settings', authenticate, async (req, res) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail)) {
       return res.status(400).json({ success: false, error: 'Invalid email address' });
     }
-    await ensureRecoveryEmailColumn();
-    const email = 'counselor@university.edu';
+    const email = req.user.email;
     await pool.query('UPDATE users SET recovery_email = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [recoveryEmail.trim(), email]);
     return res.json({ success: true, message: 'Recovery email saved' });
   } catch (err) {
@@ -968,11 +936,47 @@ app.get('/api/debug/db', async (req, res) => {
 const OTP_KEY = 'counselor_otp';
 const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
+// POST /api/auth/forgot/check-email
+// Checks if email exists and has recovery email configured
+app.post('/api/auth/forgot/check-email', precheckRateLimit('forgot-check-email'), async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ success: false, error: 'Invalid email address' });
+
+  try {
+    // Check if user exists and has recovery email configured
+    const userResult = await pool.query('SELECT recovery_email FROM users WHERE email = $1', [email.trim()]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Email not found in our system' });
+    }
+
+    const recoveryEmail = userResult.rows[0]?.recovery_email || null;
+    if (!recoveryEmail) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No recovery email configured for this account. Please contact administrator.' 
+      });
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Email verified. You can now send OTP to your recovery email.' 
+    });
+  } catch (err) {
+    console.error('check-email error:', err.message || err);
+    return res.status(500).json({ success: false, error: 'Failed to verify email' });
+  }
+});
+
 // POST /api/auth/forgot/send-otp
 // Generates a 6-digit OTP and emails it to the configured RECOVERY_EMAIL.
 app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), async (req, res) => {
+  const { email } = req.body || {};
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
+
+  if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ success: false, error: 'Invalid email address' });
 
   // Check OTP resend cooldown first
   const remainingCooldown = getOtpCooldown(req);
@@ -989,34 +993,40 @@ app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), asyn
     return res.status(503).json({ success: false, error: 'OTP via Gmail is not configured on this server.' });
   }
 
-  // Resolve recovery email: prefer DB-stored value, fall back to env var
-  let recoveryEmail = process.env.RECOVERY_EMAIL || gmailUser;
+  // Find the specific user's recovery email
   try {
-    await ensureRecoveryEmailColumn();
-    const emailQ = await pool.query('SELECT recovery_email FROM users WHERE email = $1', ['counselor@university.edu']);
-    const dbEmail = emailQ.rows[0]?.recovery_email || null;
-    if (dbEmail) recoveryEmail = dbEmail;
-  } catch (_) { /* fall through to env var */ }
+    const userResult = await pool.query('SELECT recovery_email FROM users WHERE email = $1', [email.trim()]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Email not found in our system' });
+    }
 
-  // Generate 6-digit OTP
-  const otp = String(Math.floor(100000 + Math.random() * 900000));
-  otpStore.set(OTP_KEY, { otp, expiresAt: Date.now() + OTP_TTL_MS, verified: false });
+    const recoveryEmail = userResult.rows[0]?.recovery_email || null;
+    if (!recoveryEmail) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No recovery email configured for this account. Please contact administrator.' 
+      });
+    }
 
-  try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: gmailUser, pass: gmailPass }
-    });
+    // Generate 6-digit OTP
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    otpStore.set(OTP_KEY, { otp, expiresAt: Date.now() + OTP_TTL_MS, verified: false });
 
-    const logoPath = require('path').join(__dirname, '..', 'GuidanceOS-system-logo.png');
-    const logoExists = require('fs').existsSync(logoPath);
+    try {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: gmailUser, pass: gmailPass }
+      });
 
-    await transporter.sendMail({
-      from: `"GuidanceOS Security" <${gmailUser}>`,
-      to: recoveryEmail,
-      subject: 'GuidanceOS — Password Reset OTP',
-      text: `Your one-time password (OTP) for GuidanceOS password reset is:\n\n  ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`,
-      html: `<!DOCTYPE html>
+      const logoPath = require('path').join(__dirname, '..', 'GuidanceOS-system-logo.png');
+      const logoExists = require('fs').existsSync(logoPath);
+
+      await transporter.sendMail({
+        from: `"GuidanceOS Security" <${gmailUser}>`,
+        to: recoveryEmail,
+        subject: 'GuidanceOS — Password Reset OTP',
+        text: `Your one-time password (OTP) for GuidanceOS password reset is:\n\n  ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`,
+        html: `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif">
@@ -1119,6 +1129,12 @@ app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), asyn
     otpStore.delete(OTP_KEY);
     return res.status(500).json({ success: false, error: 'Failed to send OTP. Check Gmail configuration.' });
   }
+} catch (err) {
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Failed to verify recovery email. Please contact administrator.' 
+    });
+  }
 });
 
 // POST /api/auth/forgot/verify-otp
@@ -1156,8 +1172,9 @@ app.post('/api/auth/forgot/verify-otp', precheckRateLimit('forgot-otp-verify'), 
 // POST /api/auth/forgot/reset-with-otp
 // Resets the counselor password using a previously verified OTP session.
 app.post('/api/auth/forgot/reset-with-otp', precheckRateLimit('forgot-otp-reset'), async (req, res) => {
-  const { newPassword } = req.body || {};
+  const { newPassword, email } = req.body || {};
   if (!newPassword) return res.status(400).json({ success: false, error: 'newPassword is required' });
+  if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
 
   const stored = otpStore.get(OTP_KEY);
   if (!stored || !stored.verified || Date.now() > stored.expiresAt) {
@@ -1171,8 +1188,8 @@ app.post('/api/auth/forgot/reset-with-otp', precheckRateLimit('forgot-otp-reset'
   }
 
   try {
-    const email = 'counselor@university.edu';
-    await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [newPassword, email]);
+    // Update the specific user's password (not just counselor role)
+    await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [newPassword, email.trim()]);
     otpStore.delete(OTP_KEY);
     try { 
       clearAttempts(req, 'forgot-otp-reset'); 
@@ -1199,111 +1216,18 @@ app.post('/api/auth/forgot/reset-with-otp', precheckRateLimit('forgot-otp-reset'
     console.warn('Startup migration warning:', err.message || err);
   }
   app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📊 Database: ${DATABASE_URL ? 'Connected' : 'NOT CONFIGURED'}`);
-    console.log(`🌐 CORS enabled for: ${CORS_ORIGIN}`);
-    console.log(`🔧 Environment: ${process.env.NODE_ENV}`);
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Database: ${DATABASE_URL ? 'Connected' : 'NOT CONFIGURED'}`);
+    console.log(`CORS enabled for: ${CORS_ORIGIN}`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
   });
 })();
 
 // Forgot password - return the counselor's saved security question (no email required)
-app.get('/api/auth/forgot', async (req, res) => {
-  try {
-    const email = 'counselor@university.edu';
-    const userResult = await pool.query('SELECT security_question FROM users WHERE email = $1', [email]);
-    if (userResult.rows.length === 0) return res.status(404).json({ success: false, error: 'User not found' });
-    return res.json({ success: true, securityQuestion: userResult.rows[0].security_question || null });
-  } catch (err) {
-    console.error('Forgot password (get) error:', err.message || err);
-    return res.status(500).json({ success: false, error: 'Failed to retrieve security question' });
-  }
-});
+// Removed
 
 // Forgot password - verify provided answer against saved counselor answer and reset password
-app.post('/api/auth/forgot/reset', precheckRateLimit('forgot-reset'), async (req, res) => {
-  const { answer, newPassword } = req.body || {};
-  if (!answer || !newPassword) return res.status(400).json({ success: false, error: 'Answer and newPassword are required' });
-
-  try {
-    const email = 'counselor@university.edu';
-    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (userResult.rows.length === 0) {
-      const attemptInfo = recordFailedAttempt(req, 'forgot-reset');
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid answer',
-        remainingAttempts: attemptInfo.remainingAttempts
-      });
-    }
-
-    const user = userResult.rows[0];
-
-    // In production, security answers should be hashed; this app stores plaintext for demo
-    if ((user.security_answer || '').toString().trim().toLowerCase() !== (answer || '').toString().trim().toLowerCase()) {
-      const attemptInfo = recordFailedAttempt(req, 'forgot-reset');
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid answer',
-        remainingAttempts: attemptInfo.remainingAttempts
-      });
-    }
-
-    // Validate new password
-    const requireLetterAndDigit = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
-    if (!requireLetterAndDigit.test(newPassword)) {
-      return res.status(400).json({
-        success: false,
-        error: 'New password must include at least one letter and one number, one uppercase letter, and one special character'
-      });
-    }
-
-    await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [newPassword, email]);
-    // Clear attempts when the answer is correct and reset occurs
-    try { 
-      clearAttempts(req, 'forgot-reset'); 
-      // Also clear login attempts since password was successfully reset
-      clearAttempts(req, 'login'); 
-    } catch (e) { /* no-op */ }
-    return res.json({ success: true, message: 'Password reset successfully' });
-  } catch (err) {
-    console.error('Forgot password (reset) error:', err.message || err);
-    return res.status(500).json({ success: false, error: 'Failed to reset password' });
-  }
-});
+// Removed
 
 // Forgot password - verify provided answer only (does not change password)
-// Rate limit attempts to verify security question answer
-app.post('/api/auth/forgot/verify', precheckRateLimit('forgot-verify'), async (req, res) => {
-  const { answer } = req.body || {};
-  if (!answer) return res.status(400).json({ success: false, error: 'Answer is required' });
-
-  try {
-    const email = 'counselor@university.edu';
-    const userResult = await pool.query('SELECT security_answer FROM users WHERE email = $1', [email]);
-    if (userResult.rows.length === 0) {
-      const attemptInfo = recordFailedAttempt(req, 'forgot-verify');
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid answer',
-        remainingAttempts: attemptInfo.remainingAttempts
-      });
-    }
-
-    const saved = (userResult.rows[0].security_answer || '').toString().trim().toLowerCase();
-    if (saved !== (answer || '').toString().trim().toLowerCase()) {
-      const attemptInfo = recordFailedAttempt(req, 'forgot-verify');
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid answer',
-        remainingAttempts: attemptInfo.remainingAttempts
-      });
-    }
-
-    // Success - clear attempts
-    try { clearAttempts(req, 'forgot-verify'); } catch (e) { /* no-op */ }
-    return res.json({ success: true });
-  } catch (err) {
-    console.error('Forgot password (verify) error:', err.message || err);
-    return res.status(500).json({ success: false, error: 'Failed to verify answer' });
-  }
-});
+// Removed
