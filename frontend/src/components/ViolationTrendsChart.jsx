@@ -63,11 +63,24 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
     const { width, height, margin, chartWidth, chartHeight } = getChartDimensions();
     const data = trendsData.data;
     
-    // Calculate scales
-    const maxViolations = Math.max(...data.map(d => Math.max(d.violation_count, d.moving_average_7d)));
+    // Calculate scales with safety checks
+    const validData = data.filter(d => d && (d.violation_count >= 0) && (d.moving_average_7d >= 0));
+    const maxViolations = validData.length > 0 
+      ? Math.max(...validData.map(d => Math.max(d.violation_count || 0, d.moving_average_7d || 0)))
+      : 1; // Default to 1 if no valid data
+    
+    // If all violations are 0, set a reasonable max for display
+    const displayMaxViolations = maxViolations === 0 ? 10 : maxViolations;
+    
     const minViolations = 0;
-    const xScale = (index) => (index / (data.length - 1)) * chartWidth;
-    const yScale = (value) => chartHeight - ((value - minViolations) / (maxViolations - minViolations)) * chartHeight;
+    const xScale = (index) => {
+      if (data.length <= 1) return chartWidth / 2; // Center the single point
+      return (index / (data.length - 1)) * chartWidth;
+    };
+    const yScale = (value) => {
+      if (isNaN(value) || !isFinite(value)) return chartHeight; // Default to bottom
+      return chartHeight - ((Math.max(0, value) - minViolations) / Math.max(1, displayMaxViolations - minViolations)) * chartHeight;
+    };
 
     // Generate path for the line
     const linePath = data.map((point, index) => {
@@ -77,14 +90,18 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
     }).join(' ');
 
     // Generate area path
-    const areaPath = `${linePath} L ${xScale(data.length - 1)} ${chartHeight} L ${xScale(0)} ${chartHeight} Z`;
+    const areaPath = data.length <= 1 
+      ? `${linePath} L ${chartWidth / 2} ${chartHeight} L ${chartWidth / 2} ${chartHeight} Z`
+      : `${linePath} L ${xScale(data.length - 1)} ${chartHeight} L ${xScale(0)} ${chartHeight} Z`;
 
     // Calculate change from previous day
     const latestData = data[data.length - 1];
     const previousData = data[data.length - 2];
-    const change = latestData && previousData ? latestData.violation_count - previousData.violation_count : 0;
-    const changePercent = previousData && previousData.violation_count > 0 
-      ? ((change / previousData.violation_count) * 100).toFixed(1)
+    const latestCount = latestData?.violation_count || 0;
+    const previousCount = previousData?.violation_count || 0;
+    const change = latestCount - previousCount;
+    const changePercent = previousCount > 0 
+      ? ((change / previousCount) * 100).toFixed(1)
       : '0.0';
 
     return (
@@ -112,7 +129,7 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
         <div className="chart-stats">
           <div className="stat-card">
             <div className="stat-label">{timeRange === 1 ? 'Today' : 'Latest Day'}</div>
-            <div className="stat-value">{latestData?.violation_count || 0}</div>
+            <div className="stat-value">{latestCount}</div>
             <div className={`stat-change ${change >= 0 ? 'positive' : 'negative'}`}>
               {change >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
               {change > 0 ? '+' : ''}{change} ({changePercent}%)
@@ -120,12 +137,12 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
           </div>
           <div className="stat-card">
             <div className="stat-label">{timeRange === 1 ? 'Daily Average' : '7-Day Average'}</div>
-            <div className="stat-value">{latestData ? latestData.moving_average_7d.toFixed(1) : '0.0'}</div>
+            <div className="stat-value">{(latestData?.moving_average_7d || 0).toFixed(1)}</div>
             <div className="stat-subtitle">Moving Average</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Total Period</div>
-            <div className="stat-value">{trendsData.total_violations}</div>
+            <div className="stat-value">{trendsData?.total_violations || 0}</div>
             <div className="stat-subtitle">All Violations</div>
           </div>
         </div>
@@ -158,7 +175,7 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
                     fill="#6b7280"
                     textAnchor="start"
                   >
-                    {Math.round(maxViolations * (1 - percent / 100))}
+                    {Math.round(displayMaxViolations * (1 - percent / 100))}
                   </text>
                 </g>
               );
@@ -182,14 +199,18 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
             {/* Data points */}
             {data.map((point, index) => {
               const x = xScale(index);
-              const y = yScale(point.moving_average_7d);
+              const lineY = yScale(point.moving_average_7d || 0);
+              const dotY = yScale(point.violation_count || 0); // Use daily count for dots
               const isHovered = hoveredPoint === index;
+              
+              // Skip rendering if y is invalid
+              if (isNaN(lineY) || !isFinite(lineY) || isNaN(dotY) || !isFinite(dotY)) return null;
               
               return (
                 <g key={index}>
                   <circle
                     cx={x}
-                    cy={y}
+                    cy={dotY}
                     r={isHovered ? 6 : 3}
                     fill="#3b82f6"
                     stroke="#ffffff"
@@ -204,7 +225,7 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
                     <g>
                       <rect
                         x={x - 60}
-                        y={y - 45}
+                        y={dotY - 45}
                         width="120"
                         height="35"
                         fill="#1f2937"
@@ -213,7 +234,7 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
                       />
                       <text
                         x={x}
-                        y={y - 25}
+                        y={dotY - 25}
                         fontSize="11"
                         fill="#ffffff"
                         textAnchor="middle"
@@ -223,18 +244,18 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
                       </text>
                       <text
                         x={x}
-                        y={y - 10}
+                        y={dotY - 10}
                         fontSize="10"
                         fill="#9ca3af"
                         textAnchor="middle"
                       >
-                        Violations: {point.violation_count} | Avg: {point.moving_average_7d.toFixed(1)}
+                        Violations: {point.violation_count || 0} | Avg: {(point.moving_average_7d || 0).toFixed(1)}
                       </text>
                     </g>
                   )}
                 </g>
               );
-            })}
+            }).filter(Boolean)}
 
             {/* Gradient definition */}
             <defs>
