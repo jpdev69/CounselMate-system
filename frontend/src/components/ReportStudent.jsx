@@ -21,6 +21,7 @@ const ReportStudent = () => {
   const [remarks, setRemarks] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(null);
   const [validationError, setValidationError] = useState(null);
   const [proceedWithError, setProceedWithError] = useState(false);
   const formRef = useRef(null);
@@ -228,6 +229,7 @@ const ReportStudent = () => {
       setVerified(null);
       setVerificationMessage('');
       setError('');
+      setSuccess(null);
       setMatchedStudent(null);
     }
   };
@@ -241,6 +243,7 @@ const ReportStudent = () => {
     setVerified(null);
     setVerificationMessage('');
     setError('');
+    setSuccess(null);
     setMatchedStudent(null);
   };
 
@@ -253,6 +256,7 @@ const ReportStudent = () => {
     setVerified(null);
     setVerificationMessage('');
     setError('');
+    setSuccess(null);
     setMatchedStudent(null);
   };
 
@@ -260,6 +264,7 @@ const ReportStudent = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess(null);
 
     if (verified === null) {
       setError('Please fill in all student fields so verification can run.');
@@ -358,7 +363,11 @@ const ReportStudent = () => {
       setVerificationMessage('');
       setMatchedStudent(null);
 
-      alert('Violation report submitted successfully!');
+      setSuccess({
+        message: 'Violation report submitted successfully!',
+        studentName: studentName,
+        violationType: violationTypes.find(vt => vt.id === parseInt(violationTypeId))?.description || 'Unknown violation'
+      });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to submit report');
     } finally {
@@ -614,6 +623,15 @@ const ReportStudent = () => {
           {error && (
             <div style={{ padding: '12px', marginBottom: '16px', fontSize: '14px', color: '#b91c1c', backgroundColor: '#fee2e2', borderRadius: '4px', border: '1px solid #fca5a5' }}>
               {error}
+            </div>
+          )}
+
+          {success && (
+            <div style={{ padding: '16px', borderRadius: '4px', border: '1px solid #d1fae5', background: '#ecfdf5', color: '#065f46', marginBottom: '20px' }}>
+              <p style={{ fontWeight: 700, margin: '0 0 8px 0' }}>REPORT SUBMITTED SUCCESSFULLY</p>
+              <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>Student: <strong>{success.studentName}</strong></p>
+              <p style={{ margin: '0 0 12px 0', fontSize: '14px' }}>Violation: <strong>{success.violationType}</strong></p>
+              <p style={{ margin: '0', fontSize: '13px', color: '#047857' }}>{success.message}</p>
             </div>
           )}
 

@@ -678,6 +678,7 @@ const AdminPanel = () => {
     if (!extractedDescription || !existingViolations?.length) return { hasMatch: false, matches: [], matchingWords: [] };
     
     const extractedLower = extractedDescription.toLowerCase();
+    const extractedWords = extractedLower.split(/\s+/).filter(word => word.length > 2); // Filter out very short words
     const matches = [];
     let allMatchingWords = new Set();
     
@@ -708,10 +709,13 @@ const AdminPanel = () => {
     // Sort by confidence (highest first) and return top matches
     const sortedMatches = matches.sort((a, b) => b.confidence - a.confidence);
     
+    // Maintain the original order of words as they appear in the extracted description
+    const orderedMatchingWords = extractedWords.filter(word => allMatchingWords.has(word));
+    
     return {
       hasMatch: sortedMatches.length > 0,
       matches: sortedMatches.slice(0, 3), // Return top 3 matches
-      matchingWords: Array.from(allMatchingWords)
+      matchingWords: orderedMatchingWords
     };
   };
 
@@ -851,9 +855,9 @@ const AdminPanel = () => {
                           type="button"
                           title="Edit course"
                           onClick={ev => { ev.stopPropagation(); setEditCourse({ id: c.id, name: c.name, code: c.code }); setEditCourseError(''); }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px' }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px', fontSize: 12 }}
                         >
-                          ✏️
+                          Edit
                         </button>
                         <button
                           type="button"
@@ -957,9 +961,9 @@ const AdminPanel = () => {
                               type="button"
                               title="Edit year level"
                               onClick={ev => { ev.stopPropagation(); setEditYearLevel({ id: yl.id, year_level: yl.year_level }); setEditYearLevelError(''); }}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px' }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px', fontSize: 12 }}
                             >
-                              ✏️
+                              Edit
                             </button>
                             <button
                               type="button"
@@ -1059,9 +1063,9 @@ const AdminPanel = () => {
                               type="button"
                               title="Edit section"
                               onClick={() => { setEditSection({ id: sec.id, name: sec.name }); setEditSectionError(''); }}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px' }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '2px 4px', fontSize: 12 }}
                             >
-                              ✏️
+                              Edit
                             </button>
                             <button
                               type="button"
