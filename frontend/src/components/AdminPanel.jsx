@@ -1,5 +1,5 @@
 // src/components/AdminPanel.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings, Plus, Trash2, ChevronRight, Upload, BookOpen, Download, RefreshCw, AlertTriangle, Mail, CheckCircle, XCircle, Clock, Users, Key, Shield } from 'lucide-react';
 import {
   getAdminCourses, createAdminCourse, updateAdminCourse, deleteAdminCourse,
@@ -73,6 +73,7 @@ const AdminPanel = () => {
   const [newVtSectionRef, setNewVtSectionRef] = useState('');
   const [vtAdding, setVtAdding] = useState(false);
   const [vtAddError, setVtAddError] = useState('');
+  const [vtMatches, setVtMatches] = useState([]);
 
   // ── Student Manual ──────────────────────────────────────────────────────
   const [manualInfo, setManualInfo] = useState(null);
@@ -546,6 +547,29 @@ const AdminPanel = () => {
       setVtDeletingId(null);
     }
   };
+
+  // Check for potential matching violations
+  const checkViolationMatches = useCallback(() => {
+    if (!newVtCode.trim() && !newVtDescription.trim()) {
+      setVtMatches([]);
+      return;
+    }
+
+    const matches = violationTypes.filter(vt => {
+      const codeMatch = newVtCode.trim() && vt.code.toLowerCase().includes(newVtCode.trim().toLowerCase());
+      const descMatch = newVtDescription.trim() && vt.description.toLowerCase().includes(newVtDescription.trim().toLowerCase());
+      const sectionMatch = newVtSectionRef.trim() && vt.section_ref.toLowerCase().includes(newVtSectionRef.trim().toLowerCase());
+      
+      return codeMatch || descMatch || sectionMatch;
+    });
+
+    setVtMatches(matches);
+  }, [newVtCode, newVtDescription, newVtSectionRef, violationTypes]);
+
+  // Auto-check matches when input changes
+  useEffect(() => {
+    checkViolationMatches();
+  }, [checkViolationMatches]);
 
   const handleAddViolationType = async (e) => {
     e.preventDefault();
@@ -1177,6 +1201,71 @@ const AdminPanel = () => {
             {vtAddError && (
               <div className="alert alert-error" style={{ fontSize: 12, marginTop: 6 }}>
                 {vtAddError}
+              </div>
+            )}
+            {vtMatches.length > 0 && (
+              <div style={{ marginTop: 8, padding: 8, background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#92400e', marginBottom: 4 }}>
+                  Potential existing violations found ({vtMatches.length}):
+                </div>
+                <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+                  {vtMatches.map(match => {
+                    const codeMatch = newVtCode.trim() && match.code.toLowerCase().includes(newVtCode.trim().toLowerCase());
+                    const descMatch = newVtDescription.trim() && match.description.toLowerCase().includes(newVtDescription.trim().toLowerCase());
+                    const sectionMatch = newVtSectionRef.trim() && match.section_ref.toLowerCase().includes(newVtSectionRef.trim().toLowerCase());
+                    
+                    return (
+                      <div key={match.id} style={{ 
+                        padding: 4, 
+                        marginBottom: 4, 
+                        background: '#ffffff', 
+                        border: '1px solid #e5e7eb', 
+                        borderRadius: 4,
+                        fontSize: 11
+                      }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span style={{ 
+                            background: sectionMatch ? '#dcfce7' : '#f3f4f6', 
+                            padding: '2px 6px', 
+                            borderRadius: 3, 
+                            fontFamily: 'monospace',
+                            fontWeight: sectionMatch ? 600 : 400
+                          }}>
+                            {match.section_ref}
+                          </span>
+                          <span style={{ 
+                            background: codeMatch ? '#dcfce7' : '#f3f4f6', 
+                            padding: '2px 6px', 
+                            borderRadius: 3, 
+                            fontFamily: 'monospace',
+                            fontWeight: codeMatch ? 600 : 400
+                          }}>
+                            {match.code}
+                          </span>
+                          <span style={{ 
+                            background: match.category === 'major' ? '#fee2e2' : '#f0f9ff', 
+                            padding: '2px 6px', 
+                            borderRadius: 3,
+                            fontWeight: 600,
+                            color: match.category === 'major' ? '#991b1b' : '#1e40af'
+                          }}>
+                            {match.category.toUpperCase()}
+                          </span>
+                        </div>
+                        <div style={{ 
+                          marginTop: 2, 
+                          color: '#374151',
+                          background: descMatch ? '#dcfce7' : 'transparent',
+                          padding: descMatch ? '2px 4px' : 0,
+                          borderRadius: 3,
+                          fontWeight: descMatch ? 600 : 400
+                        }}>
+                          {match.description}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

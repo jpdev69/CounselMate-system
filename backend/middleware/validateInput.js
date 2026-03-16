@@ -153,6 +153,16 @@ module.exports = (req, res, next) => {
       }
     }
 
+    // Allow longer fields for single violation type creation
+    // Endpoint: POST /api/admin/violation-types
+    const violationTypeCreateMatch = req.path && req.path.match(/^\/api\/admin\/violation-types$/);
+    if (violationTypeCreateMatch && String(req.method).toUpperCase() === 'POST') {
+      overrides.set('body.code', 64);
+      overrides.set('body.description', 128);
+      overrides.set('body.category', 32);
+      overrides.set('body.section_ref', 16);
+    }
+
     const getMaxForPath = (path) => {
       if (overrides.has(path)) return overrides.get(path);
       return DEFAULT_MAX_LENGTH;
