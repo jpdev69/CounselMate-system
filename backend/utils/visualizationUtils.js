@@ -10,7 +10,7 @@ const db = require('../config/database');
  */
 const getViolationsByStudent = async () => {
   try {
-    // Only count approved admission slips for analytics
+    // Count all admission slips (reported, resolved, and approved) for comprehensive analytics
     const result = await db.query(`
       SELECT 
         s.id,
@@ -23,7 +23,7 @@ const getViolationsByStudent = async () => {
         MAX(asl.created_at) as last_violation,
         ARRAY_AGG(DISTINCT vt.code) FILTER (WHERE vt.code IS NOT NULL) as violation_codes
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
+      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status IN ('reported', 'resolved', 'approved')
       LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
       GROUP BY s.id, s.student_id, s.full_name, s.year, s.section
       HAVING COUNT(asl.id) > 0
@@ -41,7 +41,7 @@ const getViolationsByStudent = async () => {
  */
 const getViolationsByCourse = async () => {
   try {
-    // Only count approved admission slips for analytics
+    // Count all admission slips (reported, resolved, and approved) for comprehensive analytics
     const result = await db.query(`
       SELECT 
         asl.course,
@@ -52,7 +52,7 @@ const getViolationsByCourse = async () => {
         MAX(asl.created_at) as last_violation
       FROM admission_slips asl
       LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
-      WHERE asl.course IS NOT NULL AND asl.course != '' AND asl.status = 'approved'
+      WHERE asl.course IS NOT NULL AND asl.course != '' AND asl.status IN ('reported', 'resolved', 'approved')
       GROUP BY asl.course
       ORDER BY violation_count DESC
     `);
@@ -68,7 +68,7 @@ const getViolationsByCourse = async () => {
  */
 const getViolationsByType = async () => {
   try {
-    // Only count approved admission slips for analytics
+    // Count all admission slips (reported, resolved, and approved) for comprehensive analytics
     const result = await db.query(`
       SELECT 
         vt.id,
@@ -78,7 +78,7 @@ const getViolationsByType = async () => {
         COUNT(DISTINCT asl.student_id) as student_count,
         COUNT(DISTINCT asl.course) as course_count
       FROM violation_types vt
-      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id AND asl.status = 'approved'
+      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id AND asl.status IN ('reported', 'resolved', 'approved')
       GROUP BY vt.id, vt.code, vt.description
       ORDER BY violation_count DESC
     `);
@@ -94,7 +94,7 @@ const getViolationsByType = async () => {
  */
 const getViolationsByYearSection = async () => {
   try {
-    // Only count approved admission slips for analytics
+    // Count all admission slips (reported, resolved, and approved) for comprehensive analytics
     const result = await db.query(`
       SELECT 
         s.year,
@@ -104,7 +104,7 @@ const getViolationsByYearSection = async () => {
         ARRAY_AGG(DISTINCT s.full_name) as students,
         ARRAY_AGG(DISTINCT vt.description) FILTER (WHERE vt.description IS NOT NULL) as violation_types
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
+      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status IN ('reported', 'resolved', 'approved')
       LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
       WHERE s.year IS NOT NULL AND s.section IS NOT NULL
       GROUP BY s.year, s.section
@@ -122,9 +122,9 @@ const getViolationsByYearSection = async () => {
  */
 const getSummaryStats = async () => {
   try {
-    // Summary metrics should reflect only approved slips
-    const totalViolations = await db.query(`SELECT COUNT(*) as total FROM admission_slips WHERE status = 'approved'`);
-    const studentsWithViolations = await db.query(`SELECT COUNT(DISTINCT student_id) as total FROM admission_slips WHERE status = 'approved'`);
+    // Summary metrics should reflect all violation statuses (reported, resolved, and approved)
+    const totalViolations = await db.query(`SELECT COUNT(*) as total FROM admission_slips WHERE status IN ('reported', 'resolved', 'approved')`);
+    const studentsWithViolations = await db.query(`SELECT COUNT(DISTINCT student_id) as total FROM admission_slips WHERE status IN ('reported', 'resolved', 'approved')`);
     
     const topViolator = await db.query(`
       SELECT 
@@ -134,7 +134,7 @@ const getSummaryStats = async () => {
         s.section,
         COUNT(asl.id) as violation_count
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
+      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status IN ('reported', 'resolved', 'approved')
       GROUP BY s.id, s.full_name, s.year, s.section
       ORDER BY violation_count DESC
       LIMIT 1
@@ -148,7 +148,7 @@ const getSummaryStats = async () => {
         s.section,
         COUNT(asl.id) as violation_count
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
+      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status IN ('reported', 'resolved', 'approved')
       HAVING COUNT(asl.id) > 0
       GROUP BY s.id, s.full_name, s.year, s.section
       ORDER BY violation_count ASC
@@ -161,7 +161,7 @@ const getSummaryStats = async () => {
         vt.description,
         COUNT(asl.id) as violation_count
       FROM violation_types vt
-      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id AND asl.status = 'approved'
+      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id AND asl.status IN ('reported', 'resolved', 'approved')
       GROUP BY vt.id, vt.code, vt.description
       ORDER BY violation_count DESC
       LIMIT 1
@@ -185,7 +185,7 @@ const getSummaryStats = async () => {
         s.section,
         COUNT(asl.id) as violation_count
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
+      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status IN ('reported', 'resolved', 'approved')
       WHERE s.year IS NOT NULL AND s.section IS NOT NULL
       GROUP BY s.year, s.section
       ORDER BY violation_count DESC
@@ -218,7 +218,7 @@ const getViolationsTrend = async (startDate, endDate) => {
         COUNT(asl.id) as violation_count,
         COUNT(DISTINCT asl.student_id) as student_count
       FROM admission_slips asl
-      WHERE asl.created_at >= $1 AND asl.created_at <= $2 AND asl.status = 'approved'
+      WHERE asl.created_at >= $1 AND asl.created_at <= $2 AND asl.status IN ('reported', 'resolved', 'approved')
       GROUP BY DATE(asl.created_at)
       ORDER BY date ASC
     `, [startDate, endDate]);
@@ -247,7 +247,7 @@ const getStudentViolationProfile = async (studentId) => {
         MIN(asl.created_at) as first_violation_date,
         MAX(asl.created_at) as last_violation_date
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
+      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status IN ('reported', 'resolved', 'approved')
       LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
       WHERE s.id = $1
       GROUP BY s.id, s.student_id, s.full_name, s.year, s.section
@@ -270,7 +270,7 @@ const getStudentViolationPercentile = async (studentId) => {
           s.id,
           COUNT(asl.id) as violation_count
         FROM students s
-        LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
+        LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status IN ('reported', 'resolved', 'approved')
         GROUP BY s.id
       ),
       ranked_students AS (

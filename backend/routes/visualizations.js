@@ -24,7 +24,7 @@ router.get('/violations/by-student', async (req, res) => {
     const { schoolYear, term } = req.query;
     
     // Build WHERE conditions for filtering
-    let whereConditions = ['asl.status = \'approved\''];
+    let whereConditions = ['asl.status IN (\'reported\', \'resolved\', \'approved\')'];
     let queryParams = [];
     let paramIndex = 1;
     
@@ -40,7 +40,7 @@ router.get('/violations/by-student', async (req, res) => {
     
     const whereClause = whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : '';
     
-    // Only count approved admission slips for analytics
+    // Count all admission slips and student reports for comprehensive analytics
     const result = await db.query(`
       SELECT 
         s.id,
@@ -48,16 +48,22 @@ router.get('/violations/by-student', async (req, res) => {
         s.full_name,
         s.year,
         s.section,
-        COUNT(asl.id) as violation_count,
+        COUNT(violations.id) as violation_count,
         ARRAY_AGG(DISTINCT vt.description) FILTER (WHERE vt.description IS NOT NULL) as violation_types,
-        ARRAY_AGG(DISTINCT asl.course) FILTER (WHERE asl.course IS NOT NULL) as courses
+        ARRAY_AGG(DISTINCT violations.course) FILTER (WHERE violations.course IS NOT NULL) as courses
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id ${whereClause}
-      LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
+      LEFT JOIN (
+        SELECT id, student_id, violation_type_id, course, 'admission_slip' as source 
+        FROM admission_slips WHERE status IN ('reported', 'resolved', 'approved')
+        UNION ALL
+        SELECT id, student_id, violation_type_id, course, 'student_report' as source 
+        FROM student_reports WHERE status IN ('reported', 'resolved')
+      ) violations ON s.id = violations.student_id
+      LEFT JOIN violation_types vt ON violations.violation_type_id = vt.id
       GROUP BY s.id, s.student_id, s.full_name, s.year, s.section
-      HAVING COUNT(asl.id) > 0
+      HAVING COUNT(violations.id) > 0
       ORDER BY violation_count DESC, s.full_name ASC
-    `, queryParams);
+    `);
     
     res.json({
       success: true,
@@ -80,7 +86,7 @@ router.get('/violations/by-course', async (req, res) => {
     const { schoolYear, term } = req.query;
     
     // Build WHERE conditions for filtering
-    let whereConditions = ['asl.course IS NOT NULL AND asl.course != \'\'', 'asl.status = \'approved\''];
+    let whereConditions = ['asl.course IS NOT NULL AND asl.course != \'\'', 'asl.status IN (\'reported\', \'resolved\', \'approved\')'];
     let queryParams = [];
     let paramIndex = 1;
     
@@ -96,20 +102,25 @@ router.get('/violations/by-course', async (req, res) => {
     
     const whereClause = whereConditions.join(' AND ');
     
-    // Only count approved admission slips for analytics
+    // Count all admission slips and student reports for comprehensive analytics
     const result = await db.query(`
       SELECT 
-        asl.course,
-        COUNT(asl.id) as violation_count,
-        COUNT(DISTINCT asl.student_id) as student_count,
+        violations.course,
+        COUNT(violations.id) as violation_count,
+        COUNT(DISTINCT violations.student_id) as student_count,
         ARRAY_AGG(DISTINCT vt.description) FILTER (WHERE vt.description IS NOT NULL) as violation_types
-      FROM admission_slips asl
-      LEFT JOIN violation_types vt ON asl.violation_type_id = vt.id
-      WHERE ${whereClause}
-      GROUP BY asl.course
-      HAVING COUNT(asl.id) > 0
+      FROM (
+        SELECT id, student_id, violation_type_id, course, 'admission_slip' as source 
+        FROM admission_slips WHERE course IS NOT NULL AND course != '' AND status IN ('reported', 'resolved', 'approved')
+        UNION ALL
+        SELECT id, student_id, violation_type_id, course, 'student_report' as source 
+        FROM student_reports WHERE course IS NOT NULL AND course != '' AND status IN ('reported', 'resolved')
+      ) violations
+      LEFT JOIN violation_types vt ON violations.violation_type_id = vt.id
+      GROUP BY violations.course
+      HAVING COUNT(violations.id) > 0
       ORDER BY violation_count DESC
-    `, queryParams);
+    `);
     
     res.json({
       success: true,
@@ -132,7 +143,7 @@ router.get('/violations/by-type', async (req, res) => {
     const { schoolYear, term } = req.query;
     
     // Build WHERE conditions for filtering
-    let whereConditions = ['asl.status = \'approved\''];
+    let whereConditions = ['asl.status IN (\'reported\', \'resolved\', \'approved\')'];
     let queryParams = [];
     let paramIndex = 1;
     
@@ -148,20 +159,26 @@ router.get('/violations/by-type', async (req, res) => {
     
     const whereClause = whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : '';
     
-    // Only count approved admission slips for analytics
+    // Count all admission slips and student reports for comprehensive analytics
     const result = await db.query(`
       SELECT 
         vt.id,
         vt.code,
         vt.description,
-        COUNT(asl.id) as violation_count,
-        COUNT(DISTINCT asl.student_id) as student_count
+        COUNT(violations.id) as violation_count,
+        COUNT(DISTINCT violations.student_id) as student_count
       FROM violation_types vt
-      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id ${whereClause}
+      LEFT JOIN (
+        SELECT id, student_id, violation_type_id, 'admission_slip' as source 
+        FROM admission_slips WHERE status IN ('reported', 'resolved', 'approved')
+        UNION ALL
+        SELECT id, student_id, violation_type_id, 'student_report' as source 
+        FROM student_reports WHERE status IN ('reported', 'resolved')
+      ) violations ON vt.id = violations.violation_type_id
       GROUP BY vt.id, vt.code, vt.description
-      HAVING COUNT(asl.id) > 0
+      HAVING COUNT(violations.id) > 0
       ORDER BY violation_count DESC
-    `, queryParams);
+    `);
     
     res.json({
       success: true,
@@ -180,18 +197,25 @@ router.get('/violations/by-type', async (req, res) => {
  */
 router.get('/violations/by-year-section', async (req, res) => {
   try {
-    // Only count approved admission slips for analytics
+    // Count all admission slips and student reports for comprehensive analytics
     const result = await db.query(`
       SELECT 
         s.year,
         s.section,
-        COUNT(asl.id) as violation_count,
-        COUNT(DISTINCT asl.student_id) as student_count,
+        COUNT(violations.id) as violation_count,
+        COUNT(DISTINCT violations.student_id) as student_count,
         ARRAY_AGG(DISTINCT s.full_name) as students
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
+      LEFT JOIN (
+        SELECT id, student_id, 'admission_slip' as source 
+        FROM admission_slips WHERE status IN ('reported', 'resolved', 'approved')
+        UNION ALL
+        SELECT id, student_id, 'student_report' as source 
+        FROM student_reports WHERE status IN ('reported', 'resolved')
+      ) violations ON s.id = violations.student_id
       WHERE s.year IS NOT NULL AND s.section IS NOT NULL
       GROUP BY s.year, s.section
+      HAVING COUNT(violations.id) > 0
       ORDER BY s.year ASC, s.section ASC
     `);
     
@@ -216,7 +240,7 @@ router.get('/violations/summary', async (req, res) => {
     const { schoolYear, term } = req.query;
     
     // Build WHERE conditions for filtering
-    let whereConditions = ['status = \'approved\''];
+    let whereConditions = ['status IN (\'reported\', \'resolved\', \'approved\')'];
     let queryParams = [];
     let paramIndex = 1;
     
@@ -232,56 +256,91 @@ router.get('/violations/summary', async (req, res) => {
     
     const whereClause = whereConditions.join(' AND ');
     
-    // Summary metrics should reflect only approved slips
-    // Total violations
+    // Summary metrics should reflect all violation data from both admission_slips and student_reports tables
+    
+    // Build WHERE conditions for both tables
+    let admissionSlipsWhere = ['status IN (\'reported\', \'resolved\', \'approved\')'];
+    let studentReportsWhere = ['status IN (\'reported\', \'resolved\')']; // student_reports doesn't have 'approved' status
+    
+    if (schoolYear) {
+      admissionSlipsWhere.push(`school_year = '${schoolYear}'`);
+      studentReportsWhere.push(`school_year = '${schoolYear}'`);
+    }
+    
+    if (term) {
+      admissionSlipsWhere.push(`term = '${term}'`);
+      studentReportsWhere.push(`term = '${term}'`);
+    }
+    
+    const admissionSlipsClause = admissionSlipsWhere.join(' AND ');
+    const studentReportsClause = studentReportsWhere.join(' AND ');
+    
+    // Total violations from both tables
     const totalViolations = await db.query(`
-      SELECT COUNT(*) as total FROM admission_slips WHERE ${whereClause}
-    `, queryParams);
+      SELECT 
+        (SELECT COUNT(*) FROM admission_slips WHERE ${admissionSlipsClause}) +
+        (SELECT COUNT(*) FROM student_reports WHERE ${studentReportsClause}) as total
+    `);
     
-    // Total students with violations
+    // Total students with violations from both tables
     const studentsWithViolations = await db.query(`
-      SELECT COUNT(DISTINCT student_id) as total FROM admission_slips WHERE ${whereClause}
-    `, queryParams);
+      SELECT COUNT(DISTINCT student_id) as total FROM (
+        SELECT student_id FROM admission_slips WHERE ${admissionSlipsClause}
+        UNION
+        SELECT student_id FROM student_reports WHERE ${studentReportsClause}
+      ) combined_violations
+    `);
     
-    // Top violator
+    // Top violator from combined data
     const topViolator = await db.query(`
       SELECT 
         s.full_name,
         s.year,
         s.section,
-        COUNT(asl.id) as violation_count
+        COUNT(violations.id) as violation_count
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND ${whereClause}
+      LEFT JOIN (
+        SELECT id, student_id, 'admission_slip' as source FROM admission_slips WHERE ${admissionSlipsClause}
+        UNION ALL
+        SELECT id, student_id, 'student_report' as source FROM student_reports WHERE ${studentReportsClause}
+      ) violations ON s.id = violations.student_id
+      WHERE violations.id IS NOT NULL
       GROUP BY s.id, s.full_name, s.year, s.section
       ORDER BY violation_count DESC
       LIMIT 1
-    `, queryParams);
+    `);
     
-    // Most common violation type
+    // Most common violation type from combined data
     const mostCommonViolation = await db.query(`
       SELECT 
         vt.code,
         vt.description,
-        COUNT(asl.id) as violation_count
+        COUNT(violations.id) as violation_count
       FROM violation_types vt
-      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id AND ${whereClause}
+      LEFT JOIN (
+        SELECT id, violation_type_id FROM admission_slips WHERE ${admissionSlipsClause}
+        UNION ALL
+        SELECT id, violation_type_id FROM student_reports WHERE ${studentReportsClause}
+      ) violations ON vt.id = violations.violation_type_id
+      WHERE violations.id IS NOT NULL
       GROUP BY vt.id, vt.code, vt.description
-      HAVING COUNT(asl.id) > 0
+      HAVING COUNT(violations.id) > 0
       ORDER BY violation_count DESC
       LIMIT 1
-    `, queryParams);
+    `);
     
-    // Most violated course
+    // Most violated course from combined data
     const mostViolatedCourse = await db.query(`
-      SELECT 
-        course,
-        COUNT(asl.id) as violation_count
-      FROM admission_slips asl
-      WHERE course IS NOT NULL AND course != '' AND ${whereClause}
+      SELECT course, COUNT(*) as violation_count
+      FROM (
+        SELECT course FROM admission_slips WHERE course IS NOT NULL AND course != '' AND ${admissionSlipsClause}
+        UNION ALL
+        SELECT course FROM student_reports WHERE course IS NOT NULL AND course != '' AND ${studentReportsClause}
+      ) all_courses
       GROUP BY course
       ORDER BY violation_count DESC
       LIMIT 1
-    `, queryParams);
+    `);
     
     res.json({
       success: true,
@@ -305,34 +364,52 @@ router.get('/violations/summary', async (req, res) => {
  */
 router.get('/dashboard', async (req, res) => {
   try {
+    // Count all admission slips and student reports for comprehensive analytics
     const violationsByStudent = await db.query(`
       SELECT 
         s.full_name,
-        COUNT(asl.id) as violation_count
+        COUNT(violations.id) as violation_count
       FROM students s
-      LEFT JOIN admission_slips asl ON s.id = asl.student_id AND asl.status = 'approved'
+      LEFT JOIN (
+        SELECT id, student_id, 'admission_slip' as source 
+        FROM admission_slips WHERE status IN ('reported', 'resolved', 'approved')
+        UNION ALL
+        SELECT id, student_id, 'student_report' as source 
+        FROM student_reports WHERE status IN ('reported', 'resolved')
+      ) violations ON s.id = violations.student_id
+      WHERE violations.id IS NOT NULL
       GROUP BY s.id, s.full_name
       ORDER BY violation_count DESC
       LIMIT 10
     `);
     
+    // Count all admission slips and student reports for comprehensive analytics
     const violationsByCourse = await db.query(`
-      SELECT 
-        course,
-        COUNT(asl.id) as violation_count
-      FROM admission_slips asl
-      WHERE course IS NOT NULL AND course != '' AND asl.status = 'approved'
+      SELECT course, COUNT(*) as violation_count
+      FROM (
+        SELECT course FROM admission_slips WHERE course IS NOT NULL AND course != '' AND status IN ('reported', 'resolved', 'approved')
+        UNION ALL
+        SELECT course FROM student_reports WHERE course IS NOT NULL AND course != '' AND status IN ('reported', 'resolved')
+      ) all_courses
       GROUP BY course
       ORDER BY violation_count DESC
       LIMIT 10
     `);
     
+    // Count all admission slips and student reports for comprehensive analytics
     const violationsByType = await db.query(`
       SELECT 
         vt.description,
-        COUNT(asl.id) as violation_count
+        COUNT(violations.id) as violation_count
       FROM violation_types vt
-      LEFT JOIN admission_slips asl ON vt.id = asl.violation_type_id AND asl.status = 'approved'
+      LEFT JOIN (
+        SELECT id, violation_type_id, 'admission_slip' as source 
+        FROM admission_slips WHERE status IN ('reported', 'resolved', 'approved')
+        UNION ALL
+        SELECT id, violation_type_id, 'student_report' as source 
+        FROM student_reports WHERE status IN ('reported', 'resolved')
+      ) violations ON vt.id = violations.violation_type_id
+      WHERE violations.id IS NOT NULL
       GROUP BY vt.id, vt.description
       ORDER BY violation_count DESC
       LIMIT 10
@@ -340,9 +417,18 @@ router.get('/dashboard', async (req, res) => {
 
     const summary = await db.query(`
       SELECT 
-        (SELECT COUNT(*) FROM admission_slips WHERE status = 'approved') as total_violations,
-        (SELECT COUNT(DISTINCT student_id) FROM admission_slips WHERE status = 'approved') as students_with_violations,
-        (SELECT COUNT(DISTINCT course) FROM admission_slips WHERE course IS NOT NULL AND status = 'approved') as courses_involved
+        (SELECT COUNT(*) FROM admission_slips WHERE status IN ('reported', 'resolved', 'approved')) +
+        (SELECT COUNT(*) FROM student_reports WHERE status IN ('reported', 'resolved')) as total_violations,
+        (SELECT COUNT(DISTINCT student_id) FROM (
+          SELECT student_id FROM admission_slips WHERE status IN ('reported', 'resolved', 'approved')
+          UNION
+          SELECT student_id FROM student_reports WHERE status IN ('reported', 'resolved')
+        ) combined_violations) as students_with_violations,
+        (SELECT COUNT(DISTINCT course) FROM (
+          SELECT course FROM admission_slips WHERE course IS NOT NULL AND status IN ('reported', 'resolved', 'approved')
+          UNION
+          SELECT course FROM student_reports WHERE course IS NOT NULL AND status IN ('reported', 'resolved')
+        ) all_courses) as courses_involved
     `);
 
     const html = `
@@ -721,7 +807,7 @@ router.get('/violations/daily-trends', async (req, res) => {
     const daysLimit = Math.min(parseInt(days) || 30, 365); // Limit to 1 year max
     
     // Build WHERE conditions for filtering
-    let whereConditions = ['asl.status = \'approved\''];
+    let whereConditions = ['asl.status IN (\'reported\', \'resolved\', \'approved\')'];
     let queryParams = [];
     let paramIndex = 1;
     
@@ -737,17 +823,22 @@ router.get('/violations/daily-trends', async (req, res) => {
     
     const whereClause = whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : '';
     
-    // Get daily violation counts for the last N days
+    // Get daily violation counts for the last N days from both tables
     const result = await db.query(`
       SELECT 
-        DATE(asl.created_at) as date,
-        COUNT(asl.id) as violation_count,
-        COUNT(DISTINCT asl.student_id) as student_count
-      FROM admission_slips asl
-      WHERE asl.created_at >= CURRENT_DATE - INTERVAL '${daysLimit} days' ${whereClause}
-      GROUP BY DATE(asl.created_at)
+        DATE(created_at) as date,
+        COUNT(*) as violation_count,
+        COUNT(DISTINCT student_id) as student_count
+      FROM (
+        SELECT created_at, student_id FROM admission_slips 
+        WHERE created_at >= CURRENT_DATE - INTERVAL '${daysLimit} days' AND status IN ('reported', 'resolved', 'approved')
+        UNION ALL
+        SELECT created_at, student_id FROM student_reports 
+        WHERE created_at >= CURRENT_DATE - INTERVAL '${daysLimit} days' AND status IN ('reported', 'resolved')
+      ) combined_violations
+      GROUP BY DATE(created_at)
       ORDER BY date ASC
-    `, queryParams);
+    `);
     
     // Fill in missing dates with zero counts for continuous chart
     const dailyData = [];
