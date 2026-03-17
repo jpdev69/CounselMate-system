@@ -227,4 +227,27 @@ export const resetSystem = () =>
 export const getStudentManual = () =>
   api.get('/chatbot/manual');
 
+// Student Management API
+export const searchStudents = (query) =>
+  api.get(`/admin/students/search?q=${encodeURIComponent(query)}`);
+
+export const getStudentById = (studentId) =>
+  api.get(`/admin/students/${studentId}`);
+
+export const updateStudent = (studentId, data) =>
+  api.put(`/admin/students/${studentId}`, data);
+
+export const getStudentEnrollmentHistory = (studentId) =>
+  api.get(`/students/${studentId}/enrollment-history`);
+
+// Admin Settings API
+export const getStudentEditOverride = () =>
+  api.get('/admin/settings/student-edit-override');
+
+export const updateStudentEditOverride = (enabled) =>
+  api.put('/admin/settings/student-edit-override', { enabled });
+
+export const checkStudentEditOverride = () =>
+  api.get('/settings/student-edit-override');
+
 export default api;

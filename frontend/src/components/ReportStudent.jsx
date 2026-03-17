@@ -1,6 +1,6 @@
 // src/components/ReportStudent.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { getViolationTypes, verifyStudent, createStudentReport, getAdminCourses, getCourseYearLevels, getYearLevelSections, validateViolation } from '../services/api';
+import { getViolationTypes, verifyStudent, createStudentReport, getAdminCourses, getCourseYearLevels, getYearLevelSections, validateViolation, checkStudentEditOverride } from '../services/api';
 import { ClipboardList, User, Book, Users, GraduationCap } from 'lucide-react';
 import SchoolYearSelector from './SchoolYearSelector';
 import TermSelector from './TermSelector';
@@ -35,6 +35,10 @@ const ReportStudent = () => {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
   const verifyTimer = useRef(null);
+  
+  // Student edit override state
+  const [studentEditOverride, setStudentEditOverride] = useState(false);
+  const [overrideLoading, setOverrideLoading] = useState(false);
 
   // Course / Year / Section dropdowns
   const [courseId, setCourseId] = useState('');
@@ -50,6 +54,7 @@ const ReportStudent = () => {
   useEffect(() => {
     loadViolationTypes();
     loadCourses();
+    loadOverrideSetting();
   }, []);
 
   const loadViolationTypes = async () => {
@@ -70,6 +75,19 @@ const ReportStudent = () => {
       console.error('Failed to load courses', err);
     } finally {
       setCoursesLoading(false);
+    }
+  };
+
+  const loadOverrideSetting = async () => {
+    try {
+      setOverrideLoading(true);
+      const response = await checkStudentEditOverride();
+      setStudentEditOverride(response.data?.enabled || false);
+    } catch (error) {
+      console.warn('Failed to check student edit override:', error);
+      setStudentEditOverride(false);
+    } finally {
+      setOverrideLoading(false);
     }
   };
 
@@ -151,9 +169,46 @@ const ReportStudent = () => {
           section
         });
         if (resp.data?.exists) {
-          setVerified(false);
           setMatchedStudent(resp.data.student || null);
-          try {
+          
+          // Check if editing is allowed due to override setting
+          const allowEdit = resp.data.allowEdit || resp.data.overrideEnabled || false;
+          
+          if (allowEdit && studentEditOverride) {
+            // Override enabled - allow editing but DON'T auto-fill dropdowns
+            setVerified(true); // Treat as new student to allow editing
+            setVerificationMessage(resp.data.message || 'Student found - you can edit the information below');
+            
+            // Only pre-fill the name fields, but leave course/year/section for counselor to choose
+            const s = resp.data.student || {};
+            const full = (s.full_name || '').trim();
+            const parts = full.split(/\s+/).filter(Boolean);
+            const first = parts[0] || '';
+            const last = parts.length > 1 ? parts[parts.length - 1] : '';
+            const middle = parts.length > 2 ? parts.slice(1, -1).join(' ') : '';
+
+            // Block the verify useEffect from re-triggering while we write state
+            autofillInProgress.current = true;
+            setFormData(fd => ({
+              ...fd,
+              firstName: first,
+              middleName: middle,
+              lastName: last,
+              // Keep current year and section values - don't override them
+              year: fd.year,
+              section: fd.section
+            }));
+
+            // DON'T auto-fill course, year level, or section when override is enabled
+            // Let the counselor choose these values manually
+            
+            setTimeout(() => { autofillInProgress.current = false; }, 0);
+          } else {
+            // Override disabled - block editing
+            setVerified(false);
+            setVerificationMessage(resp.data.message || 'A matching student was found');
+            
+            // Auto-fill to show existing data but don't allow editing
             const s = resp.data.student || {};
             const full = (s.full_name || '').trim();
             const parts = full.split(/\s+/).filter(Boolean);
@@ -163,7 +218,6 @@ const ReportStudent = () => {
             const targetSection = s.section || '';
             const targetYear = s.year || '';
 
-            // Block the verify useEffect from re-triggering while we write state
             autofillInProgress.current = true;
             setFormData(fd => ({
               ...fd,
@@ -174,20 +228,15 @@ const ReportStudent = () => {
               section: targetSection || fd.section
             }));
 
-            // Try to auto-fill course → year level → section as a chain.
-            // The backend returns the most recent course name from reports/slips.
             const matchedCourse = s.course
               ? courses.find(c => c.name === s.course || c.code === s.course)
               : null;
 
             if (matchedCourse && String(matchedCourse.id) !== String(courseId)) {
-              // Course is different — setting courseId triggers yearLevels to reload.
-              // Store year and section so they're applied once those loads settle.
               pendingYearLevel.current = targetYear;
               pendingSection.current = targetSection;
               setCourseId(String(matchedCourse.id));
             } else {
-              // Course already selected (or not available) — work with already-loaded yearLevels.
               const matchedYl = targetYear ? yearLevels.find(yl => yl.year_level === targetYear) : null;
               if (matchedYl && String(matchedYl.id) !== String(yearLevelId)) {
                 pendingSection.current = targetSection;
@@ -198,10 +247,8 @@ const ReportStudent = () => {
               }
             }
 
-            // Allow verify to run again after React has flushed all state updates
             setTimeout(() => { autofillInProgress.current = false; }, 0);
-          } catch (e) { /* ignore autofill errors */ }
-          setVerificationMessage(resp.data.message || 'A matching student was found');
+          }
         } else {
           setVerified(true);
           setMatchedStudent(null);
@@ -340,7 +387,13 @@ const ReportStudent = () => {
         description: description.trim(),
         remarks: remarks.trim() || null
       };
-      if (matchedStudent && matchedStudent.id) payload.student_id = matchedStudent.id;
+      if (matchedStudent && matchedStudent.id) {
+        payload.student_id = matchedStudent.id;
+        // Add update flag if override is enabled and we're allowing edits
+        if (studentEditOverride) {
+          payload.updateExistingStudent = true;
+        }
+      }
 
       if (!window.confirm('Submit this violation report?')) {
         setLoading(false);
@@ -461,7 +514,7 @@ const ReportStudent = () => {
                   onChange={handleCourseChange}
                   className="form-input"
                   required
-                  disabled={coursesLoading}
+                  disabled={coursesLoading || (verified === false && !studentEditOverride)}
                   style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px', appearance: 'none', backgroundColor: '#fff' }}
                 >
                   <option value="">
@@ -485,7 +538,7 @@ const ReportStudent = () => {
                     onChange={handleYearLevelChange}
                     className="form-input"
                     required
-                    disabled={!courseId || yearLevelsLoading}
+                    disabled={!courseId || yearLevelsLoading || (verified === false && !studentEditOverride)}
                     style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px', appearance: 'none', backgroundColor: '#fff' }}
                   >
                     <option value="">Select year</option>
@@ -506,7 +559,7 @@ const ReportStudent = () => {
                     onChange={handleChange}
                     className="form-input"
                     required
-                    disabled={!yearLevelId || sectionsLoading}
+                    disabled={!yearLevelId || sectionsLoading || (verified === false && !studentEditOverride)}
                     style={{ paddingLeft: '34px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', height: '40px', appearance: 'none', backgroundColor: '#fff' }}
                   >
                     <option value="">Select section</option>
@@ -544,6 +597,21 @@ const ReportStudent = () => {
               <div style={{ fontSize: '12px', fontWeight: 600, color: verified === true ? '#059669' : verified === false ? '#b91c1c' : '#6b7280' }}>
                 {verificationLoading ? 'VERIFYING STUDENT...' : (verificationMessage || 'COMPLETE FIELDS TO VERIFY').toUpperCase()}
               </div>
+              {studentEditOverride && matchedStudent && (
+                <div style={{ 
+                  marginTop: '4px', 
+                  fontSize: '11px', 
+                  color: '#059669', 
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}>
+                  <span style={{ color: '#059669' }}>✓</span>
+                  Student Edit Override: Name pre-filled, you can change Course/Year/Section
+                </div>
+              )}
             </div>
 
             {/* Violation Type */}

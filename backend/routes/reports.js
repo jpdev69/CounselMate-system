@@ -4,7 +4,7 @@ const db = require('../config/database');
 
 // Create a new student report (violation without admission slip)
 router.post('/', async (req, res) => {
-  const { studentName, year, section, course, schoolYear, term, student_id, violation_type_id, description, remarks } = req.body;
+  const { studentName, year, section, course, schoolYear, term, student_id, violation_type_id, description, remarks, updateExistingStudent } = req.body;
 
   if (!violation_type_id) {
     return res.status(400).json({ error: 'Violation type is required' });
@@ -29,6 +29,64 @@ router.post('/', async (req, res) => {
         return res.status(404).json({ error: 'Provided student_id not found' });
       }
       studentId = existing.rows[0].id;
+
+      // If updateExistingStudent is true, update the student's information
+      if (updateExistingStudent) {
+        // Check if override is enabled
+        let overrideEnabled = false;
+        try {
+          const overrideResult = await db.query(`
+            SELECT value FROM admin_settings 
+            WHERE key = 'student_edit_override'
+          `);
+          overrideEnabled = overrideResult.rows.length > 0 && overrideResult.rows[0].value === 'true';
+        } catch (err) {
+          console.warn('Failed to check student edit override:', err.message);
+        }
+
+        if (overrideEnabled) {
+          // Override enabled - update master student record with latest information
+          // This ensures when override is turned OFF, system uses most recent data
+          const updates = [];
+          const values = [];
+          let paramIndex = 1;
+
+          if (year) {
+            updates.push(`year = $${paramIndex++}`);
+            values.push(year);
+          }
+          if (section) {
+            updates.push(`section = $${paramIndex++}`);
+            values.push(section);
+          }
+          if (course) {
+            updates.push(`current_course = $${paramIndex++}`);
+            values.push(course);
+          }
+          if (schoolYear) {
+            updates.push(`last_school_year = $${paramIndex++}`);
+            values.push(schoolYear);
+          }
+          if (term) {
+            updates.push(`last_term = $${paramIndex++}`);
+            values.push(term);
+          }
+
+          if (updates.length > 0) {
+            updates.push(`updated_at = CURRENT_TIMESTAMP`);
+            values.push(studentId);
+
+            const updateQuery = `
+              UPDATE students 
+              SET ${updates.join(', ')}
+              WHERE id = $${paramIndex}
+            `;
+            
+            await db.query(updateQuery, values);
+            console.log(`Updated master student record ${studentId} with latest information from override session`);
+          }
+        }
+      }
     } else {
       const studentResult = await db.query(
         `INSERT INTO students (student_id, full_name, year, section)
@@ -40,10 +98,10 @@ router.post('/', async (req, res) => {
     }
 
     const result = await db.query(
-      `INSERT INTO student_reports (student_id, violation_type_id, description, remarks, course, school_year, term, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'reported')
+      `INSERT INTO student_reports (student_id, violation_type_id, description, remarks, course, school_year, term, year, section, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'reported')
        RETURNING *`,
-      [studentId, violation_type_id, description, remarks || null, course || null, schoolYear || null, term || null]
+      [studentId, violation_type_id, description, remarks || null, course || null, schoolYear || null, term || null, year || null, section || null]
     );
 
     // Return joined report
@@ -51,8 +109,8 @@ router.post('/', async (req, res) => {
       SELECT
         sr.*,
         s.full_name AS student_name,
-        s.year,
-        s.section,
+        sr.year,
+        sr.section,
         vt.code AS violation_code,
         vt.description AS violation_description,
         vt.category AS violation_category
@@ -77,8 +135,8 @@ router.get('/', async (req, res) => {
       SELECT
         sr.*,
         s.full_name AS student_name,
-        s.year,
-        s.section,
+        sr.year,
+        sr.section,
         vt.code AS violation_code,
         vt.description AS violation_description,
         vt.category AS violation_category

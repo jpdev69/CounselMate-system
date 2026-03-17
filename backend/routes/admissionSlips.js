@@ -51,7 +51,7 @@ router.post('/validate-violation', async (req, res) => {
 
 // Issue admission slip
 router.post('/issue', async (req, res) => {
-  const { studentName, year, section, course, schoolYear, term, student_id } = req.body;
+  const { studentName, year, section, course, schoolYear, term, student_id, updateExistingStudent } = req.body;
 
   // If no existing student id is provided, validate required student fields to avoid creating blank users
   if (!student_id) {
@@ -70,6 +70,64 @@ router.post('/issue', async (req, res) => {
         return res.status(404).json({ error: 'Provided student_id not found' });
       }
       studentId = existing.rows[0].id;
+
+      // If updateExistingStudent is true, update the student's information
+      if (updateExistingStudent) {
+        // Check if override is enabled
+        let overrideEnabled = false;
+        try {
+          const overrideResult = await db.query(`
+            SELECT value FROM admin_settings 
+            WHERE key = 'student_edit_override'
+          `);
+          overrideEnabled = overrideResult.rows.length > 0 && overrideResult.rows[0].value === 'true';
+        } catch (err) {
+          console.warn('Failed to check student edit override:', err.message);
+        }
+
+        if (overrideEnabled) {
+          // Override enabled - update master student record with latest information
+          // This ensures when override is turned OFF, system uses most recent data
+          const updates = [];
+          const values = [];
+          let paramIndex = 1;
+
+          if (year) {
+            updates.push(`year = $${paramIndex++}`);
+            values.push(year);
+          }
+          if (section) {
+            updates.push(`section = $${paramIndex++}`);
+            values.push(section);
+          }
+          if (course) {
+            updates.push(`current_course = $${paramIndex++}`);
+            values.push(course);
+          }
+          if (schoolYear) {
+            updates.push(`last_school_year = $${paramIndex++}`);
+            values.push(schoolYear);
+          }
+          if (term) {
+            updates.push(`last_term = $${paramIndex++}`);
+            values.push(term);
+          }
+
+          if (updates.length > 0) {
+            updates.push(`updated_at = CURRENT_TIMESTAMP`);
+            values.push(studentId);
+
+            const updateQuery = `
+              UPDATE students 
+              SET ${updates.join(', ')}
+              WHERE id = $${paramIndex}
+            `;
+            
+            await db.query(updateQuery, values);
+            console.log(`Updated master student record ${studentId} with latest information from override session`);
+          }
+        }
+      }
     } else {
       const studentResult = await db.query(
         `INSERT INTO students (student_id, full_name, year, section) 
@@ -81,10 +139,10 @@ router.post('/issue', async (req, res) => {
     }
 
     const slipResult = await db.query(
-      `INSERT INTO admission_slips (slip_number, student_id, issued_by, status, course, school_year, term) 
-       VALUES ($1, $2, $3, 'issued', $4, $5, $6) 
+      `INSERT INTO admission_slips (slip_number, student_id, issued_by, status, course, school_year, term, year, section) 
+       VALUES ($1, $2, $3, 'issued', $4, $5, $6, $7, $8) 
        RETURNING *`,
-      [slipNumber, studentId, 'system', course || null, schoolYear || null, term || null]
+      [slipNumber, studentId, 'system', course || null, schoolYear || null, term || null, year || null, section || null]
     );
 
     try {
@@ -137,27 +195,19 @@ router.post('/verify', async (req, res) => {
     const firstToken = f;
     const lastToken = l;
 
-    // First, check whether the full name (first + last tokens) already exists anywhere in the
+    // First, check whether full name (first + last tokens) already exists anywhere in the
     // `students` table regardless of year or section. If it does, treat it as a duplicate.
     // Use regex whole-word matching to avoid substring collisions (e.g., Romualdo vs Romualdez).
-    // PostgreSQL supports \m and \M for start/end of word in its regex flavor. Use case-insensitive match (~*).
-    // Also pull the most recent course from student_reports or admission_slips so the frontend
-    // can auto-fill the Course dropdown.
+    // PostgreSQL supports \m and \M for start/end of word in its regex flavor.
+    // When override is OFF, use master student record (authoritative source). When ON, allow editing.
     const queryNameOnly = `
-      SELECT s.id, s.student_id, s.full_name, s.year, s.section,
-        COALESCE(
-          (SELECT sr.course FROM student_reports sr
-            WHERE sr.student_id = s.id AND sr.course IS NOT NULL
-            ORDER BY sr.created_at DESC LIMIT 1),
-          (SELECT asl.course FROM admission_slips asl
-            WHERE asl.student_id = s.id AND asl.course IS NOT NULL
-            ORDER BY asl.created_at DESC LIMIT 1)
-        ) AS course
+      SELECT s.id, s.student_id, s.full_name, s.year, s.section, s.current_course as course
       FROM students s
       WHERE s.full_name ~* $1
         AND s.full_name ~* $2
       LIMIT 1
     `;
+
     // Build regex patterns that match whole words: \mWORD\M
     const valuesNameOnly = [`\\m${firstToken}\\M`, `\\m${lastToken}\\M`];
 
@@ -170,8 +220,47 @@ router.post('/verify', async (req, res) => {
     }
 
     if (result.rows.length > 0) {
-      // Name exists somewhere in the system — consider it a duplicate regardless of year/section
-      return res.json({ exists: true, message: 'Student name already exists within the system', student: result.rows[0] });
+      // Check if student edit override is enabled
+      let overrideEnabled = false;
+      try {
+        const overrideResult = await db.query(`
+          SELECT value FROM admin_settings 
+          WHERE key = 'student_edit_override'
+        `);
+        overrideEnabled = overrideResult.rows.length > 0 && overrideResult.rows[0].value === 'true';
+      } catch (err) {
+        console.warn('Failed to check student edit override:', err.message);
+      }
+
+      const existingStudent = result.rows[0];
+      
+      if (overrideEnabled) {
+        // When override is enabled, only return basic student info (name, ID)
+        // Don't return course/year/section to prevent auto-filling
+        const basicStudentInfo = {
+          id: existingStudent.id,
+          student_id: existingStudent.student_id,
+          full_name: existingStudent.full_name,
+          // Exclude year, section, course to prevent auto-fill
+        };
+        
+        return res.json({ 
+          exists: true, 
+          message: 'Student found - editing allowed due to override setting', 
+          student: basicStudentInfo,
+          allowEdit: true,
+          overrideEnabled: true
+        });
+      } else {
+        // Override disabled - return all existing data to show and block editing
+        return res.json({ 
+          exists: true, 
+          message: 'Student name already exists within the system', 
+          student: existingStudent,
+          allowEdit: false,
+          overrideEnabled: false
+        });
+      }
     }
 
     // No matching name found anywhere
@@ -192,8 +281,8 @@ router.get('/print-slip', async (req, res) => {
       SELECT 
         asl.*, 
         s.full_name as student_name,
-        s.year,
-        s.section,
+        asl.year,
+        asl.section,
         vt.code as violation_code,
         vt.description as violation_description
       FROM admission_slips asl
@@ -364,6 +453,7 @@ router.get('/student/:studentId/slips', async (req, res) => {
     // Optional status filter for server-side filtering (e.g., 'approved', 'issued', 'form_completed')
     const status = req.query.status ? req.query.status.toString() : null;
     const offset = (page - 1) * pageSize;
+    
     // total count (optionally filtered by status)
     let countQuery = `SELECT COUNT(*) FROM admission_slips WHERE student_id = $1`;
     const countParams = [studentId];

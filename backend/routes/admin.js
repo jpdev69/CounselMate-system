@@ -834,4 +834,174 @@ router.delete('/reset', async (req, res) => {
   }
 });
 
+// ── STUDENT MANAGEMENT ─────────────────────────────────────────────────────
+
+// GET /api/admin/students/search - Search students by name or student ID
+router.get('/students/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.trim().length < 2) {
+      return res.status(400).json({ error: 'Search query must be at least 2 characters' });
+    }
+
+    const searchTerm = q.trim();
+    const query = `
+      SELECT 
+        s.id,
+        s.student_id,
+        s.full_name,
+        s.current_year_level,
+        s.current_section,
+        s.current_course,
+        s.enrollment_status,
+        s.last_school_year,
+        s.last_term,
+        s.created_at
+      FROM students s
+      WHERE 
+        s.full_name ILIKE $1 
+        OR s.student_id ILIKE $1
+      ORDER BY 
+        CASE 
+          WHEN s.full_name ILIKE $2 THEN 1
+          WHEN s.student_id ILIKE $2 THEN 2
+          ELSE 3
+        END,
+        s.full_name
+      LIMIT 20
+    `;
+
+    const result = await db.query(query, [`%${searchTerm}%`, `${searchTerm}%`]);
+    
+    res.json({
+      success: true,
+      students: result.rows
+    });
+
+  } catch (error) {
+    console.error('Search students error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/admin/students/:id - Get student by ID
+router.get('/students/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await db.query(`
+      SELECT 
+        s.id,
+        s.student_id,
+        s.full_name,
+        s.current_year_level,
+        s.current_section,
+        s.current_course,
+        s.enrollment_status,
+        s.last_school_year,
+        s.last_term,
+        s.created_at,
+        s.updated_at
+      FROM students s
+      WHERE s.id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    res.json({
+      success: true,
+      student: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Get student error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/admin/students/:id - Update student information
+router.put('/students/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      full_name, 
+      current_year_level, 
+      current_section, 
+      current_course, 
+      enrollment_status,
+      last_school_year,
+      last_term
+    } = req.body;
+
+    // Verify student exists
+    const existingStudent = await db.query('SELECT id FROM students WHERE id = $1', [id]);
+    if (existingStudent.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    // Build update query dynamically based on provided fields
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (full_name !== undefined) {
+      updates.push(`full_name = $${paramIndex++}`);
+      values.push(full_name.trim());
+    }
+    if (current_year_level !== undefined) {
+      updates.push(`current_year_level = $${paramIndex++}`);
+      values.push(current_year_level.trim());
+    }
+    if (current_section !== undefined) {
+      updates.push(`current_section = $${paramIndex++}`);
+      values.push(current_section.trim());
+    }
+    if (current_course !== undefined) {
+      updates.push(`current_course = $${paramIndex++}`);
+      values.push(current_course.trim());
+    }
+    if (enrollment_status !== undefined) {
+      updates.push(`enrollment_status = $${paramIndex++}`);
+      values.push(enrollment_status);
+    }
+    if (last_school_year !== undefined) {
+      updates.push(`last_school_year = $${paramIndex++}`);
+      values.push(last_school_year.trim());
+    }
+    if (last_term !== undefined) {
+      updates.push(`last_term = $${paramIndex++}`);
+      values.push(last_term.trim());
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id); // Add id as the last parameter for WHERE clause
+
+    const updateQuery = `
+      UPDATE students 
+      SET ${updates.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await db.query(updateQuery, values);
+
+    res.json({
+      success: true,
+      message: 'Student updated successfully',
+      student: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Update student error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

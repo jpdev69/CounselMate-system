@@ -10,6 +10,7 @@ import {
   createBackup, restoreBackup, resetSystem,
   getSignupRequests, updateSignupRequest,
   getUsers, deleteUser, resetUserPassword,
+  getStudentEditOverride, updateStudentEditOverride,
 } from '../services/api';
 
 const AdminPanel = () => {
@@ -121,6 +122,11 @@ const AdminPanel = () => {
   const [userPage, setUserPage] = useState(1);
   const USERS_PAGE_SIZE = 8;
 
+  // ── Admin Settings ─────────────────────────────────────────────────────
+  const [studentEditOverride, setStudentEditOverride] = useState(false);
+  const [overrideLoading, setOverrideLoading] = useState(false);
+  const [overrideError, setOverrideError] = useState('');
+
   const handleBackup = async () => {
     setBackupLoading(true);
     try {
@@ -199,6 +205,41 @@ const AdminPanel = () => {
       setResetLoading(false);
     }
   };
+
+  // ── Admin Settings Handlers ─────────────────────────────────────────────
+  const handleToggleStudentEditOverride = async () => {
+    setOverrideLoading(true);
+    setOverrideError('');
+    
+    try {
+      const response = await updateStudentEditOverride(!studentEditOverride);
+      if (response.data?.success) {
+        setStudentEditOverride(response.data.enabled);
+      }
+    } catch (error) {
+      setOverrideError(error.response?.data?.error || 'Failed to update setting');
+    } finally {
+      setOverrideLoading(false);
+    }
+  };
+
+  // Load student edit override status on mount
+  useEffect(() => {
+    let mounted = true;
+    const loadOverrideStatus = async () => {
+      try {
+        const response = await getStudentEditOverride();
+        if (mounted && response.data?.success) {
+          setStudentEditOverride(response.data.enabled);
+        }
+      } catch (error) {
+        console.warn('Failed to load student edit override status:', error);
+      }
+    };
+    
+    loadOverrideStatus();
+    return () => { mounted = false; };
+  }, []);
 
   // ── Load courses on mount ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1613,6 +1654,106 @@ const AdminPanel = () => {
               </>
             );
           })()}
+        </div>
+
+        {/* ── STUDENT EDIT OVERRIDE ─────────────────────────────────────────── */}
+        <div style={{ marginTop: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <Shield size={18} color="var(--primary)" />
+            <span style={{ fontWeight: 700, fontSize: 15, color: '#374151' }}>Student Edit Override</span>
+          </div>
+          <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 14 }}>
+            Enable this toggle to allow counselors to edit existing student information (course, year, section) when issuing admission slips or creating reports.
+          </p>
+
+          <div style={panelCard}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: '#374151', marginBottom: 2 }}>
+                  Allow Student Editing
+                </div>
+                <div style={{ fontSize: 12, color: '#6b7280' }}>
+                  When enabled, counselors can override student details during admission slip/report creation
+                </div>
+              </div>
+              
+              <button
+                onClick={handleToggleStudentEditOverride}
+                disabled={overrideLoading}
+                style={{
+                  position: 'relative',
+                  width: '60px',
+                  height: '32px',
+                  background: studentEditOverride ? 'var(--primary)' : '#d1d5db',
+                  border: 'none',
+                  borderRadius: '16px',
+                  cursor: overrideLoading ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.2s',
+                  outline: 'none'
+                }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '4px',
+                    left: studentEditOverride ? '32px' : '4px',
+                    width: '24px',
+                    height: '24px',
+                    background: '#ffffff',
+                    borderRadius: '50%',
+                    transition: 'left 0.2s',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }}
+                />
+              </button>
+            </div>
+
+            <div style={{ 
+              fontSize: 12, 
+              color: studentEditOverride ? '#059669' : '#6b7280',
+              fontWeight: 500,
+              padding: '8px 12px',
+              background: studentEditOverride ? '#d1fae5' : '#f9fafb',
+              borderRadius: 6,
+              border: `1px solid ${studentEditOverride ? '#a7f3d0' : '#e5e7eb'}`
+            }}>
+              {studentEditOverride ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: '#059669' }}>✓</span>
+                  Student editing is currently ENABLED
+                </span>
+              ) : (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: '#6b7280' }}>○</span>
+                  Student editing is currently DISABLED
+                </span>
+              )}
+            </div>
+
+            {overrideError && (
+              <div style={{ 
+                marginTop: 8,
+                padding: '6px 10px', 
+                background: '#fee2e2', 
+                color: '#991b1b', 
+                borderRadius: 4, 
+                fontSize: 12 
+              }}>
+                ❌ {overrideError}
+              </div>
+            )}
+
+            {overrideLoading && (
+              <div style={{ 
+                marginTop: 8,
+                fontSize: 12, 
+                color: '#6b7280',
+                fontStyle: 'italic'
+              }}>
+                Updating setting...
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── USER MANAGEMENT & SIGNUP REQUESTS ─────────────────────────── */}

@@ -48,6 +48,8 @@ async function ensureAdmissionSlipsColumns() {
   try {
     await pool.query("ALTER TABLE admission_slips ADD COLUMN IF NOT EXISTS school_year VARCHAR(9);");
     await pool.query("ALTER TABLE admission_slips ADD COLUMN IF NOT EXISTS term VARCHAR(10);");
+    await pool.query("ALTER TABLE admission_slips ADD COLUMN IF NOT EXISTS year VARCHAR(32);");
+    await pool.query("ALTER TABLE admission_slips ADD COLUMN IF NOT EXISTS section VARCHAR(32);");
   } catch (err) {
     console.warn('ensureAdmissionSlipsColumns warning:', err.message || err);
   }
@@ -79,7 +81,7 @@ async function ensureSignupRequestsTable() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-      } catch (err) {
+  } catch (err) {
     console.warn('ensureSignupRequestsTable warning:', err.message || err);
   }
 }
@@ -97,6 +99,8 @@ async function ensureStudentReportsTable() {
         course VARCHAR(256),
         school_year VARCHAR(9),
         term VARCHAR(10),
+        year VARCHAR(32),
+        section VARCHAR(32),
         status VARCHAR(32) DEFAULT 'reported',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
@@ -106,6 +110,8 @@ async function ensureStudentReportsTable() {
     // Add school_year and term columns if they don't exist
     await pool.query("ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS school_year VARCHAR(9);");
     await pool.query("ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS term VARCHAR(10);");
+    await pool.query("ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS year VARCHAR(32);");
+    await pool.query("ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS section VARCHAR(32);");
   } catch (err) {
     console.warn('ensureStudentReportsTable warning:', err.message || err);
   }
@@ -862,6 +868,13 @@ const chatbotRouter = require('./routes/chatbot');
 app.use('/api/chatbot', authenticate, chatbotRouter);
 const adminRouter = require('./routes/admin');
 app.use('/api/admin', authenticate, adminRouter);
+
+// Mount router for admin settings
+const adminSettingsRouter = require('./routes/adminSettings');
+app.use('/api/admin/settings', authenticate, adminSettingsRouter);
+
+// Public settings endpoint (no auth required for counselors to check)
+app.use('/api/settings', adminSettingsRouter);
 
 // GET /api/auth/me/gmail-settings — returns Gmail readiness + recovery email
 app.get('/api/auth/me/gmail-settings', authenticate, async (req, res) => {
