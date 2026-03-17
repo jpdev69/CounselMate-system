@@ -96,7 +96,7 @@ const PrintAdmissionSlip = () => {
           
           if (allowEdit && studentEditOverride) {
             // Override enabled - allow editing but DON'T auto-fill dropdowns
-            setVerified(true); // Treat as new student to allow editing
+            setVerified(false); // Still treat as existing student for button text
             setVerificationMessage(resp.data.message || 'Student found - you can edit the information below');
             
             // Only pre-fill the name fields, but leave course/year/section for counselor to choose
@@ -572,23 +572,9 @@ const PrintAdmissionSlip = () => {
 
           {/* Verification status */}
           <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 500, color: verified === true ? '#059669' : verified === false ? '#b91c1c' : '#6b7280' }}>
+            <div style={{ fontSize: '13px', fontWeight: 500, color: verified === true || (verified === false && studentEditOverride && matchedStudent) ? '#059669' : verified === false ? '#b91c1c' : '#6b7280' }}>
               {verificationLoading ? 'Checking records...' : verificationMessage}
             </div>
-            {studentEditOverride && matchedStudent && (
-              <div style={{ 
-                marginTop: '4px', 
-                fontSize: '11px', 
-                color: '#059669', 
-                fontWeight: 500,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                <span style={{ color: '#059669' }}>✓</span>
-                Student Edit Override: Name pre-filled, you can change Course/Year/Section
-              </div>
-            )}
           </div>
 
           {/* Previous slips display */}

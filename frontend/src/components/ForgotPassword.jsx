@@ -285,7 +285,7 @@ const ForgotPassword = () => {
             <Mail style={{ width: '24px', height: '24px', color: '#1e3a5f', marginRight: '8px' }} />
             <h2 style={{ margin: 0 }}>Forgot Password</h2>
           </div>
-          <p className="text-muted">Use Gmail OTP to reset your password. You must have a recovery email configured.</p>
+          <p className="text-muted">Use Gmail OTP to reset your password. The OTP will be sent to your registered email address.</p>
         </div>
 
         <form onSubmit={handleReset} style={{ display: 'grid', gap: '0.75rem' }}>
@@ -328,7 +328,7 @@ const ForgotPassword = () => {
             ) : !otpVerified ? (
               <>
                 <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>
-                  A 6-digit one-time password will be sent to your configured recovery email address.
+                  A 6-digit one-time password will be sent to your registered email address.
                 </p>
                 <div style={{ fontSize: 12, color: '#065f46', marginBottom: 8 }}>
                   ✓ Email verified: {email}

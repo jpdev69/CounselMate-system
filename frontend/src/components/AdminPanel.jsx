@@ -804,7 +804,7 @@ const AdminPanel = () => {
           <h1 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>Admin Panel</h1>
         </div>
         <p className="text-muted" style={{ marginBottom: 20, fontSize: '0.9rem' }}>
-          Set up courses, year levels, sections, and violation types used across the system. Manage signup requests and counselor accounts.
+          Set up courses, year levels, sections, and violation types used across the system.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
@@ -1672,10 +1672,7 @@ const AdminPanel = () => {
                 <div style={{ fontWeight: 600, fontSize: 14, color: '#374151', marginBottom: 2 }}>
                   Allow Student Editing
                 </div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>
-                  When enabled, counselors can override student details during admission slip/report creation
-                </div>
-              </div>
+                              </div>
               
               <button
                 onClick={handleToggleStudentEditOverride}
@@ -2095,55 +2092,6 @@ const AdminPanel = () => {
                         {/* Action buttons for non-admin users */}
                         {user.role !== 'admin' && (
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                            <button
-                              onClick={() => handleResetPassword(user.id, user.email)}
-                              disabled={resettingUserId === user.id}
-                              style={{
-                                padding: '4px 8px',
-                                border: '1px solid #f59e0b',
-                                backgroundColor: '#fff',
-                                color: '#f59e0b',
-                                borderRadius: 4,
-                                fontSize: 10,
-                                fontWeight: 500,
-                                cursor: resettingUserId === user.id ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 3,
-                                transition: 'all 0.2s'
-                              }}
-                              onMouseOver={(e) => {
-                                if (resettingUserId !== user.id) {
-                                  e.target.style.backgroundColor = '#f59e0b';
-                                  e.target.style.color = '#fff';
-                                }
-                              }}
-                              onMouseOut={(e) => {
-                                if (resettingUserId !== user.id) {
-                                  e.target.style.backgroundColor = '#fff';
-                                  e.target.style.color = '#f59e0b';
-                                }
-                              }}
-                            >
-                              {resettingUserId === user.id ? (
-                                <>
-                                  <div style={{
-                                    width: '10px',
-                                    height: '10px',
-                                    border: '2px solid #f59e0b',
-                                    borderTop: '2px solid transparent',
-                                    borderRadius: '50%',
-                                    animation: 'spin 1s linear infinite'
-                                  }}></div>
-                                  Resetting...
-                                </>
-                              ) : (
-                                <>
-                                  <Key size={10} />
-                                  Reset
-                                </>
-                              )}
-                            </button>
                             <button
                               onClick={() => handleDeleteUser(user.id, user.email)}
                               disabled={deletingUserId === user.id}

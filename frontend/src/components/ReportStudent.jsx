@@ -176,7 +176,7 @@ const ReportStudent = () => {
           
           if (allowEdit && studentEditOverride) {
             // Override enabled - allow editing but DON'T auto-fill dropdowns
-            setVerified(true); // Treat as new student to allow editing
+            setVerified(false); // Still treat as existing student for button text
             setVerificationMessage(resp.data.message || 'Student found - you can edit the information below');
             
             // Only pre-fill the name fields, but leave course/year/section for counselor to choose
@@ -237,13 +237,18 @@ const ReportStudent = () => {
               pendingSection.current = targetSection;
               setCourseId(String(matchedCourse.id));
             } else {
-              const matchedYl = targetYear ? yearLevels.find(yl => yl.year_level === targetYear) : null;
-              if (matchedYl && String(matchedYl.id) !== String(yearLevelId)) {
+              // Always use pending mechanism to avoid race conditions
+              if (targetYear) {
+                pendingYearLevel.current = targetYear;
                 pendingSection.current = targetSection;
-                setYearLevelId(String(matchedYl.id));
-              } else if (matchedYl) {
-                pendingSection.current = '';
-                setFormData(fd => ({ ...fd, section: targetSection }));
+                // Trigger the year level application if yearLevels are already loaded
+                if (yearLevels.length > 0) {
+                  const matchedYl = yearLevels.find(yl => yl.year_level === targetYear);
+                  if (matchedYl) {
+                    setYearLevelId(String(matchedYl.id));
+                    pendingYearLevel.current = '';
+                  }
+                }
               }
             }
 
@@ -594,25 +599,10 @@ const ReportStudent = () => {
 
             {/* Verification Status Row (Single centered cell inside table) */}
             <div style={{ borderBottom: '1px solid #c1c1c1', padding: '8px 16px', textAlign: 'center', backgroundColor: '#f9fafb' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: verified === true ? '#059669' : verified === false ? '#b91c1c' : '#6b7280' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: verified === true || (verified === false && studentEditOverride && matchedStudent) ? '#059669' : verified === false ? '#b91c1c' : '#6b7280' }}>
                 {verificationLoading ? 'VERIFYING STUDENT...' : (verificationMessage || 'COMPLETE FIELDS TO VERIFY').toUpperCase()}
               </div>
-              {studentEditOverride && matchedStudent && (
-                <div style={{ 
-                  marginTop: '4px', 
-                  fontSize: '11px', 
-                  color: '#059669', 
-                  fontWeight: 500,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px'
-                }}>
-                  <span style={{ color: '#059669' }}>✓</span>
-                  Student Edit Override: Name pre-filled, you can change Course/Year/Section
-                </div>
-              )}
-            </div>
+                          </div>
 
             {/* Violation Type */}
             <div style={{ borderBottom: '1px solid #c1c1c1', padding: '12px 16px' }}>

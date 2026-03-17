@@ -152,7 +152,7 @@ router.post('/issue', async (req, res) => {
         [slipResult.rows[0].id, 'system@school.edu', 'SLIP_ISSUED', null, 'issued']
       );
     } catch (e) {
-      console.warn('Failed to insert audit log (continuing):', e.message);
+      // Silent fail - audit log is optional
     }
 
     // return joined slip
@@ -215,7 +215,7 @@ router.post('/verify', async (req, res) => {
     try {
       result = await db.query(queryNameOnly, valuesNameOnly);
     } catch (sqlErr) {
-      console.error('Verify student SQL error (name-only regex):', sqlErr.message || sqlErr);
+      // Silent fail - audit log cleanup is optional
       return res.status(500).json({ error: 'Database query failed during verification' });
     }
 
@@ -559,7 +559,7 @@ router.put('/:id/complete', async (req, res) => {
         [id, 'counselor@university.edu', 'FORM_COMPLETED', 'issued', 'form_completed']
       );
     } catch (e) {
-      console.warn('Failed to insert audit log (continuing):', e.message);
+      // Silent fail - audit log is optional
     }
 
     // Return the updated slip with joined fields for table-friendly format
@@ -616,7 +616,7 @@ router.put('/:id/approve', async (req, res) => {
         [id, 'counselor@university.edu', 'SLIP_APPROVED', 'form_completed', 'approved']
       );
     } catch (e) {
-      console.warn('Failed to insert audit log (continuing):', e.message);
+      // Silent fail - audit log is optional
     }
 
     const selectQuery = `
@@ -680,7 +680,7 @@ router.delete('/:id', async (req, res) => {
         try {
           await client.query('DELETE FROM audit_logs WHERE admission_slip_id = $1', [id]);
         } catch (audErr) {
-          console.warn('Could not delete audit_logs entries (continuing):', audErr.message || audErr);
+          // Silent fail - audit log cleanup is optional
         }
         const deleteRes = await client.query('DELETE FROM admission_slips WHERE id = $1 RETURNING *', [id]);
         if (deleteRes.rows.length === 0) {

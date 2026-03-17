@@ -83,19 +83,9 @@ const Dashboard = () => {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '15px',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s ease',
                   padding: '4px 8px',
                   borderRadius: '4px'
                 }}
-                onClick={() => handleTickerClick(violation)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-                title={`Click to view ${violation.studentName}'s violation details`}
               >
                 <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>{violation.studentName}</span>
                 <span>{violation.violation}</span>

@@ -950,30 +950,22 @@ const OTP_KEY = 'counselor_otp';
 const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 // POST /api/auth/forgot/check-email
-// Checks if email exists and has recovery email configured
+// Checks if email exists in the system
 app.post('/api/auth/forgot/check-email', precheckRateLimit('forgot-check-email'), async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ success: false, error: 'Invalid email address' });
 
   try {
-    // Check if user exists and has recovery email configured
-    const userResult = await pool.query('SELECT recovery_email FROM users WHERE email = $1', [email.trim()]);
+    // Check if user exists in the system
+    const userResult = await pool.query('SELECT email FROM users WHERE email = $1', [email.trim()]);
     if (userResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Email not found in our system' });
     }
 
-    const recoveryEmail = userResult.rows[0]?.recovery_email || null;
-    if (!recoveryEmail) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No recovery email configured for this account. Please contact administrator.' 
-      });
-    }
-
     return res.json({ 
       success: true, 
-      message: 'Email verified. You can now send OTP to your recovery email.' 
+      message: 'Email verified. You can now send OTP to your email.' 
     });
   } catch (err) {
     console.error('check-email error:', err.message || err);
@@ -982,11 +974,9 @@ app.post('/api/auth/forgot/check-email', precheckRateLimit('forgot-check-email')
 });
 
 // POST /api/auth/forgot/send-otp
-// Generates a 6-digit OTP and emails it to the configured RECOVERY_EMAIL.
 app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), async (req, res) => {
   const { email } = req.body || {};
-  const gmailUser = process.env.GMAIL_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  const { GMAIL_USER, GMAIL_APP_PASSWORD } = process.env;
 
   if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ success: false, error: 'Invalid email address' });
@@ -1002,23 +992,15 @@ app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), asyn
     });
   }
 
-  if (!gmailUser || !gmailPass || gmailUser === 'your_gmail@gmail.com') {
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD || GMAIL_USER === 'your_gmail@gmail.com') {
     return res.status(503).json({ success: false, error: 'OTP via Gmail is not configured on this server.' });
   }
 
-  // Find the specific user's recovery email
+  // Find the user in the system
   try {
-    const userResult = await pool.query('SELECT recovery_email FROM users WHERE email = $1', [email.trim()]);
+    const userResult = await pool.query('SELECT email FROM users WHERE email = $1', [email.trim()]);
     if (userResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Email not found in our system' });
-    }
-
-    const recoveryEmail = userResult.rows[0]?.recovery_email || null;
-    if (!recoveryEmail) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No recovery email configured for this account. Please contact administrator.' 
-      });
     }
 
     // Generate 6-digit OTP
@@ -1028,15 +1010,15 @@ app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), asyn
     try {
       const transporter = nodemailer.createTransport({
         service: 'gmail',
-        auth: { user: gmailUser, pass: gmailPass }
+        auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD }
       });
 
       const logoPath = require('path').join(__dirname, '..', 'GuidanceOS-system-logo.png');
       const logoExists = require('fs').existsSync(logoPath);
 
       await transporter.sendMail({
-        from: `"GuidanceOS Security" <${gmailUser}>`,
-        to: recoveryEmail,
+        from: `"GuidanceOS Security" <${GMAIL_USER}>`,
+        to: email.trim(),
         subject: 'GuidanceOS — Password Reset OTP',
         text: `Your one-time password (OTP) for GuidanceOS password reset is:\n\n  ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`,
         html: `<!DOCTYPE html>
@@ -1130,8 +1112,8 @@ app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), asyn
       }] : []
     });
 
-    // Mask the recovery email before sending it back (e.g. jo***@gmail.com)
-    const masked = recoveryEmail.replace(/^(.{2})(.+?)(@.*)$/, (_, a, b, c) => a + b.replace(/./g, '*') + c);
+    // Mask the email before sending it back (e.g. jo***@gmail.com)
+    const masked = email.trim().replace(/^(.{2})(.+?)(@.*)$/, (_, a, b, c) => a + b.replace(/./g, '*') + c);
     
     // Set 60-second cooldown for this IP
     setOtpCooldown(req, 60000);
@@ -1145,7 +1127,7 @@ app.post('/api/auth/forgot/send-otp', precheckRateLimit('forgot-otp-send'), asyn
 } catch (err) {
     return res.status(500).json({ 
       success: false, 
-      error: 'Failed to verify recovery email. Please contact administrator.' 
+      error: 'An error occurred. Please contact administrator.' 
     });
   }
 });
