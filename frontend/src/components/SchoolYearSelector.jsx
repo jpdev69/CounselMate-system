@@ -1,20 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import api from '../services/api';
 
 const SchoolYearSelector = ({ value, onChange, required = false, disabled = false, placeholder = "Select school year" }) => {
-  // Generate school years dynamically - exactly 2 years behind to 2 years ahead
-  const currentYear = new Date().getFullYear();
-  const schoolYears = [];
-  
-  for (let year = currentYear - 2; year <= currentYear + 2; year++) {
-    schoolYears.push(`${year}-${year + 1}`);
-  }
+  const [availableSchoolYears, setAvailableSchoolYears] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSchoolYears = async () => {
+      try {
+        const response = await api.get('/visualizations/filter-options');
+        setAvailableSchoolYears(response.data.data.schoolYears || []);
+      } catch (error) {
+        console.error('Error fetching school years:', error);
+        // Fallback to generated school years if API fails
+        const currentYear = new Date().getFullYear();
+        const schoolYears = [];
+        for (let year = currentYear - 2; year <= currentYear + 2; year++) {
+          schoolYears.push(`${year}-${year + 1}`);
+        }
+        setAvailableSchoolYears(schoolYears);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSchoolYears();
+  }, []);
 
   return (
     <select
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       required={required}
-      disabled={disabled}
+      disabled={disabled || loading}
       className="form-input"
       style={{ 
         width: '100%', 
@@ -22,13 +40,13 @@ const SchoolYearSelector = ({ value, onChange, required = false, disabled = fals
         border: '1px solid #ccc', 
         borderRadius: '4px', 
         fontSize: '15px',
-        backgroundColor: disabled ? '#f5f5f5' : '#fff'
+        backgroundColor: disabled || loading ? '#f5f5f5' : '#fff'
       }}
     >
       <option value="">
-        {placeholder}
+        {loading ? 'Loading...' : placeholder}
       </option>
-      {schoolYears.map(year => (
+      {!loading && availableSchoolYears.map(year => (
         <option key={year} value={year}>{year}</option>
       ))}
     </select>

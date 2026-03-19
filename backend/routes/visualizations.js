@@ -938,4 +938,101 @@ router.get('/violations/daily-trends', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/visualizations/filter-options
+ * Returns available school years and terms that actually have violation data
+ * Query params: schoolYear (optional) - filter terms for specific school year
+ */
+router.get('/filter-options', async (req, res) => {
+  try {
+    const { schoolYear } = req.query;
+    
+    // Get available school years from both tables
+    const schoolYearsResult = await db.query(`
+      SELECT DISTINCT school_year 
+      FROM (
+        SELECT school_year FROM admission_slips WHERE status = 'approved' AND school_year IS NOT NULL
+        UNION
+        SELECT school_year FROM student_reports WHERE status IN ('reported', 'resolved') AND school_year IS NOT NULL
+      ) combined_school_years
+      ORDER BY school_year DESC
+    `);
+
+    // Get available terms - if schoolYear is provided, only return terms for that year
+    let termsQuery;
+    let queryParams = [];
+    
+    if (schoolYear) {
+      // Only get terms that have data for the specific school year
+      termsQuery = `
+        SELECT DISTINCT term 
+        FROM (
+          SELECT term FROM admission_slips WHERE status = 'approved' AND term IS NOT NULL AND term != '' AND school_year = $1
+          UNION
+          SELECT term FROM student_reports WHERE status IN ('reported', 'resolved') AND term IS NOT NULL AND term != '' AND school_year = $2
+        ) combined_terms
+        WHERE term IS NOT NULL AND term != ''
+        ORDER BY term
+      `;
+      queryParams = [schoolYear, schoolYear];
+    } else {
+      // Get all terms that have any data
+      termsQuery = `
+        SELECT DISTINCT term 
+        FROM (
+          SELECT term FROM admission_slips WHERE status = 'approved' AND term IS NOT NULL AND term != ''
+          UNION
+          SELECT term FROM student_reports WHERE status IN ('reported', 'resolved') AND term IS NOT NULL AND term != ''
+        ) combined_terms
+        WHERE term IS NOT NULL AND term != ''
+        ORDER BY term
+      `;
+    }
+
+    const termsResult = await db.query(termsQuery, queryParams);
+
+    // Format terms for frontend display
+    const formattedTerms = termsResult.rows.map(row => {
+      let term = row.term;
+      let cleanTerm = term;
+      
+      // Handle various term formats
+      if (term.includes('-term')) {
+        cleanTerm = term.replace('-term', '');
+      }
+      
+      // Normalize common variations
+      if (cleanTerm.toLowerCase() === '1st' || cleanTerm.toLowerCase() === 'first') {
+        cleanTerm = '1st';
+      } else if (cleanTerm.toLowerCase() === '2nd' || cleanTerm.toLowerCase() === 'second') {
+        cleanTerm = '2nd';
+      } else if (cleanTerm.toLowerCase() === '3rd' || cleanTerm.toLowerCase() === 'third') {
+        cleanTerm = '3rd';
+      } else if (cleanTerm.toLowerCase() === 'summer') {
+        cleanTerm = 'Summer';
+      }
+      
+      return {
+        value: cleanTerm,
+        label: cleanTerm === '1st' ? '1st Semester' : 
+               cleanTerm === '2nd' ? '2nd Semester' : 
+               cleanTerm === '3rd' ? '3rd Semester' : 
+               cleanTerm === 'Summer' ? 'Summer' : cleanTerm,
+        originalValue: term // Keep original for debugging
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        schoolYears: schoolYearsResult.rows.map(row => row.school_year),
+        terms: formattedTerms
+      }
+    });
+  } catch (error) {
+    console.error('Filter options error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

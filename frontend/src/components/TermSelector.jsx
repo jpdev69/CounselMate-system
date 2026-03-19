@@ -1,19 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import api from '../services/api';
 
 const TermSelector = ({ value, onChange, required = false, disabled = false }) => {
-  const terms = [
-    { value: '1st-term', label: '1st Term' },
-    { value: '2nd-term', label: '2nd Term' },
-    { value: '3rd-term', label: '3rd Term' },
-    { value: 'summer', label: 'Summer' }
-  ];
+  const [availableTerms, setAvailableTerms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTerms = async () => {
+      try {
+        const response = await api.get('/visualizations/filter-options');
+        setAvailableTerms(response.data.data.terms || []);
+      } catch (error) {
+        console.error('Error fetching terms:', error);
+        // Fallback to default terms if API fails
+        setAvailableTerms([
+          { value: '1st', label: '1st Semester' },
+          { value: '2nd', label: '2nd Semester' },
+          { value: 'Summer', label: 'Summer' }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTerms();
+  }, []);
 
   return (
     <select
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       required={required}
-      disabled={disabled}
+      disabled={disabled || loading}
       className="form-input"
       style={{ 
         width: '100%', 
@@ -21,13 +39,13 @@ const TermSelector = ({ value, onChange, required = false, disabled = false }) =
         border: '1px solid #ccc', 
         borderRadius: '4px', 
         fontSize: '15px',
-        backgroundColor: disabled ? '#f5f5f5' : '#fff'
+        backgroundColor: disabled || loading ? '#f5f5f5' : '#fff'
       }}
     >
       <option value="">
-        Select term
+        {loading ? 'Loading...' : 'Select term'}
       </option>
-      {terms.map(term => (
+      {!loading && availableTerms.map(term => (
         <option key={term.value} value={term.value}>{term.label}</option>
       ))}
     </select>

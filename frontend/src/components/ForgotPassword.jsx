@@ -75,8 +75,24 @@ const ForgotPassword = () => {
   const handleReset = async (e) => {
     e.preventDefault();
     setMessage(null);
-    if (!newPassword || newPassword !== confirmPassword) return setMessage({ type: 'error', text: 'Passwords do not match' });
-    if (!/(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>])/.test(newPassword)) {
+    
+    // Trim passwords to avoid whitespace issues
+    const trimmedNewPassword = (newPassword || '').trim();
+    const trimmedConfirmPassword = (confirmPassword || '').trim();
+    
+    if (!trimmedNewPassword) {
+      return setMessage({ type: 'error', text: 'New password is required' });
+    }
+    
+    if (!trimmedConfirmPassword) {
+      return setMessage({ type: 'error', text: 'Please confirm your password' });
+    }
+    
+    if (trimmedNewPassword !== trimmedConfirmPassword) {
+      return setMessage({ type: 'error', text: 'Passwords do not match' });
+    }
+    
+    if (!/(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>])/.test(trimmedNewPassword)) {
       return setMessage({ type: 'error', text: 'Password must include at least one letter, one number, one uppercase letter, and one special character' });
     }
 
@@ -87,7 +103,7 @@ const ForgotPassword = () => {
         return setMessage({ type: 'error', text: 'OTP not verified' }); 
       }
       
-      const res = await resetPasswordWithOtp({ newPassword, email: email.trim() });
+      const res = await resetPasswordWithOtp({ newPassword: trimmedNewPassword, email: email.trim() });
       if (res.data && res.data.success) {
         setMessage({ type: 'success', text: 'Password reset successfully. Please sign in.' });
         setRetryAfterMs(null);

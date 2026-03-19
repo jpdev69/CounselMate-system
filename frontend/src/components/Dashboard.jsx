@@ -3,13 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ViolationAnalytics from './ViolationAnalytics';
 import { useSlips } from '../contexts/SlipsContext';
-import SchoolYearSelector from './SchoolYearSelector';
+import api from '../services/api';
 
 const Dashboard = () => {
   const { slips } = useSlips();
   const [recentViolations, setRecentViolations] = useState([]);
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('');
   const [selectedTerm, setSelectedTerm] = useState('');
+  const [availableFilters, setAvailableFilters] = useState({ schoolYears: [], terms: [] });
+  const [filtersLoading, setFiltersLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,6 +30,26 @@ const Dashboard = () => {
       setRecentViolations(recent);
     }
   }, [slips]);
+
+  // Fetch available filter options
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        setFiltersLoading(true);
+        const queryParams = selectedSchoolYear ? `?schoolYear=${encodeURIComponent(selectedSchoolYear)}` : '';
+        const response = await api.get(`/visualizations/filter-options${queryParams}`);
+        setAvailableFilters(response.data.data);
+      } catch (error) {
+        console.error('Error fetching filter options:', error);
+        // Fallback to empty arrays if API fails
+        setAvailableFilters({ schoolYears: [], terms: [] });
+      } finally {
+        setFiltersLoading(false);
+      }
+    };
+
+    fetchFilterOptions();
+  }, [selectedSchoolYear]); // Re-fetch when school year changes
 
   const handleTickerClick = (violation) => {
     // Navigate based on violation status
@@ -118,66 +140,82 @@ const Dashboard = () => {
         }
       `}</style>
 
-      {/* Filters Section */}
-      <div style={{ 
-        padding: '20px', 
-        backgroundColor: '#f8fafc', 
-        borderBottom: '1px solid #e2e8f0',
-        display: 'flex',
-        gap: '20px',
-        alignItems: 'center',
-        flexWrap: 'wrap'
-      }}>
-        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-          <div>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '5px', 
-              fontWeight: '600', 
-              color: '#374151',
-              fontSize: '14px'
-            }}>
-              School Year:
-            </label>
-            <SchoolYearSelector
-              value={selectedSchoolYear}
-              onChange={setSelectedSchoolYear}
-              required={false}
-              placeholder="All Years"
-            />
-          </div>
-          
-          <div>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '5px', 
-              fontWeight: '600', 
-              color: '#374151',
-              fontSize: '14px'
-            }}>
-              Term:
-            </label>
-            <select 
-              value={selectedTerm}
-              onChange={(e) => setSelectedTerm(e.target.value)}
-              style={{
-                padding: '8px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '14px',
-                minWidth: '120px',
-                backgroundColor: '#ffffff',
-                color: '#374151'
-              }}
-            >
-              <option value="">All Terms</option>
-              <option value="1st">1st Semester</option>
-              <option value="2nd">2nd Semester</option>
-              <option value="Summer">Summer</option>
-            </select>
+      {/* Filters Section - Always show filters, but only populate with available options */}
+      {!filtersLoading && (
+        <div style={{ 
+          padding: '20px', 
+          backgroundColor: '#f8fafc', 
+          borderBottom: '1px solid #e2e8f0',
+          display: 'flex',
+          gap: '20px',
+          alignItems: 'center',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+            {/* School Year Filter - Always show, but only populate with available school years */}
+            <div>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '5px', 
+                fontWeight: '600', 
+                color: '#374151',
+                fontSize: '14px'
+              }}>
+                School Year:
+              </label>
+              <select 
+                value={selectedSchoolYear}
+                onChange={(e) => setSelectedSchoolYear(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  minWidth: '140px',
+                  backgroundColor: '#ffffff',
+                  color: '#374151'
+                }}
+              >
+                <option value="">All Years</option>
+                {availableFilters.schoolYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Term Filter - Always show, but only populate with available terms */}
+            <div>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '5px', 
+                fontWeight: '600', 
+                color: '#374151',
+                fontSize: '14px'
+              }}>
+                Term:
+              </label>
+              <select 
+                value={selectedTerm}
+                onChange={(e) => setSelectedTerm(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  minWidth: '140px',
+                  backgroundColor: '#ffffff',
+                  color: '#374151'
+                }}
+              >
+                <option value="">All Terms</option>
+                {availableFilters.terms.map(term => (
+                  <option key={term.value} value={term.value}>{term.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Original Dashboard Content */}
       <div style={{ padding: '20px' }}>

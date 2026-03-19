@@ -6,9 +6,9 @@ const MAX_ATTEMPTS = parseInt(process.env.MAX_ATTEMPTS || '3', 10);
 const DEFAULT_ESCALATIONS = {
   login: [3,5,7,9,12,15],
   'verify-password': [3,5,7,9,12,15],
+  'forgot-check-email': [3,5,7,9,12,15],
   'forgot-verify': [3,5,7,9,12,15],
   'forgot-reset': [3,5,7,9,12,15],
-  'me-security-question': [3,5,7,9,12,15],
   'forgot-otp-send': [3,5,7,9,12,15],
   'forgot-otp-verify': [3,5,7,9,12,15],
   'forgot-otp-reset': [3,5,7,9,12,15],
@@ -105,26 +105,7 @@ function precheckRateLimit(label) {
         saveEntry(key, entry);
       }
 
-      // Pre-block if this attempt would reach the limit
-      if (entry.attempts >= MAX_ATTEMPTS - 1) {
-        const list = getEscalationListForLabel(label);
-        const idx = Math.min(entry.escalationIndex || 0, list.length - 1);
-        const lockoutMinutes = list[idx] || list[list.length - 1] || 10; // fallback
-        entry.blockedUntil = now + lockoutMinutes * 60 * 1000;
-        entry.attempts = 0;
-        entry.firstAt = null;
-        entry.escalationIndex = Math.min((entry.escalationIndex || 0) + 1, list.length - 1);
-        saveEntry(key, entry);
-        
-        const remainingMs = entry.blockedUntil - now;
-        const remainingSeconds = Math.ceil(remainingMs / 1000);
-        const remainingMinutes = Math.ceil(remainingSeconds / 60);
-        res.set('Retry-After', String(remainingSeconds));
-        const friendlyText = remainingMinutes > 0
-          ? `Too many attempts. Try again after ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}.`
-          : `Too many attempts. Try again after ${remainingSeconds} second${remainingSeconds === 1 ? '' : 's'}.`;
-        return res.status(429).json({ success: false, error: friendlyText, retryAfterMs: remainingMs });
-      }
+      // Don't pre-block - only block after limit is reached in recordFailedAttempt
 
       return next();
     } catch (err) {
