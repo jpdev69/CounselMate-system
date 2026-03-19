@@ -851,10 +851,9 @@ router.get('/students/search', async (req, res) => {
         s.id,
         s.student_id,
         s.full_name,
-        s.current_year_level,
-        s.current_section,
+        s.year,
+        s.section,
         s.current_course,
-        s.enrollment_status,
         s.last_school_year,
         s.last_term,
         s.created_at
@@ -895,10 +894,9 @@ router.get('/students/:id', async (req, res) => {
         s.id,
         s.student_id,
         s.full_name,
-        s.current_year_level,
-        s.current_section,
+        s.year,
+        s.section,
         s.current_course,
-        s.enrollment_status,
         s.last_school_year,
         s.last_term,
         s.created_at,
@@ -928,10 +926,9 @@ router.put('/students/:id', async (req, res) => {
     const { id } = req.params;
     const { 
       full_name, 
-      current_year_level, 
-      current_section, 
+      year, 
+      section, 
       current_course, 
-      enrollment_status,
       last_school_year,
       last_term
     } = req.body;
@@ -951,21 +948,17 @@ router.put('/students/:id', async (req, res) => {
       updates.push(`full_name = $${paramIndex++}`);
       values.push(full_name.trim());
     }
-    if (current_year_level !== undefined) {
-      updates.push(`current_year_level = $${paramIndex++}`);
-      values.push(current_year_level.trim());
+    if (year !== undefined) {
+      updates.push(`year = $${paramIndex++}`);
+      values.push(year.trim());
     }
-    if (current_section !== undefined) {
-      updates.push(`current_section = $${paramIndex++}`);
-      values.push(current_section.trim());
+    if (section !== undefined) {
+      updates.push(`section = $${paramIndex++}`);
+      values.push(section.trim());
     }
     if (current_course !== undefined) {
       updates.push(`current_course = $${paramIndex++}`);
       values.push(current_course.trim());
-    }
-    if (enrollment_status !== undefined) {
-      updates.push(`enrollment_status = $${paramIndex++}`);
-      values.push(enrollment_status);
     }
     if (last_school_year !== undefined) {
       updates.push(`last_school_year = $${paramIndex++}`);

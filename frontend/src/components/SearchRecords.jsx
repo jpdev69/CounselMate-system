@@ -5,7 +5,7 @@ import { useSlips } from '../contexts/SlipsContext';
 import { getStudentAdmissionSlips, getStudentReports, resolveStudentReport, deleteStudentReport } from '../services/api';
 import api from '../services/api';
 import * as XLSX from 'xlsx';
-import { Search, FileText, User, Calendar, CheckCircle, Trash2 } from 'lucide-react';
+import { Search, FileText, User, Calendar, CheckCircle, Trash2, Printer } from 'lucide-react';
 import '../App-table-update.css';
 
 // ── Sort helper component ─────────────────────────────────────────────
@@ -312,6 +312,219 @@ const SearchRecords = () => {
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to delete report');
     }
+  };
+
+  const handlePrintStudentRecords = () => {
+    if (!groupViewStudent) return;
+    
+    // Get approved slips from the current filtered list
+    let approvedSlips = [];
+    if (groupViewStudent.toggle !== 'reports') {
+      let slipsList = (groupSlips || []).slice();
+      if (groupSearchTerm) {
+        const q = groupSearchTerm.toLowerCase();
+        slipsList = slipsList.filter(s => (s.slip_number || '').toLowerCase().includes(q) || (s.violation_description || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q));
+      }
+      if (groupStatusFilter !== 'all') slipsList = slipsList.filter(s => s.status === groupStatusFilter);
+      if (groupStartDate) slipsList = slipsList.filter(s => new Date(s.created_at) >= new Date(groupStartDate));
+      if (groupEndDate) {
+        const end = new Date(groupEndDate);
+        end.setHours(23, 59, 59, 999);
+        slipsList = slipsList.filter(s => new Date(s.created_at) <= end);
+      }
+      approvedSlips = slipsList.filter(s => s.status === 'approved');
+    }
+
+    // Get reported and resolved reports
+    let reportsList = groupViewReports.slice();
+    if (groupViewStudent.reportSearchTerm) {
+      const q = groupViewStudent.reportSearchTerm.toLowerCase();
+      reportsList = reportsList.filter(r => (r.violation_description || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q));
+    }
+    if (groupViewStudent.reportStatusFilter && groupViewStudent.reportStatusFilter !== 'all') {
+      reportsList = reportsList.filter(r => (r.status || '').toLowerCase() === groupViewStudent.reportStatusFilter);
+    }
+    if (groupViewStudent.reportStartDate) {
+      reportsList = reportsList.filter(r => new Date(r.created_at) >= new Date(groupViewStudent.reportStartDate));
+    }
+    if (groupViewStudent.reportEndDate) {
+      const end = new Date(groupViewStudent.reportEndDate);
+      end.setHours(23, 59, 59, 999);
+      reportsList = reportsList.filter(r => new Date(r.created_at) <= end);
+    }
+    const reportedReports = reportsList.filter(r => r.status === 'reported');
+    const resolvedReports = reportsList.filter(r => r.status === 'resolved');
+
+    if (approvedSlips.length === 0 && reportedReports.length === 0 && resolvedReports.length === 0) {
+      alert('No approved slips or reported/resolved reports to print for this student.');
+      return;
+    }
+
+    // Create printable content
+    const printContent = `
+      <html>
+        <head>
+          <title>Student Violation Records</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 15px; color: #000; }
+            .student-info { margin-bottom: 20px; padding: 12px; border: 1px solid #ccc; background: #f9f9f9; }
+            .student-info h3 { margin: 0 0 8px 0; font-size: 16px; font-weight: bold; text-transform: uppercase; }
+            .section { margin-bottom: 20px; }
+            .section-title { margin-bottom: 10px; padding: 8px; background: #006400; color: white; font-size: 14px; font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12px; }
+            th { background: #f8f9fa; border: 1px solid #dee2e6; padding: 8px; text-align: left; font-weight: bold; color: #495057; }
+            td { border: 1px solid #dee2e6; padding: 8px; vertical-align: top; }
+            .status { display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; border-radius: 3px; }
+            .status.approved { background: #d4edda; color: #155724; }
+            .status.reported { background: #fff3cd; color: #856404; }
+            .status.resolved { background: #d1ecf1; color: #0c5460; }
+            .description { max-width: 300px; word-wrap: break-word; }
+            .footer { margin-top: 20px; text-align: center; font-size: 11px; color: #666; border-top: 1px solid #ccc; padding-top: 10px; }
+            @media print { body { margin: 10px; } }
+          </style>
+        </head>
+        <body>
+          <div style="text-align: center; margin-bottom: 15px;">
+            <h2 style="color: #006400; font-family: Times New Roman, serif; margin: 0; font-size: 24px; letter-spacing: 0.5px;">ISABELA STATE UNIVERSITY</h2>
+            <h3 style="margin: 8px 0; font-family: Times New Roman, serif; font-size: 16px; font-weight: normal; letter-spacing: 1px;">GUIDANCE OFFICE</h3>
+            <h3 style="text-decoration: underline; margin: 15px 0 5px 0; font-size: 20px; font-weight: bold; font-family: Arial, sans-serif;">STUDENT VIOLATION RECORDS</h3>
+          </div>
+          
+          <div class="student-info">
+            <h3>${groupViewStudent.name}</h3>
+            <div style="font-size: 11px; color: #666;">
+              <strong>Total Records:</strong> ${approvedSlips.length + reportedReports.length + resolvedReports.length}
+            </div>
+          </div>
+
+          ${approvedSlips.length > 0 ? `
+          <div class="section">
+            <div class="section-title">APPROVED ADMISSION SLIPS (${approvedSlips.length})</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Slip #</th>
+                  <th>Date Issued</th>
+                  <th>Course</th>
+                  <th>Year & Section</th>
+                  <th>School Year</th>
+                  <th>Violation</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Category</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${approvedSlips.map(slip => `
+                  <tr>
+                    <td>${slip.slip_number || 'N/A'}</td>
+                    <td>${slip.created_at ? new Date(slip.created_at).toLocaleDateString() : 'N/A'}</td>
+                    <td>${slip.course || 'N/A'}</td>
+                    <td>${[slip.year, slip.section].filter(Boolean).join(' ') || 'N/A'}</td>
+                    <td>${slip.school_year || 'N/A'}</td>
+                    <td>${slip.violation_description || 'No violation specified'}</td>
+                    <td class="description">${slip.description || 'No description'}</td>
+                    <td><span class="status approved">APPROVED</span></td>
+                    <td>${(slip.violation_category || '').toUpperCase() || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+
+          ${reportedReports.length > 0 ? `
+          <div class="section">
+            <div class="section-title">REPORTED VIOLATIONS (${reportedReports.length})</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date Reported</th>
+                  <th>Course</th>
+                  <th>Year & Section</th>
+                  <th>School Year</th>
+                  <th>Term</th>
+                  <th>Violation Type</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Category</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${reportedReports.map(report => `
+                  <tr>
+                    <td>${report.created_at ? new Date(report.created_at).toLocaleDateString() : 'N/A'}</td>
+                    <td>${report.course || 'N/A'}</td>
+                    <td>${[report.year, report.section].filter(Boolean).join(' - ') || 'N/A'}</td>
+                    <td>${report.school_year || 'N/A'}</td>
+                    <td>${report.term || 'N/A'}</td>
+                    <td>${report.violation_description || 'No violation type'}</td>
+                    <td class="description">${report.description || 'No description'}</td>
+                    <td><span class="status reported">REPORTED</span></td>
+                    <td>${(report.violation_category || '').toUpperCase() || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+
+          ${resolvedReports.length > 0 ? `
+          <div class="section">
+            <div class="section-title">RESOLVED VIOLATIONS (${resolvedReports.length})</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date Reported</th>
+                  <th>Course</th>
+                  <th>Year & Section</th>
+                  <th>School Year</th>
+                  <th>Term</th>
+                  <th>Violation Type</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Category</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${resolvedReports.map(report => `
+                  <tr>
+                    <td>${report.created_at ? new Date(report.created_at).toLocaleDateString() : 'N/A'}</td>
+                    <td>${report.course || 'N/A'}</td>
+                    <td>${[report.year, report.section].filter(Boolean).join(' - ') || 'N/A'}</td>
+                    <td>${report.school_year || 'N/A'}</td>
+                    <td>${report.term || 'N/A'}</td>
+                    <td>${report.violation_description || 'No violation type'}</td>
+                    <td class="description">${report.description || 'No description'}</td>
+                    <td><span class="status resolved">RESOLVED</span></td>
+                    <td>${(report.violation_category || '').toUpperCase() || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+
+          <div class="footer">
+            <p>This is an official record from ISU Guidance Office</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // Create a new window and print
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    
+    // Wait for content to load before printing
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    };
   };
 
   // Count of approved slips and resolved/reported reports in current filtered results
@@ -702,7 +915,18 @@ const SearchRecords = () => {
                         {groupViewStudent.toggle === 'reports' ? groupViewReports.length : groupTotal} record{((groupViewStudent.toggle === 'reports' ? groupViewReports.length : groupTotal) !== 1) ? 's' : ''}
                       </div>
                     </div>
-                    <button onClick={() => setGroupViewStudent(null)} className="btn btn-ghost">Close</button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={handlePrintStudentRecords}
+                        className="btn btn-primary"
+                        style={{ padding: '6px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+                        title="Print student's approved slips and reported/resolved reports"
+                      >
+                        <Printer style={{ width: 14, height: 14 }} />
+                        Print
+                      </button>
+                      <button onClick={() => setGroupViewStudent(null)} className="btn btn-ghost">Close</button>
+                    </div>
                   </div>
 
                   {/* ── Segmented toggle ── */}

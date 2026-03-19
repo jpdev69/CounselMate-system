@@ -687,8 +687,6 @@ const ReportStudent = () => {
           {success && (
             <div style={{ padding: '16px', borderRadius: '4px', border: '1px solid #d1fae5', background: '#ecfdf5', color: '#065f46', marginBottom: '20px' }}>
               <p style={{ fontWeight: 700, margin: '0 0 8px 0' }}>REPORT SUBMITTED SUCCESSFULLY</p>
-              <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>Student: <strong>{success.studentName}</strong></p>
-              <p style={{ margin: '0 0 12px 0', fontSize: '14px' }}>Violation: <strong>{success.violationType}</strong></p>
               <p style={{ margin: '0', fontSize: '13px', color: '#047857' }}>{success.message}</p>
             </div>
           )}
