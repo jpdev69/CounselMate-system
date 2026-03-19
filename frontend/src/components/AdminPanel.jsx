@@ -1666,7 +1666,12 @@ const AdminPanel = () => {
             Enable this toggle to allow counselors to edit existing student information (course, year, section) when issuing admission slips or creating reports.
           </p>
 
-          <div style={panelCard}>
+          <div style={{
+            border: '1px solid #e5e7eb',
+            borderRadius: 10,
+            padding: 16,
+            background: '#fafafa',
+          }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14, color: '#374151', marginBottom: 2 }}>

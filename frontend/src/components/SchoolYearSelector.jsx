@@ -15,7 +15,7 @@ const SchoolYearSelector = ({ value, onChange, required = false, disabled = fals
         // Fallback to generated school years if API fails
         const currentYear = new Date().getFullYear();
         const schoolYears = [];
-        for (let year = currentYear - 2; year <= currentYear + 2; year++) {
+        for (let year = currentYear - 1; year <= currentYear + 1; year++) {
           schoolYears.push(`${year}-${year + 1}`);
         }
         setAvailableSchoolYears(schoolYears);

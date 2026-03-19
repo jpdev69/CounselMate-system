@@ -200,7 +200,9 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
             {data.map((point, index) => {
               const x = xScale(index);
               const lineY = yScale(point.moving_average_7d || 0);
-              const dotY = yScale(point.violation_count || 0); // Use daily count for dots
+              // Position dots closer to the line but maintain visual distinction
+              const dotOffset = (point.violation_count || 0) - (point.moving_average_7d || 0);
+              const dotY = yScale((point.moving_average_7d || 0) + (dotOffset * 0.3)); // Reduce the visual offset by 70%
               const isHovered = hoveredPoint === index;
               
               // Skip rendering if y is invalid
@@ -208,6 +210,20 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
               
               return (
                 <g key={index}>
+                  {/* Subtle connecting line from dot to main line */}
+                  {Math.abs(dotOffset) > 0.5 && (
+                    <line
+                      x1={x}
+                      y1={dotY}
+                      x2={x}
+                      y2={lineY}
+                      stroke="#3b82f6"
+                      strokeWidth="1"
+                      opacity="0.3"
+                      strokeDasharray="2,2"
+                    />
+                  )}
+                  
                   <circle
                     cx={x}
                     cy={dotY}
@@ -215,6 +231,7 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
                     fill="#3b82f6"
                     stroke="#ffffff"
                     strokeWidth="2"
+                    opacity={0.8}
                     style={{ cursor: 'pointer' }}
                     onMouseEnter={() => setHoveredPoint(index)}
                     onMouseLeave={() => setHoveredPoint(null)}
@@ -249,7 +266,7 @@ const ViolationTrendsChart = ({ schoolYear, term }) => {
                         fill="#9ca3af"
                         textAnchor="middle"
                       >
-                        Violations: {point.violation_count || 0} | Avg: {(point.moving_average_7d || 0).toFixed(1)}
+                        Daily: {point.violation_count || 0} | Avg: {(point.moving_average_7d || 0).toFixed(1)}
                       </text>
                     </g>
                   )}

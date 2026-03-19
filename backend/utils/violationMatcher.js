@@ -1,61 +1,5 @@
 const http = require('http');
-
-const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'deepseek-v3.1:671b-cloud';
-
-/**
- * Makes a request to the local Ollama API
- * @param {string} endpoint - The API endpoint
- * @param {object} data - The request body
- * @returns {Promise<string>} - The response text
- */
-async function callOllama(endpoint, data) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(endpoint, OLLAMA_BASE_URL);
-    const options = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    };
-
-    const req = http.request(url, options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => {
-        body += chunk;
-      });
-      res.on('end', () => {
-        try {
-          resolve(body);
-        } catch (e) {
-          reject(e);
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.write(JSON.stringify(data));
-    req.end();
-  });
-}
-
-/**
- * Checks if Ollama is running and accessible (GET /api/tags)
- * @returns {Promise<boolean>}
- */
-function isOllamaAvailable() {
-  return new Promise((resolve) => {
-    const url = new URL('/api/tags', OLLAMA_BASE_URL);
-    http.get(url.toString(), (res) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
-      res.on('end', () => resolve(res.statusCode === 200));
-    }).on('error', (error) => {
-      console.error('❌ Ollama is not available:', error.message);
-      resolve(false);
-    });
-  });
-}
+const { isOllamaAvailable, textCompletion, OLLAMA_MODEL } = require('./llmService');
 
 /**
  * Validates if violation description matches the violation type
@@ -105,10 +49,7 @@ Rules:
 
 Respond ONE WORD: MATCH or MISMATCH`;
 
-    const response = await callOllama('/api/generate', {
-      model: OLLAMA_MODEL,
-      prompt: strictPrompt,
-      stream: false,
+    const response = await textCompletion(strictPrompt, {
       temperature: 0.1,
       options: {
         num_predict: 10, // enough tokens for MATCH/MISMATCH even with special tokens
@@ -116,15 +57,7 @@ Respond ONE WORD: MATCH or MISMATCH`;
     });
 
     // Parse the response
-    let result;
-    try {
-      result = JSON.parse(response);
-    } catch (e) {
-      console.warn('Failed to parse LLM response as JSON, attempting text extraction');
-      result = { response: response };
-    }
-
-    const rawResponse = (result.response || response).trim();
+    const rawResponse = response.trim();
     // DeepSeek appends special tokens (e.g. <｜END▁OF▁SENTENCE｜>) — extract first clean word only
     const firstWord = rawResponse.match(/[A-Za-z]+/);
     const responseText = firstWord ? firstWord[0].toUpperCase() : '';
@@ -373,7 +306,7 @@ function performFallbackValidation(violationType, description) {
   }
 
   // Check for related keywords
-  const keywords = resolveKeywords(typeUpper) || resolveKeywords(typeKey) || [];
+  const keywords = resolveKeywords(typeUpper) || resolveKeywords(typeKey) || generateDynamicKeywords(violationType);
   const matchedKeywords = keywords.filter((kw) => descUpper.includes(kw.toUpperCase()));
 
   if (matchedKeywords.length > 0) {
@@ -384,11 +317,107 @@ function performFallbackValidation(violationType, description) {
     };
   }
 
+  // Dynamic semantic matching as final fallback
+  const semanticMatch = performSemanticMatching(violationType, description);
+  if (semanticMatch.matches) {
+    return semanticMatch;
+  }
+
   // No match found
   return {
     matches: false,
     confidence: 0.8,
     reason: `No clear connection found between description and ${violationType} violation type`,
+  };
+}
+
+/**
+ * Generate dynamic keywords from violation type code and description
+ * @param {string} violationType - The violation type code
+ * @returns {Array<string>} - Array of keywords
+ */
+function generateDynamicKeywords(violationType) {
+  const keywords = [];
+  const typeUpper = violationType.toUpperCase();
+  
+  // Split on common separators and generate variations
+  const parts = typeUpper.split(/[_\s-]+/);
+  
+  // Add individual parts
+  keywords.push(...parts);
+  
+  // Add combined parts
+  keywords.push(typeUpper.replace(/[_\s-]/g, ''));
+  
+  // Generate common variations
+  parts.forEach(part => {
+    // Add singular/plural variations
+    if (part.endsWith('S')) {
+      keywords.push(part.slice(0, -1)); // singular
+    } else {
+      keywords.push(part + 'S'); // plural
+    }
+    
+    // Add common verb forms
+    if (part.includes('EATING')) {
+      keywords.push('ATE', 'FOOD', 'SNACK', 'DRINK');
+    }
+    if (part.includes('RESTRICT') || part.includes('AREA')) {
+      keywords.push('RESTRICTED', 'OFF LIMITS', 'NOT ALLOWED');
+    }
+    if (part.includes('UNIFORM')) {
+      keywords.push('DRESS', 'ATTIRE', 'CLOTHES');
+    }
+    if (part.includes('SMOKING')) {
+      keywords.push('SMOKE', 'VAPE', 'CIGARETTE');
+    }
+    if (part.includes('FIGHT')) {
+      keywords.push('FIGHTING', 'ASSAULT', 'HIT', 'PUNCH');
+    }
+    if (part.includes('CHEAT')) {
+      keywords.push('CHEATING', 'COPY', 'PLAGIARISM');
+    }
+  });
+  
+  return [...new Set(keywords)]; // Remove duplicates
+}
+
+/**
+ * Perform semantic matching between violation type and description
+ * @param {string} violationType - The violation type code
+ * @param {string} description - The violation description
+ * @returns {object} - Match result
+ */
+function performSemanticMatching(violationType, description) {
+  const typeUpper = violationType.toUpperCase();
+  const descUpper = description.toUpperCase();
+  
+  // Check for direct word overlap
+  const typeWords = typeUpper.split(/[_\s-]+/);
+  const descWords = descUpper.split(/\s+/);
+  
+  let overlapCount = 0;
+  typeWords.forEach(typeWord => {
+    if (descWords.some(descWord => 
+        descWord.includes(typeWord) || typeWord.includes(descWord)
+    )) {
+      overlapCount++;
+    }
+  });
+  
+  // If significant overlap, consider it a match
+  if (overlapCount >= Math.min(2, typeWords.length)) {
+    return {
+      matches: true,
+      confidence: 0.6,
+      reason: `Semantic similarity detected between violation type and description`,
+    };
+  }
+  
+  return {
+    matches: false,
+    confidence: 0.3,
+    reason: `No semantic match found`,
   };
 }
 

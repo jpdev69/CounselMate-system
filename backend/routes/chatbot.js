@@ -5,47 +5,7 @@ const router  = express.Router();
 
 const manualStore = require('../utils/manualStore');
 const responseCache = require('../utils/responseCache');
-
-const OLLAMA_BASE_URL = process.env.OLLAMA_URL   || 'http://localhost:11434';
-const OLLAMA_MODEL    = process.env.OLLAMA_MODEL || 'deepseek-v3.1:671b-cloud';
-
-/**
- * Call the local Ollama API (same pattern as violationMatcher.js)
- */
-function callOllama(endpoint, data) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(endpoint, OLLAMA_BASE_URL);
-    const postData = JSON.stringify(data);
-    const options = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    };
-
-    const req = http.request(url, options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
-      res.on('end', () => resolve(body));
-    });
-
-    req.on('error', reject);
-    req.write(postData);
-    req.end();
-  });
-}
-
-/**
- * Check if Ollama is reachable (GET /api/tags)
- */
-function isOllamaAvailable() {
-  return new Promise((resolve) => {
-    const url = new URL('/api/tags', OLLAMA_BASE_URL);
-    http.get(url.toString(), (res) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
-      res.on('end', () => resolve(res.statusCode === 200));
-    }).on('error', () => resolve(false));
-  });
-}
+const { isOllamaAvailable, chatCompletion, OLLAMA_MODEL } = require('../utils/llmService');
 
 // GET /api/chatbot/manual — returns the raw manual text and metadata
 router.get('/manual', (req, res) => {
@@ -116,24 +76,15 @@ router.post('/ask', async (req, res) => {
       prompt = manualStore.getSystemPrompt();
     }
 
-    const raw = await callOllama('/api/chat', {
-      model: OLLAMA_MODEL,
-      messages: [
-        { role: 'system', content: prompt },
-        { role: 'user', content: userMessage }
-      ],
-      stream: false,
+    const reply = await chatCompletion([
+      { role: 'system', content: prompt },
+      { role: 'user', content: userMessage }
+    ], {
+      temperature: 0.1, // Slight creativity for chatbot
       options: {
-        temperature: 0.3,
-        num_predict: 1024
+        num_predict: 8192 // Balanced for chatbot responses
       }
     });
-
-    const parsed = JSON.parse(raw);
-    let reply = parsed?.message?.content || '';
-
-    // DeepSeek sometimes appends special tokens â€” strip them
-    reply = reply.replace(/<[^>]+>/g, '').trim();
 
     if (!reply) {
       reply = 'Sorry, I could not generate a response. Please try again.';

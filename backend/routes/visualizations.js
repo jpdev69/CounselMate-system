@@ -992,7 +992,9 @@ router.get('/filter-options', async (req, res) => {
     const termsResult = await db.query(termsQuery, queryParams);
 
     // Format terms for frontend display
-    const formattedTerms = termsResult.rows.map(row => {
+    const termMap = new Map(); // Use Map to ensure unique values
+    
+    termsResult.rows.forEach(row => {
       let term = row.term;
       let cleanTerm = term;
       
@@ -1012,15 +1014,20 @@ router.get('/filter-options', async (req, res) => {
         cleanTerm = 'Summer';
       }
       
-      return {
-        value: cleanTerm,
-        label: cleanTerm === '1st' ? '1st Semester' : 
-               cleanTerm === '2nd' ? '2nd Semester' : 
-               cleanTerm === '3rd' ? '3rd Semester' : 
-               cleanTerm === 'Summer' ? 'Summer' : cleanTerm,
-        originalValue: term // Keep original for debugging
-      };
+      // Only add if not already present (ensures uniqueness)
+      if (!termMap.has(cleanTerm)) {
+        termMap.set(cleanTerm, {
+          value: cleanTerm,
+          label: cleanTerm === '1st' ? '1st Semester' : 
+                 cleanTerm === '2nd' ? '2nd Semester' : 
+                 cleanTerm === '3rd' ? '3rd Semester' : 
+                 cleanTerm === 'Summer' ? 'Summer' : cleanTerm,
+          originalValue: term // Keep original for debugging
+        });
+      }
     });
+
+    const formattedTerms = Array.from(termMap.values());
 
     res.json({
       success: true,

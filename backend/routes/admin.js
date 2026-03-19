@@ -1,6 +1,7 @@
 const express    = require('express');
 const multer     = require('multer');
 const fs         = require('fs');
+const http        = require('http');
 const path       = require('path');
 const router     = express.Router();
 const db         = require('../config/database');
@@ -355,42 +356,7 @@ router.post('/violation-types', async (req, res) => {
 
 // ── VIOLATIONS UPLOAD (txt → LLM extraction) ─────────────────────────────────
 
-const http = require('http');
-const OLLAMA_BASE_URL = process.env.OLLAMA_URL   || 'http://localhost:11434';
-const OLLAMA_MODEL    = process.env.OLLAMA_MODEL || 'deepseek-v3.1:671b-cloud';
-
-function callOllamaAdmin(data) {
-  return new Promise((resolve, reject) => {
-    const url = new URL('/api/chat', OLLAMA_BASE_URL);
-    const postData = JSON.stringify(data);
-    const req = http.request(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, (res) => {
-      let body = '';
-      res.on('data', chunk => { body += chunk; });
-      res.on('end', () => resolve(body));
-    });
-    req.on('error', reject);
-    req.write(postData);
-    req.end();
-  });
-}
-
-async function isOllamaAvailableAdmin() {
-  try {
-    const response = await new Promise((resolve, reject) => {
-      const url = new URL('/api/tags', OLLAMA_BASE_URL);
-      const req = http.request(url, { method: 'GET' }, (res) => {
-        let body = '';
-        res.on('data', chunk => { body += chunk; });
-        res.on('end', () => resolve(body));
-      });
-      req.on('error', reject);
-      req.end();
-    });
-    return response.length > 0;
-  } catch {
-    return false;
-  }
-}
+const { isOllamaAvailable, chatCompletion } = require('../utils/llmService');
 
 // multer for violations .txt (memory storage — read text, discard file)
 const violationsUpload = multer({
@@ -439,7 +405,7 @@ function extractDisciplineSections(text) {
     }
   });
 
-  // If nothing matched, fall back to sending the full text (capped)
+  // If nothing matched, send the full text without truncation
   if (matchedIndices.size === 0) {
     return text.slice(0, 24000);
   }
@@ -472,7 +438,7 @@ router.post('/violations/extract', (req, res) => {
     const relevantText = extractDisciplineSections(docText);
 
     // Check Ollama
-    const ollamaUp = await isOllamaAvailableAdmin();
+    const ollamaUp = await isOllamaAvailable();
     if (!ollamaUp) {
       return res.status(503).json({ error: 'AI service (Ollama) is not reachable. Cannot extract violations without it.' });
     }
@@ -498,78 +464,63 @@ Rules:
 
     let rawLLM;
     try {
-      rawLLM = await callOllamaAdmin({
-        model: OLLAMA_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Extract all violations from this document:\n\n${relevantText}` },
-        ],
-        stream: false,
+      rawLLM = await chatCompletion([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Extract all violations from this document:\n\n${relevantText}` }
+      ], {
+        temperature: 0, // Deterministic extraction
         options: {
-          temperature: 0,
-          num_predict: 8192,
-          num_ctx: 16384,
-        },
+          num_predict: 8192 // Sufficient for violation extraction
+        }
       });
     } catch (llmErr) {
       console.error('Violations LLM call error:', llmErr.message);
       return res.status(503).json({ error: 'AI service failed to respond. Please try again.' });
     }
 
-    // Parse the LLM response — robustly extract the JSON array
+    // Parse LLM response — robustly extract JSON array
     let entries;
 
-    // Step 1: parse the Ollama HTTP response envelope
-    let rawParsed;
-    try {
-      rawParsed = JSON.parse(rawLLM);
-    } catch (e) {
-      console.error('Violations: Ollama response is not valid JSON (first 500):', String(rawLLM).slice(0, 500));
-      return res.status(503).json({ error: 'AI service returned an unexpected response. Please try again.' });
+    // Step 1: extract the model's text content
+    let content = rawLLM.trim();
+    console.log('[violations extract] LLM content length:', content.length, '| first 400:', content.slice(0, 400));
+
+    // Strip ALL markdown code fences wherever they appear
+    content = content.replace(/```[\w]*\n?/gi, '').replace(/```/g, '').trim();
+
+    // Find JSON array — prefer [{...}] to avoid matching inline [brackets]
+    if (!content.startsWith('[')) {
+      const objArray = content.match(/\[\s*\{[\s\S]*/);
+      if (objArray) content = objArray[0];
     }
 
-    // Step 2: extract the model's text content and parse the JSON array inside it
-    {
-      let content = (rawParsed?.message?.content || '').trim();
-      console.log('[violations extract] LLM content length:', content.length, '| first 400:', content.slice(0, 400));
-
-      // Strip ALL markdown code fences wherever they appear
-      content = content.replace(/```[\w]*\n?/gi, '').replace(/```/g, '').trim();
-
-      // Find the JSON array — prefer [{...}] to avoid matching inline [brackets]
-      if (!content.startsWith('[')) {
-        const objArray = content.match(/\[\s*\{[\s\S]*/);
-        if (objArray) content = objArray[0];
+    // Try strict parse first
+    try {
+      entries = JSON.parse(content);
+    } catch (_) {
+      // Output was truncated — recover all complete objects from partial JSON
+      const recovered = [];
+      const objRegex = /\{[^{}]*\}/g;
+      let m;
+      while ((m = objRegex.exec(content)) !== null) {
+        try {
+          const obj = JSON.parse(m[0]);
+          if (obj && (obj.description || obj.code)) recovered.push(obj);
+        } catch { /* skip malformed object */ }
       }
-
-      // Try strict parse first
-      try {
-        entries = JSON.parse(content);
-      } catch (_) {
-        // Output was truncated — recover all complete objects from partial JSON
-        const recovered = [];
-        const objRegex = /\{[^{}]*\}/g;
-        let m;
-        while ((m = objRegex.exec(content)) !== null) {
-          try {
-            const obj = JSON.parse(m[0]);
-            if (obj && (obj.description || obj.code)) recovered.push(obj);
-          } catch { /* skip malformed object */ }
-        }
-        if (recovered.length > 0) {
-          console.warn(`[violations extract] JSON was truncated — recovered ${recovered.length} objects`);
-          entries = recovered;
-        } else {
-          console.error('Violations: Could not parse LLM content as JSON and recovery found nothing');
-          return res.status(422).json({
-            error: 'Could not parse violations from the document. The AI could not identify structured violation data — please ensure the document contains a discipline/offenses section.',
-          });
-        }
+      if (recovered.length > 0) {
+        console.warn(`[violations extract] JSON was truncated — recovered ${recovered.length} objects`);
+        entries = recovered;
+      } else {
+        console.error('Violations: Could not parse LLM content as JSON and recovery found nothing');
+        return res.status(422).json({
+          error: 'Could not parse violations from the document. The AI could not identify structured violation data — please ensure the document contains a discipline/offenses section.',
+        });
       }
     }
 
     if (!Array.isArray(entries)) {
-      return res.status(422).json({ error: 'Could not extract violations from the document. Please ensure it contains a violations or offenses section.' });
+      return res.status(422).json({ error: 'Could not extract violations from document. Please ensure it contains a violations or offenses section.' });
     }
     if (entries.length === 0) {
       return res.status(422).json({ error: 'The uploaded document does not appear to contain student discipline violations or offenses. Please upload a student manual or disciplinary policy document.' });
