@@ -1,0 +1,19 @@
+FROM cypress/included:13.6.1
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci && npm cache clean --force
+
+# Copy Cypress configuration and tests
+COPY cypress/ ./cypress/
+COPY cypress.config.js ./
+
+# Create directories for artifacts
+RUN mkdir -p cypress/videos cypress/screenshots
+
+# Default command
+CMD ["cypress", "run", "--browser", "chrome"]

@@ -1,0 +1,21 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Create test directory
+RUN mkdir -p coverage
+
+# Expose port
+EXPOSE 5001
+
+# Default command for testing
+CMD ["npm", "run", "test:coverage"]

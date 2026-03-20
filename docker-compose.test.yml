@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  postgres-test:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: guidanceos_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d guidanceos_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://test_user:test_password@postgres-test:5432/guidanceos_test
+      JWT_SECRET: test-jwt-secret-for-testing
+      CORS_ORIGIN: http://localhost:3000
+      PORT: 5001
+    ports:
+      - "5001:5001"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run test:coverage
+
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.test
+    environment:
+      CYPRESS_baseUrl: http://localhost:3000
+      CYPRESS_apiUrl: http://backend-test:5001/api
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend-test
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run test:e2e:headless
+
+  cypress-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.cypress
+    environment:
+      CYPRESS_baseUrl: http://frontend-test:3000
+      CYPRESS_apiUrl: http://backend-test:5001/api
+    depends_on:
+      - frontend-test
+      - backend-test
+    volumes:
+      - ./frontend/cypress:/app/cypress
+      - ./frontend/cypress.config.js:/app/cypress.config.js
+      - cypress_videos:/app/cypress/videos
+      - cypress_screenshots:/app/cypress/screenshots
+    command: npx cypress run --browser chrome
+
+volumes:
+  postgres_test_data:
+  cypress_videos:
+  cypress_screenshots:

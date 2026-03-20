@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-03-20T15:29:17.642Z",
+  "totalFiles": 1,
+  "successfulConversions": 0,
+  "failedConversions": 1,
+  "conversions": [
+    {
+      "jsonFile": "test-results-2026-03-20T14-50-26-159Z.json",
+      "csvFile": "test-results-2026-03-20T14-50-26-159Z.csv",
+      "status": "failed",
+      "error": "No test results found in JSON file"
+    }
+  ]
+}

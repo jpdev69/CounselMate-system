@@ -1199,24 +1199,29 @@ app.post('/api/auth/forgot/reset-with-otp', precheckRateLimit('forgot-otp-reset'
 });
 
 // Run DB migrations on startup, then start server
-(async () => {
-  try {
-    await ensureAdminRole();
-    await ensureSignupRequestsTable();
-    await ensureStudentReportsTable();
-    await ensureAdmissionSlipsColumns();
-    await seedStudentManualViolationTypes();
-    await ensureRecoveryEmailColumn();
-  } catch (err) {
-    console.warn('Startup migration warning:', err.message || err);
-  }
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Database: ${DATABASE_URL ? 'Connected' : 'NOT CONFIGURED'}`);
-    console.log(`CORS enabled for: ${CORS_ORIGIN}`);
-    console.log(`Environment: ${process.env.NODE_ENV}`);
-  });
-})();
+if (require.main === module) {
+  (async () => {
+    try {
+      await ensureAdminRole();
+      await ensureSignupRequestsTable();
+      await ensureStudentReportsTable();
+      await ensureAdmissionSlipsColumns();
+      await seedStudentManualViolationTypes();
+      await ensureRecoveryEmailColumn();
+    } catch (err) {
+      console.warn('Startup migration warning:', err.message || err);
+    }
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Database: ${DATABASE_URL ? 'Connected' : 'NOT CONFIGURED'}`);
+      console.log(`CORS enabled for: ${CORS_ORIGIN}`);
+      console.log(`Environment: ${process.env.NODE_ENV}`);
+    });
+  })();
+}
+
+// Export app for testing
+module.exports = app;
 
 // Forgot password - return the counselor's saved security question (no email required)
 // Removed

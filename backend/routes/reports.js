@@ -152,6 +152,58 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Update a report (general update)
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { description, remarks } = req.body;
+
+    if (!description && !remarks) {
+      return res.status(400).json({ error: 'Description or remarks is required for update' });
+    }
+
+    // Check if report exists
+    const checkQuery = 'SELECT id FROM student_reports WHERE id = $1';
+    const checkResult = await db.query(checkQuery, [id]);
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    // Build update query dynamically
+    let updateFields = [];
+    let updateValues = [];
+    let paramIndex = 1;
+
+    if (description) {
+      updateFields.push(`description = $${paramIndex++}`);
+      updateValues.push(description);
+    }
+
+    if (remarks !== undefined) {
+      updateFields.push(`remarks = $${paramIndex++}`);
+      updateValues.push(remarks);
+    }
+
+    updateFields.push(`updated_at = NOW()`);
+    updateValues.push(id);
+
+    const updateQuery = `
+      UPDATE student_reports
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await db.query(updateQuery, updateValues);
+
+    res.json({ success: true, report: result.rows[0] });
+  } catch (error) {
+    console.error('Update report error:', error);
+    res.status(500).json({ error: 'Failed to update report' });
+  }
+});
+
 // Update report status (resolve)
 router.put('/:id/resolve', async (req, res) => {
   try {

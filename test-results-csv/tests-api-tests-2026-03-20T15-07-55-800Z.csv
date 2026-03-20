@@ -1,0 +1,12 @@
+﻿TEST ID,Component,Level,Objective,Steps/Test Data,Expected Result,Actual Result,Status,Duration,Remarks
+api_should_return_health_status_1774019275795,api,unit,return health status,Action: return health status,return health status,return health status,passed,1188,
+api_should_return_all_violation_types_1774019275796,api,unit,return all violation types,Action: return all violation types,return all violation types,return all violation types,passed,1188,
+api_should_filter_violation_types_by_category_1774019275796,api,unit,filter violation types by category,Action: filter violation types by category,filter violation types by category,filter violation types by category,passed,1188,
+api_should_require_authentication_1774019275796,api,unit,require authentication,Action: require authentication,require authentication,require authentication,passed,1188,
+api_should_create_signup_request_with_valid_data_1774019275796,api,unit,create signup request with valid data,Action: create signup request with valid data,create signup request with valid data,create signup request with valid data,passed,1188,
+api_should_reject_non_Gmail_addresses_1774019275796,api,unit,reject non-Gmail addresses,Action: reject non-Gmail addresses,reject non-Gmail addresses,reject non-Gmail addresses,passed,1188,
+api_should_validate_required_fields_1774019275796,api,unit,validate required fields,Action: validate required fields,validate required fields,validate required fields,passed,1188,
+api_should_validate_email_format_1774019275796,api,unit,validate email format,Request body missing required field,validate email format,validate email format,passed,1188,
+api_should_reject_duplicate_email_requests_1774019275796,api,unit,reject duplicate email requests,Request body missing required field,reject duplicate email requests,reject duplicate email requests,passed,1188,
+api_should_return_Gmail_settings_1774019275796,api,unit,return Gmail settings,Action: return Gmail settings,return Gmail settings,return Gmail settings,passed,1188,
+api_should_require_authentication_1774019275796,api,unit,require authentication,Action: require authentication,require authentication,require authentication,passed,1188,

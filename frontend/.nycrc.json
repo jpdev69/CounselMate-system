@@ -1,0 +1,32 @@
+{
+  "reporter": [
+    "text",
+    "html",
+    "lcov",
+    "json"
+  ],
+  "report-dir": "./coverage",
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/__mocks__/**",
+    "node_modules/**",
+    "coverage/**",
+    "jest.config.js",
+    ".nycrc.json",
+    "cypress/**"
+  ],
+  "include": [
+    "src/**/*.{js,jsx,ts,tsx}"
+  ],
+  "check-coverage": true,
+  "lines": 80,
+  "functions": 80,
+  "branches": 80,
+  "statements": 80,
+  "watermarks": {
+    "lines": [80, 95],
+    "functions": [80, 95],
+    "branches": [80, 95],
+    "statements": [80, 95]
+  }
+}

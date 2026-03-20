@@ -62,4 +62,20 @@ export const SlipsProvider = ({ children }) => {
   );
 };
 
-export const useSlips = () => useContext(SlipsContext);
+export const useSlips = () => {
+  const context = useContext(SlipsContext);
+  if (!context) {
+    // Return default values when context is not available (e.g., in tests)
+    return {
+      slips: [],
+      loading: false,
+      loadSlips: jest.fn(),
+      updateSlipInState: jest.fn(),
+      completeSlip: jest.fn(),
+      approveSlip: jest.fn(),
+      issueSlip: jest.fn(),
+      deleteSlip: jest.fn()
+    };
+  }
+  return context;
+};

@@ -1,0 +1,26 @@
+{
+  "admin": {
+    "email": "admin@university.edu",
+    "password": "admin123",
+    "fullName": "Admin User",
+    "role": "admin"
+  },
+  "counselor": {
+    "email": "counselor@example.com",
+    "password": "password123",
+    "fullName": "Test Counselor",
+    "role": "counselor"
+  },
+  "newUser": {
+    "email": "newuser@gmail.com",
+    "password": "changeme123",
+    "fullName": "New User",
+    "role": "counselor"
+  },
+  "invalidUser": {
+    "email": "invalid@example.com",
+    "password": "wrongpassword",
+    "fullName": "Invalid User",
+    "role": "counselor"
+  }
+}

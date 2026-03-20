@@ -1,0 +1,16 @@
+{
+  "name": "counselmate-system-tests",
+  "version": "1.0.0",
+  "description": "Test result reporting for CounselMate system",
+  "scripts": {
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test", 
+    "test:e2e": "cd frontend && npm run test:e2e:headless",
+    "test:docker": "docker-compose -f docker-compose.test.yml up --abort-on-container-exit",
+    "test:csv": "node test-utils/csvConverter.js --latest-only",
+    "test:report": "npm run test:docker && npm run test:csv"
+  },
+  "keywords": ["testing", "jest", "cypress", "reporting", "csv"],
+  "author": "",
+  "license": "ISC"
+}
